@@ -1,0 +1,29 @@
+{
+    "sources": [
+        {
+            "source_name": "comunidad-madrid",
+            "base_url": "https://www.comunidad.madrid/servicios/salud/",
+            "allowed_domains": [
+                "www.comunidad.madrid"
+            ],
+            "relevant_subdomains": [
+                "https://www.comunidad.madrid/servicios/salud/cuidados-embarazo#panel-61594",
+                "https://www.comunidad.madrid/servicios/salud/alimentacion-embarazo",
+                "https://www.comunidad.madrid/servicios/salud/parto-postparto",
+                "https://www.comunidad.madrid/servicios/salud/preparar-biberones",
+                "https://www.comunidad.madrid/servicios/salud/virus-respiratorio-sincitial-vrs"
+            ],
+            "strict_prefixes": [
+                "https://www.comunidad.madrid/servicios/salud/cuidados-embarazo#panel-61594",
+                "https://www.comunidad.madrid/servicios/salud/alimentacion-embarazo",
+                "https://www.comunidad.madrid/servicios/salud/parto-postparto",
+                "https://www.comunidad.madrid/servicios/salud/preparar-biberones",
+                "https://www.comunidad.madrid/servicios/salud/virus-respiratorio-sincitial-vrs"
+            ],
+            "deny_list": []
+        }
+    ],
+    "date": "2024-03-28",
+    "maintainer_name": "Lorena",
+    "maintainer_contact": "lcalvo@pa.uc3m.es"
+}

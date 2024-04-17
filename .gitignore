@@ -162,3 +162,5 @@ cython_debug/
 
 # CUSTOM
 data
+src/corpus_building/preprocessing/.venv_nlpipe
+*.DS_Store

@@ -1,0 +1,33 @@
+{
+    "sources": [
+        {
+            "source_name": "Health.gov",
+            "base_url": "https://health.gov/",
+            "allowed_domains": [
+                "health.gov"
+            ],
+            "relevant_subdomains": [
+                "https://health.gov/myhealthfinder/pregnancy/doctor-and-midwife-visits/breastfeed-your-baby",
+                "https://health.gov/myhealthfinder/doctor-visits/talking-doctor/gestational-diabetes-screening-questions-doctor",
+                "https://health.gov/myhealthfinder/pregnancy/doctor-and-midwife-visits/have-healthy-pregnancy",
+                "https://health.gov/myhealthfinder/pregnancy/doctor-and-midwife-visits/have-healthy-pregnancy",
+                "https://health.gov/myhealthfinder/doctor-visits/talking-doctor/preventing-preeclampsia-questions-doctor",
+                "https://health.gov/myhealthfinder/pregnancy/doctor-and-midwife-visits/talk-your-doctor-about-newborn-screening",
+                "https://health.gov/myhealthfinder/pregnancy/nutrition-and-physical-activity/eat-healthy-during-pregnancy-quick-tips",
+                "https://health.gov/myhealthfinder/pregnancy/nutrition-and-physical-activity/eat-healthy-while-breastfeeding-quick-tips",
+                "https://health.gov/myhealthfinder/topics/everyday-healthy-living/nutrition/get-enough-folic-acid",
+                "https://health.gov/myhealthfinder/pregnancy/nutrition-and-physical-activity/stay-active-during-pregnancy-quick-tips",
+                "https://health.gov/myhealthfinder/pregnancy/doctor-and-midwife-visits/breastfeed-your-baby#take-action-tab",
+                "https://health.gov/myhealthfinder/pregnancy/doctor-and-midwife-visits/have-healthy-pregnancy#take-action-tab",
+                "https://health.gov/myhealthfinder/pregnancy/doctor-and-midwife-visits/talk-your-doctor-about-newborn-screening#take-action-tab"
+            ],
+            "strict_prefixes": [
+                ""
+            ],
+            "deny_list": []
+        }
+    ],
+    "date": "2023-05-09",
+    "maintainer_name": "Heran",
+    "maintainer_contact": "hmane@umd.edu"
+}

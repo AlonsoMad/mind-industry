@@ -1,0 +1,231 @@
+{
+    "sources": [
+        {
+            "source_name": "comunidad-madrid",
+            "base_url": "https://www.comunidad.madrid/servicios/salud/",
+            "allowed_domains": [
+                "www.comunidad.madrid"
+            ],
+            "relevant_subdomains": [
+                "https://www.comunidad.madrid/servicios/salud/cuidados-embarazo#panel-61594",
+                "https://www.comunidad.madrid/servicios/salud/alimentacion-embarazo",
+                "https://www.comunidad.madrid/servicios/salud/parto-postparto",
+                "https://www.comunidad.madrid/servicios/salud/preparar-biberones",
+                "https://www.comunidad.madrid/servicios/salud/virus-respiratorio-sincitial-vrs"
+            ],
+            "strict_prefixes": [
+                "https://www.comunidad.madrid/servicios/salud/cuidados-embarazo#panel-61594",
+                "https://www.comunidad.madrid/servicios/salud/alimentacion-embarazo",
+                "https://www.comunidad.madrid/servicios/salud/parto-postparto",
+                "https://www.comunidad.madrid/servicios/salud/preparar-biberones",
+                "https://www.comunidad.madrid/servicios/salud/virus-respiratorio-sincitial-vrs"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "castilla-la-mancha",
+            "base_url": "https://toledo.sanidad.castillalamancha.es/ciudadanos/protege-tu-salud/mujer/",
+            "allowed_domains": [
+                "toledo.sanidad.castillalamancha.es"
+            ],
+            "relevant_subdomains": [
+                "https://toledo.sanidad.castillalamancha.es/ciudadanos/protege-tu-salud/mujer/embarazo",
+                "https://toledo.sanidad.castillalamancha.es/ciudadanos/protege-tu-salud/mujer/puerperio"
+            ],
+            "strict_prefixes": [
+                "https://toledo.sanidad.castillalamancha.es/ciudadanos/protege-tu-salud/mujer/embarazo",
+                "https://toledo.sanidad.castillalamancha.es/ciudadanos/protege-tu-salud/mujer/puerperio"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "cantabria",
+            "base_url": "https://saludcantabria.es/",
+            "allowed_domains": [
+                "saludcantabria.es"
+            ],
+            "relevant_subdomains": [
+                "https://saludcantabria.es/index.php?page=atencion-al-embarazo",
+                "https://saludcantabria.es/index.php?page=LactanciaMaterna"
+            ],
+            "strict_prefixes": [
+                "https://saludcantabria.es/index.php?page=atencion-al-embarazo",
+                "https://saludcantabria.es/index.php?page=LactanciaMaterna"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "escuelacantabradesalud",
+            "base_url": "https://www.escuelacantabradesalud.es/",
+            "allowed_domains": [
+                "www.escuelacantabradesalud.es"
+            ],
+            "relevant_subdomains": [
+                "https://www.escuelacantabradesalud.es/el-embarazo"
+            ],
+            "strict_prefixes": [
+                "https://www.escuelacantabradesalud.es/el-embarazo"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "cataluña",
+            "base_url": "https://salutpublica.gencat.cat/ca/ambits/promocio_salut/Embaras-part-i-puerperi/Protocol-de-seguiment-de-lembaras/index.html#googtrans(ca|es)",
+            "allowed_domains": [
+                "salutpublica.gencat.cat"
+            ],
+            "relevant_subdomains": [
+                "https://salutpublica.gencat.cat/ca/ambits/promocio_salut/Embaras-part-i-puerperi/Protocol-de-seguiment-de-lembaras/index.html#googtrans(ca|es)"
+            ],
+            "strict_prefixes": [
+                "https://salutpublica.gencat.cat/ca/ambits/promocio_salut/Embaras-part-i-puerperi/Protocol-de-seguiment-de-lembaras/index.html#googtrans(ca|es)"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "galicia",
+            "base_url": "https://www.sergas.es/Asistencia-sanitaria/Atenci%C3%B3n-ao-embarazo-parto-e-nacemento?idioma=es",
+            "allowed_domains": [
+                "www.sergas.es"
+            ],
+            "relevant_subdomains": [
+                "https://www.sergas.es/Asistencia-sanitaria/Atenci%C3%B3n-ao-embarazo-parto-e-nacemento?idioma=es"
+            ],
+            "strict_prefixes": [
+                "https://www.sergas.es/Asistencia-sanitaria/Atenci%C3%B3n-ao-embarazo-parto-e-nacemento?idioma=es"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "baleares",
+            "base_url": "https://www.ibsalut.es/apmallorca/es/profesionales/publicaciones/embarazo-parto-y-puerperio",
+            "allowed_domains": [
+                "www.ibsalut.es"
+            ],
+            "relevant_subdomains": [
+                "https://www.ibsalut.es/apmallorca/es/profesionales/publicaciones/embarazo-parto-y-puerperio"
+            ],
+            "strict_prefixes": [
+                "https://www.ibsalut.es/apmallorca/es/profesionales/publicaciones/embarazo-parto-y-puerperio"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "rioja",
+            "base_url": "https://www.riojasalud.es/escuela-salud/cuida-tu-salud/embarazo-lactancia",
+            "allowed_domains": [
+                "www.riojasalud.es"
+            ],
+            "relevant_subdomains": [
+                "https://www.riojasalud.es/escuela-salud/cuida-tu-salud/embarazo-lactancia"
+            ],
+            "strict_prefixes": [
+                "https://www.riojasalud.es/escuela-salud/cuida-tu-salud/embarazo-lactancia"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "navarra",
+            "base_url": "https://www.navarra.es/home_es/Temas/Portal+de+la+Salud/Ciudadania/Me+cuido/Embarazo/",
+            "allowed_domains": [
+                "www.navarra.es"
+            ],
+            "relevant_subdomains": [
+                "https://www.navarra.es/home_es/Temas/Portal+de+la+Salud/Ciudadania/Me+cuido/Embarazo/"
+            ],
+            "strict_prefixes": [
+                "https://www.navarra.es/home_es/Temas/Portal+de+la+Salud/Ciudadania/Me+cuido/Embarazo/"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "navarra2",
+            "base_url": "https://www.cun.es/chequeos-salud/vida-sana/consejos-salud/consejos-mujer-embarazada",
+            "allowed_domains": [
+                "www.cun.es"
+            ],
+            "relevant_subdomains": [
+                "https://www.cun.es/chequeos-salud/vida-sana/consejos-salud/consejos-mujer-embarazada"
+            ],
+            "strict_prefixes": [
+                "https://www.cun.es/chequeos-salud/vida-sana/consejos-salud/consejos-mujer-embarazada"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "castilla_leon",
+            "base_url": "https://www.saludcastillayleon.es/ventanafamilias/es",
+            "allowed_domains": [
+                "www.saludcastillayleon.es"
+            ],
+            "relevant_subdomains": [
+                "https://www.saludcastillayleon.es/ventanafamilias/es/infancia/alimentacion/1000-primeros-dias/recomendaciones-embarazo",
+                "https://www.saludcastillayleon.es/ventanafamilias/es/embarazo-parto/seguimiento-embarazo"
+            ],
+            "strict_prefixes": [
+                "https://www.saludcastillayleon.es/ventanafamilias/es/infancia/alimentacion/1000-primeros-dias/recomendaciones-embarazo",
+                "https://www.saludcastillayleon.es/ventanafamilias/es/embarazo-parto/seguimiento-embarazo"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "extremadura",
+            "base_url": "https://saludextremadura.ses.es/ventanafamilia/contenido?content=revisiones-salud-embarazo",
+            "allowed_domains": [
+                "saludextremadura.ses.es"
+            ],
+            "relevant_subdomains": [
+                "https://saludextremadura.ses.es/ventanafamilia/contenido?content=revisiones-salud-embarazo"
+            ],
+            "strict_prefixes": [
+                "https://saludextremadura.ses.es/ventanafamilia/contenido?content=revisiones-salud-embarazo"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "murcia",
+            "base_url": "https://www.murciasalud.es/pagina.php?id=431070&idsec=6294",
+            "allowed_domains": [
+                "www.murciasalud.es"
+            ],
+            "relevant_subdomains": [
+                "https://www.murciasalud.es/pagina.php?id=431070&idsec=6294"
+            ],
+            "strict_prefixes": [
+                "https://www.murciasalud.es/pagina.php?id=431070&idsec=6294"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "asturias",
+            "base_url": "https://www.astursalud.es/noticias/-/noticias/prepararse-para-el-embarazo-y-la-maternid-2",
+            "allowed_domains": [
+                "www.astursalud.es"
+            ],
+            "relevant_subdomains": [
+                "https://www.astursalud.es/noticias/-/noticias/prepararse-para-el-embarazo-y-la-maternid-2"
+            ],
+            "strict_prefixes": [
+                "https://www.astursalud.es/noticias/-/noticias/prepararse-para-el-embarazo-y-la-maternid-2"
+            ],
+            "deny_list": []
+        },
+        {
+            "source_name": "pais_vasco",
+            "base_url": "https://www.ehu.eus/es/web/prebentzio-zerbitzua/amatasunaren-babesa",
+            "allowed_domains": [
+                "www.ehu.eus"
+            ],
+            "relevant_subdomains": [
+                "https://www.ehu.eus/es/web/prebentzio-zerbitzua/amatasunaren-babesa"
+            ],
+            "strict_prefixes": [
+                "https://www.ehu.eus/es/web/prebentzio-zerbitzua/amatasunaren-babesa"
+            ],
+            "deny_list": []
+        }
+    ],
+    "date": "2024-03-28",
+    "maintainer_name": "Lorena",
+    "maintainer_contact": "lcalvo@pa.uc3m.es"
+}

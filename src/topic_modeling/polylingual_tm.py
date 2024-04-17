@@ -16,6 +16,11 @@ The output is a folder with the following strucutre:
 |    |--- corpus_lang1.mallet
 |    |--- corpus_lang2.mallet
 |--- mallet_output
+|    |--- doc-topics.txt
+|    |--- inferencer.mallet.0
+|    |--- inferencer.mallet.1
+|    |--- output-state.gz
+|    |--- topickeys.txt
 """
 
 
@@ -118,7 +123,8 @@ class PolylingualTM(object):
         # Read the dataframe and create the input files
         df = pd.read_parquet(df_path)
         for lang in [self._lang1, self._lang2]:
-            df_lang = df[df.lang == lang]
+            df_lang = df.copy()
+            df_lang.loc[df_lang.lang != lang, "text"] = ""
             if df_lang.empty:
                 self._logger.error(
                     f"-- -- No documents found for language {lang}.")
@@ -154,7 +160,7 @@ class PolylingualTM(object):
         # Create folder for saving Mallet input files
         self._mallet_input_folder = self._model_folder / "mallet_input"
         self._mallet_input_folder.mkdir(exist_ok=True)
-        
+
         # Transform training data into the format expected by Mallet
         self._logger.info(f"-- -- Importing data to Mallet...")
         for lang in [self._lang1, self._lang2]:
@@ -174,9 +180,9 @@ class PolylingualTM(object):
                 self._logger.error(
                     '-- -- Mallet failed to import data. Revise command')
                 return 0
-            
+
             self._logger.info(f"-- -- Data imported to Mallet.")
-            
+
         if (self._mallet_input_folder / "corpus_lang1.mallet").exists() and (self._mallet_input_folder / "corpus_lang2.mallet").exists():
             return 2
         else:
@@ -196,20 +202,36 @@ class PolylingualTM(object):
             - 1 if the input files are missing.
             - 0 if the operation failed.
         """
-        
+
         # Create the input files for Mallet
         self._create_mallet_input_corpus(df_path)
-        
+
         # Prepare the input files for Mallet
         self._prepare_mallet_input()
-        
+
+        # Create folder for saving Mallet output
+        self._mallet_out_folder = self._model_folder / "mallet_output"
+        self._mallet_out_folder.mkdir(exist_ok=True)
+
         # Actual training of the model
-        mallet_input_files = [self._mallet_input_folder / f"corpus_{lang}.mallet" for lang in [self._lang1, self._lang2]]
-        language_inputs = ' '.join([file.resolve().as_posix() for file in mallet_input_files])
+        mallet_input_files = [self._mallet_input_folder /
+                              f"corpus_{lang}.mallet" for lang in [self._lang1, self._lang2]]
+        language_inputs = ' '.join(
+            [file.resolve().as_posix() for file in mallet_input_files])
         cmd = self._mallet_path.as_posix() + \
-                ' run cc.mallet.topics.PolylingualTopicModel  ' + \
-                '--language-inputs %s --num-topics %s --alpha %s'
-        cmd = cmd % (language_inputs, self._num_topics, self._alpha)
+            ' run cc.mallet.topics.PolylingualTopicModel  ' + \
+            '--language-inputs %s --num-topics %s --alpha %s ' + \
+            '--output-state %s '\
+            '--output-doc-topics %s '\
+            '--output-topic-keys %s '\
+            '--inferencer-filename %s '
+        cmd = cmd % \
+            (language_inputs, self._num_topics, self._alpha,
+             (self._mallet_out_folder / "output-state.gz").resolve().as_posix(),
+             (self._mallet_out_folder / "doc-topics.txt").resolve().as_posix(),
+             (self._mallet_out_folder / "topickeys.txt").resolve().as_posix(),
+             (self._mallet_out_folder / "inferencer.mallet").resolve().as_posix(),
+             )
 
         try:
             self._logger.info(

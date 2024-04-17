@@ -1,0 +1,6 @@
+[submodule "src/corpus_scrapping/corpus-building"]
+	path = src/corpus_scrapping/corpus-building
+	url = https://github.com/rosie-chatbot/corpus-building.git
+[submodule "src/corpus_building/preprocessing/NLPipe"]
+	path = src/corpus_building/preprocessing/NLPipe
+	url = https://github.com/Nemesis1303/NLPipe.git
