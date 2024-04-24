@@ -3,6 +3,7 @@ import pathlib
 from subprocess import check_output
 import pandas as pd
 import os
+from transformers import MarianMTModel, MarianTokenizer
 
 
 class RosieCorpus(object):
@@ -18,15 +19,14 @@ class RosieCorpus(object):
             self._logger = logger
         else:
             self._logger = logging.getLogger(__name__)
-            self._logger.setLevel(logging.INFO)  # Set logger level to INFO or lower
-
+            self._logger.setLevel(logging.INFO)
             # Add a console handler to output logs to the console
             console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging.INFO)  # Set handler level to INFO or lower
-            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            console_handler.setLevel(logging.INFO)
+            formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
             console_handler.setFormatter(formatter)
             self._logger.addHandler(console_handler)
-
 
         if not pathlib.Path(path_data_en).exists():
             raise FileNotFoundError(f"File not found: {path_data_en}")
@@ -47,11 +47,12 @@ class RosieCorpus(object):
         return
 
     def generate_tm_tr_corpus(
-            self,
-            path_save: str,
-            level: str = "passage",
-            sample: float = 1.0,
-            spacy_models=["en_core_web_sm", "es_core_news_sm"]):
+        self,
+        path_save: str,
+        level: str = "passage",
+        sample: float = 1.0,
+        spacy_models=["en_core_web_sm", "es_core_news_sm"]
+    ):
         """
         Generate a training corpus for the Polylingual Topic Model from the Rosie corpus (json files in English and Spanish at either document or passage level).
 
@@ -79,14 +80,84 @@ class RosieCorpus(object):
         path_save_preproc.mkdir(exist_ok=True)
         path_save = path_save.parent / pathlib.Path(pathlib.Path(
             path_save).stem + f"_{sample}.parquet")
-        self._logger.info(f"-- Final preprocessed corpus for sample {sample} will be saved at {path_save}")
-
+        self._logger.info(
+            f"-- Final preprocessed corpus for sample {sample} will be saved at {path_save}")
         self._logger.info(
             f"-- Intermediate files for preprocessing will be saved at {path_save_preproc}")
+        path_save_en = path_save_preproc / f"en_{level}_{sample}.parquet"
+        path_save_es = path_save_preproc / f"es_{level}_{sample}.parquet"
 
-        path_save_en = path_save_preproc / \
-            f"en_{sample}.parquet"  # TODO: incluir level
-        path_save_es = path_save_preproc / f"es_{sample}.parquet"
+        # Create intermediate files for saving translated corpus
+        # We will save, for each language, the translated corpus in a parquet files. When this method is called again, we will check if the documents in the sample have already been translated and saved in these files in order to avoid translating them again.
+        path_save_tr = path_save.parent / "translated"
+        path_save_tr.mkdir(exist_ok=True)
+        path_save_en_tr = path_save_tr / f"en_{level}.parquet"
+        path_save_es_tr = path_save_tr / f"es_{level}.parquet"
+
+        # Carry out translation
+        if not path_save_en_tr.exists() or not path_save_es_tr.exists():
+
+            # Translate the documents
+            self._logger.info(
+                f"-- -- Translating documents to English and Spanish...")
+            df_en_sample_tr = self.translate_corpus(
+                df_en_sample, source_language="en", target_language="es")
+            df_es_sample_tr = self.translate_corpus(
+                df_es_sample, source_language="es", target_language="en")
+
+            # Save the translated documents
+            self._logger.info(
+                f"-- -- Saving translated documents at {path_save_en_tr} and {path_save_es_tr}...")
+            df_en_sample_tr.to_parquet(path_save_en_tr)
+            df_es_sample_tr.to_parquet(path_save_es_tr)
+
+            # Merge translated documents with original documents
+            self._logger.info(
+                f"-- -- Merging translated documents with original documents...")
+            df_en_sample = df_en_sample.merge(
+                df_en_sample_tr, how="left", on="doc_id")
+            df_es_sample = df_es_sample.merge(
+                df_es_sample_tr, how="left", on="doc_id")
+
+        else:
+            self._logger.info(
+                f"-- -- Translated documents already exist. Loading from {path_save_en_tr} and {path_save_es_tr}...")
+            df_en_sample_tr = pd.read_parquet(path_save_en_tr)
+            self._logger.info(
+                f"-- -- English translated corpus loaded. There are {len(df_en_sample_tr[df_en_sample['raw_text_tr'].notnull()])} /{len(df_en_sample)} translated elements."
+            )
+            df_es_sample_tr = pd.read_parquet(path_save_es_tr)
+            self._logger.info(
+                f"-- -- Spanish translated corpus loaded. There are {len(df_es_sample_tr[df_es_sample['raw_text_tr'].notnull()])} /{len(df_es_sample)} translated elements."
+            )
+
+            # Merge translated documents with original documents
+            self._logger.info(
+                f"-- -- Merging translated documents with original documents...")
+            df_en_sample = df_en_sample.merge(
+                df_en_sample_tr, how="left", on="doc_id")
+            df_es_sample = df_es_sample.merge(
+                df_es_sample_tr, how="left", on="doc_id")
+
+            # Translate the documents that were not translated
+            self._logger.info(
+                f"-- -- Translating documents that were not translated...")
+            df_en_sample_tr = self.translate_corpus(
+                df_en_sample[df_en_sample["raw_text_tr"].isnull()], source_language="en", target_language="es")
+            df_es_sample_tr = self.translate_corpus(
+                df_es_sample[df_es_sample["raw_text_tr"].isnull()], source_language="es", target_language="en")
+
+            # Update the translated documents
+            self._logger.info(
+                f"-- -- Updating translated documents...")
+            df_en_sample.update(df_en_sample_tr)
+            df_es_sample.update(df_es_sample_tr)
+
+            # Save the updated translated documents
+            self._logger.info(
+                f"-- -- Saving updated translated documents at {path_save_en_tr} and {path_save_es_tr}...")
+            df_en_sample.to_parquet(path_save_en_tr)
+            df_es_sample.to_parquet(path_save_es_tr)
 
         tuples_get = [
             (df_en_sample, "EN", path_save_en),
@@ -120,6 +191,7 @@ class RosieCorpus(object):
                     "doc_id": doc_ids,
                     "text": texts,
                     "lang": [lang] * len(doc_ids)
+                    # TODO: Add translation
                 })
 
                 if path_save_en.exists() and path_save_es.exists():
@@ -164,18 +236,71 @@ class RosieCorpus(object):
                 self._logger.error(
                     f"-- -- Training corpus could not be saved at {path_save}.")
                 return
-
         else:
             self._logger.info(
                 f"-- Intermediate files for preprocessing already exist. Loading from {path_save}...")
 
         return path_save
 
+    def translate_corpus(
+        self,
+        df: pd.DataFrame,
+        source_language: str = "en",
+        target_language: str = "es"
+    ) -> pd.DataFrame:
+        """
+        Translate a corpus from a source language to a target language.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame with the corpus to translate.
+        source_language : str
+            Source language of the corpus. Default is "en".
+        target_language : str
+            Target language of the corpus. Default is "es".
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with the translated corpus. The columns are the same as the input DataFrame, plus a new column "raw_text_tr" with the translated text.
+        """
+
+        # Function to translate a sentence using the provided tokenizer and model
+        def translate_sentence(tokenizer, model, sentence):
+            inputs = tokenizer.encode(sentence, return_tensors="pt")
+            outputs = model.generate(inputs, early_stopping=True)
+            translated_text = tokenizer.decode(
+                outputs[0], skip_special_tokens=True)
+            return translated_text
+
+        # Load the translation model and tokenizer
+        model_name = f'Helsinki-NLP/opus-mt-{source_language}-{target_language}'
+        tokenizer = MarianTokenizer.from_pretrained(model_name)
+        model = MarianMTModel.from_pretrained(model_name)
+
+        # Function to translate a text, handling chunking if necessary
+        def translate(text):
+            if len(text) > tokenizer.model_max_length:
+                texts_splits = [text[i:i + tokenizer.model_max_length]
+                                for i in range(0, len(text), tokenizer.model_max_length)]
+            else:
+                texts_splits = [text]
+
+            translations = [translate_sentence(
+                tokenizer, model, sentence) for sentence in texts_splits]
+            return ' '.join(translations)
+
+        # Apply translation function to each text in the DataFrame
+        df["raw_text_tr"] = df["raw_text"].apply(translate)
+        return df
+
     def preproc_tr_corpus(
-            self,
-            source_path,
-            lang,
-            spacy_model):
+        self,
+        source_path,
+        lang,
+        spacy_model
+    ):
 
         # path_python = (self._path_preproc.parent.parent / ".venv_nlpipe/bin/python3")
         # path_python = pathlib.Path("/Users/lbartolome/Documents/GitHub/NLPipe/.venv/bin/python3")

@@ -127,9 +127,9 @@ print(len(positions))
 print(positions.keys())
 print(list(positions))
 
-G = G.subgraph(list(G.nodes))#[:995]
+G = G.subgraph(list(G.nodes))
 
-valid_positions = {k: positions[k] for k in list(positions)[:995]}
+valid_positions = {k: positions[k] for k in list(positions)}
 #valid_positions = {k: positions[k] for k in positions.keys()}
 
 
