@@ -30,6 +30,7 @@ from subprocess import check_output
 import pandas as pd
 import os
 import shutil
+import numpy as np
 
 
 class PolylingualTM(object):
@@ -130,7 +131,10 @@ class PolylingualTM(object):
         df = pd.read_parquet(df_path)
         for lang in [self._lang1, self._lang2]:
             df_lang = df.copy()
-            df_lang.loc[df_lang.lang != lang, "lemmas"] = ""
+            #import pdb; pdb.set_trace()
+            
+            df_lang["lemmas"] = np.where(df_lang["lang"] != lang, df_lang["lemmas_tr"], df_lang["lemmas"])
+
             if df_lang.empty:
                 self._logger.error(
                     f"-- -- No documents found for language {lang}.")

@@ -14,7 +14,7 @@ def main():
     # Generate training data
     print("-- -- Generating training data")
     rosie_corpus = RosieCorpus(path_corpus_en, path_corpus_es)
-    path_save = rosie_corpus.generate_tm_tr_corpus(path_save_tr, level="document", sample=1)
+    path_save = rosie_corpus.generate_tm_tr_corpus(path_save_tr, level="document", sample=0.001)
     
     print("-- -- Training PolyLingual Topic Model")
     # Train PolyLingual Topic Model

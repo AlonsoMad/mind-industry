@@ -3,5 +3,11 @@
         "id": "id_preproc",
         "raw_text": "text",
         "title": ""
+    },
+
+    "rosie_tr": {
+        "id": "id_preproc",
+        "raw_text": "tr_text",
+        "title": ""
     }
 }
