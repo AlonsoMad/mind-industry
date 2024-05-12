@@ -8,7 +8,7 @@ model = fasttext.load_model(model_path)
 
 def langDetectHF (row):
 	try:
-		lang = model.predict (row.contents.replace("\n", ""))[0][0].replace('__label__','')
+		lang = model.predict (row.passage.replace("\n", ""))[0][0].replace('__label__','')
 	except Exception as E:
 		#import ipdb ; ipdb.set_trace()
 		lang =str(E)
@@ -17,10 +17,10 @@ def langDetectHF (row):
 def main():
     print("Reading files...")
     
-    df_es = pd.read_json("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/corpus_strict_v2.0_es_compiled_documents.jsonl", lines=True)
+    df_es = pd.read_json("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/corpus_strict_v2.0_es_compiled_passages.jsonl", lines=True)
     print("Spanish read.")
     
-    df_en = pd.read_json("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/corpus_strict_v3.0_en_compiled_documents.jsonl", lines=True)
+    df_en = pd.read_json("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/corpus_strict_v3.1_en_compiled_passages_valid_links.jsonl", lines=True)
     print("English read.")
     
     print(df_es.head())
@@ -35,8 +35,8 @@ def main():
     print("English detected.")
     print(df_en.head())
     
-    df_es.to_parquet("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/corpus_strict_v2.0_es_compiled_documents_lang.parquet")
-    df_en.to_parquet("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/corpus_strict_v3.0_en_compiled_documents_lang.parquet")
+    df_es.to_parquet("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/corpus_strict_v2.0_es_compiled_passages_lang.parquet")
+    df_en.to_parquet("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/corpus_strict_v3.0_en_compiled_passages_lang.parquet")
         
 if __name__ == "__main__":
     main()

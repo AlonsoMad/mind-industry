@@ -83,7 +83,7 @@ class RosieCorpus(object):
         path_save: str,
         level: str = "passage",
         sample: float = 1.0,
-        spacy_models=["en_core_web_sm", "es_core_news_sm"]
+        spacy_models=["en_core_web_lg", "es_core_news_lg"]
     ):
         """
         Generate a training corpus for the Polylingual Topic Model LDA Topic Model (2 corpus version) from the Rosie corpus (json files in English and Spanish at either document or passage level).
