@@ -41,6 +41,11 @@ import pandas as pd
 import os
 import shutil
 import numpy as np
+from scipy import sparse
+import gzip
+import json
+
+from src.utils.utils import file_lines
 
 
 class PolylingualTM(object):
@@ -260,3 +265,119 @@ class PolylingualTM(object):
         except:
             self._logger.error('-- -- Model training failed. Revise command')
             return
+        
+        self._logger.info(f"-- -- Saving model information...")
+        self.save_model_info()
+        self._logger.info(f"-- -- Model information saved successfully.")
+        
+        return
+        
+    def save_model_info(self):
+        
+        tuples_lang = [
+            (self._lang1, 0),
+            (self._lang2, 1)
+        ]
+        
+        ########################################################################
+        # THETAS
+        ########################################################################
+        self._logger.info(f"-- -- Getting thetas...")
+        # Define file paths
+        thetas_file = self._mallet_out_folder / "doc-topics.txt"
+        lang1_tr_data = self._train_data_folder / f"corpus_{self._lang1}.txt"
+        lang2_tr_data = self._train_data_folder / f"corpus_{self._lang2}.txt"
+
+        # Get number of documents
+        lang1_nr_docs = file_lines(lang1_tr_data)
+        lang2_nr_docs = file_lines(lang2_tr_data)
+
+        # Initialize theta matrices
+        lang1_thetas = np.zeros((lang1_nr_docs, self._num_topics))
+        lang2_thetas = np.zeros((lang2_nr_docs, self._num_topics))
+
+        # Read and parse the thetas file
+        with open(thetas_file, 'r') as file:
+            lines = file.readlines()[1:]  # Skip the first line
+
+        for line in lines:
+            values = line.split()
+            doc_id = int(values[0])
+            for tpc in range(1, len(values), 2):
+                topic_id = int(values[tpc])
+                weight = float(values[tpc + 1])
+                if doc_id <= lang1_nr_docs:
+                    lang1_thetas[doc_id - 1, topic_id] = weight
+                else:
+                    lang2_thetas[doc_id - 1, topic_id] = weight
+
+        # Convert to sparse matrices and save
+        sparse.save_npz(self._train_data_folder / f"thetas_{self._lang1}.npz", sparse.csr_matrix(lang1_thetas, copy=True))
+        sparse.save_npz(self._train_data_folder / f"thetas_{self._lang2}.npz", sparse.csr_matrix(lang2_thetas, copy=True))
+
+
+        ########################################################################
+        # VOCABS
+        ########################################################################
+        # 0 = document's id
+        # 1 = lang (0 for en, 1 for es)
+        # 3 = id of the word in the document
+        # 4 = id of the word in the vocabulary
+        # 5 = word
+        # 6 = topic to which the word belongs
+        self._logger.info(f"-- -- Getting vocab...")
+        topic_state_model = self._mallet_out_folder / "output-state.gz"
+        with gzip.open(topic_state_model) as fin:
+            topic_state_df = pd.read_csv(
+                fin, delim_whitespace=True,
+                names=['docid', 'lang', 'wd_docid','wd_vocabid', 'wd', 'tpc'],
+                header=None, skiprows=1)
+        
+        for lang, id_lang in tuples_lang:
+            # Filter by lang
+            df_lang = topic_state_df[topic_state_df.lang == id_lang]
+            
+            # Keep first occurrence of each word
+            df_unique = df_lang.drop_duplicates(subset=['wd_vocabid'])
+            
+            # Create dictionary with wd_vocabid as keys and wd as values, sorted by wd_vocabid
+            wd_dict = dict(sorted(df_unique[['wd_vocabid', 'wd']].values.tolist()))
+            
+            vocab_file = self._mallet_out_folder / f"vocab_{lang}.json"
+            with open(vocab_file, 'w') as json_file:
+                json.dump(wd_dict, json_file)
+
+
+        ########################################################################
+        # KEYS
+        ########################################################################
+        # one line for topic id + alpha
+        # then out.print(" " + language + "\t" + languageTokensPerTopic[language][topic] + "\t" + betas[language] + "\t"); words
+        self._logger.info(f"-- -- Getting keys...")
+        topic_keys = self._mallet_out_folder / "topickeys.txt"
+        topic_keys_df = pd.read_csv(
+            topic_keys, delimiter="\t", 
+            names = ['lang', 'langTokensPerTopic', 'betas', 'topK'],
+            header=None
+        ).dropna()
+        
+        # Save keys in different files for each language
+        for lang, id_lang in tuples_lang:
+            # Filter by lang
+            df_lang = topic_keys_df[topic_keys_df.lang == id_lang]
+            
+            keys_file = self._mallet_out_folder / f"keys_{lang}.json"
+            with open(keys_file, 'w') as file:
+                # Iterate over each value in the column and write it to the file
+                for value in df_lang["topK"]:
+                    file.write(str(value) + '\n')
+
+        return
+        
+        
+                
+    """
+    ## Loading the dictionary from the JSON file
+    with open('wd_dict.json', 'r') as json_file:
+        loaded_dict = json.load(json_file)
+    """

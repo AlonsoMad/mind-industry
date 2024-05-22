@@ -31,13 +31,14 @@ def main():
     df = pd.read_parquet(args.input_file)
     
     # Calculate the number of splits required
-    num_splits = (len(df) + args.samples_per_split - 1) // 1000
+    num_splits = (len(df) + args.samples_per_split - 1) // args.samples_per_split
 
-    # Split the DataFrame into chunks of 1000 rows each
+    # Split the DataFrame into chunks of samples_per_split rows each
     split_dfs = [df[i*args.samples_per_split:(i+1)*args.samples_per_split] for i in range(num_splits)]
 
     # Write each split DataFrame to a separate Parquet file
     output_folder = pathlib.Path(args.output_folder)
+    output_folder.mkdir(parents=True, exist_ok=True)
     for i, split_df in enumerate(split_dfs):
         path_save = output_folder.joinpath(f"{input_file.stem}_{i+1}.parquet")
         split_df.to_parquet(path_save)   
@@ -47,5 +48,4 @@ def main():
     [print(f"-- -- --> {path}") for path in output_folder.iterdir() if path.is_file() and path.suffix == ".parquet"]
 
 if __name__ == "__main__":
-
     main()

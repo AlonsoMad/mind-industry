@@ -19,7 +19,7 @@ def get_most_representative_per_tpc(mat, topn=10):
     return top_docs_per_topic
 
 model_path = pathlib.Path(
-    "/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/LDA/rosie_0.1_100")
+    "/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/LDA/rosie_lg_lda_1_100")
 
 def load_prompt_template(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -37,8 +37,7 @@ prompt_template = load_prompt_template("./promt.txt")
 path_corpus = model_path / "train_data" / "corpus_EN.txt"
 with path_corpus.open("r", encoding="utf-8") as f:
     lines = [line for line in f.readlines()]
-corpus = [line.rsplit(" 0 ")[1].strip().split()
-          for line in lines if line.rsplit(" 0 ")[1].strip().split() != []]
+corpus = [line.rsplit(" 0 ")[1].strip().split() for line in lines]
 
 ids = [line.split(" 0 ")[0] for line in lines]
 df = pd.DataFrame({"lemmas": [" ".join(doc) for doc in corpus]})
@@ -48,7 +47,7 @@ print(df.head())
 
 # Get raw text
 raw = pd.read_parquet(
-    "/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/df_0.1.parquet")
+    "/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/large/df_1.parquet")
 df = df.merge(raw, how="inner", on="doc_id")[
     ["doc_id", "id_preproc", "lemmas_x", "text", "len"]]
 df.head()
@@ -68,7 +67,9 @@ responses = []
 for topic in range(len(topic_keys)):
     print(f"Topic {topic}: {topic_keys[topic]}")
     most_repr = get_most_representative_per_tpc(thetas, topn=3)[topic]
+    import pdb; pdb.set_trace()
     most_repr_docs = [df[df.doc_id == f"EN_{id}"].text.values.tolist()[0][:500] for id in most_repr]
+    
     time.sleep(1)
     this_tpc_promt = prompt_template.format(
         topic_keys[topic],
@@ -100,7 +101,7 @@ print(df.head())
 
 # Get raw text
 raw = pd.read_parquet(
-    "/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/df_0.1.parquet")
+    "/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/large/df_1.parquet")
 df = df.merge(raw, how="inner", on="doc_id")[
     ["doc_id", "id_preproc", "lemmas_x", "text", "len"]]
 df.head()
@@ -137,5 +138,5 @@ for topic in range(len(topic_keys)):
 
 responses_df_es = pd.DataFrame(responses, columns=["topic", "most_repr_docs", "label", "add", "rationale"])
 
-responses_df_en.to_parquet("responses_df_en.parquet")
-responses_df_es.to_parquet("responses_df_es.parquet")
+responses_df_en.to_parquet("responses_df_en_2.parquet")
+responses_df_es.to_parquet("responses_df_es_2.parquet")
