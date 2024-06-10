@@ -294,7 +294,7 @@ class LDATM(object):
             
             self._get_more_info(mallet_out_folder_lang)
 
-        return
+        return self._mallet_out_folder
 
     
     def _get_more_info(
