@@ -125,7 +125,7 @@ class DocSelector(object):
             df_aux["id_top"] = kept_docs_tm
             df_ = df_aux.merge(df_lang_raw, how="inner", on="id_top")
             print(f"-- -- Filtered {len(df_)} documents... ")
-
+            #import pdb; pdb.set_trace()
             ################
             # Thetas       #
             ################

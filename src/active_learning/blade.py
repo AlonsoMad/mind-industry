@@ -1,23 +1,23 @@
-"""
-BLADE: Bad Low Affiliation Document Examiner
-
-BLADE is an active learning classifier designed to identify and flag "bad" documents within a corpus. A document is considered "bad" if its words are assigned to all topics with consistently low probabilities, indicating poor topic representation and a lack of strong affiliation with any particular topic. 
-
-Author: Lorena Calvo-Bartolomé
-Date: 24.05.2025
-"""
-
 import copy
 import logging
 import pickle
 from pathlib import Path
+import time
+from termcolor import colored
 
 import numpy as np
 from doc_selector import DocSelector
 from scipy.sparse import csr_matrix, hstack, vstack
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import SGDClassifier
+from termcolor import colored
+from IPython.display import display, HTML, clear_output
 
+def display_document(doc_id, doc_content):    
+    display(HTML(f"<span style='color: gray;'><b>Document ID:</b> {doc_id}</span>"))
+    display(HTML(f"<span style='color: blue;'><b>Document Content:</b> {doc_content}</span>"))
+    display(HTML("<b><span style='color: black;'>Please provide the label for the queried instance (0 or 1):</span></b>"))
+    
 
 class Blade(object):
     def __init__(
@@ -87,7 +87,8 @@ class Blade(object):
             self._preprocess_indices()
             self.original_to_current_index = {
                 i: i for i in range(len(self.df_pool))}
-
+            
+            self.blade_state_path = blade_state_path
             self.save(blade_state_path)
 
     def _init_classifier(self):
@@ -142,20 +143,16 @@ class Blade(object):
 
         return [selected_idx]
 
-    def request_labels(self, query_instances, indices):
-        labels = []
-        for query_instance, idx in zip(query_instances, indices):
-            doc_id = self.df_pool.iloc[idx]['id_top']
-            doc_content = self.df_pool.iloc[idx]['text']
-            print(f"Document ID: {doc_id}")
-            print(f"Document Content: {doc_content}")
-            label = int(
-                input("Please provide the label for the queried instance (0 or 1): "))
-            labels.append(label)
-        return np.array(labels)
-
-    def active_learning_loop(self, n_queries=10):
-        for idx in range(n_queries):
+    def active_learning_loop(self, max_duration_minutes=60):
+        start_time = time.time()
+        idx = 0
+        while (time.time() - start_time) < max_duration_minutes * 60:
+            
+            if idx % 10 == 0:
+                clear_output(wait=True)
+                self._logger.info(
+                    f'Iteration {idx + 1}, Time elapsed: {time.time() - start_time:.2f} seconds')
+                
             preferred_indices = self.preference_function(idx)
             query_idx = preferred_indices[0]
             query_instance = self.X_pool[query_idx].reshape(1, -1)
@@ -175,9 +172,6 @@ class Blade(object):
             self.df_docs.loc[original_index, 'label'] = label
             self.df_docs.loc[original_index, 'human_labeled'] = True
 
-            # Save the updated DataFrame to a file
-            self.df_docs.to_csv(self.state_path, index=False)
-
             # Remove queried instance from the pool
             self.X_pool = vstack(
                 [self.X_pool[:query_idx], self.X_pool[query_idx+1:]])
@@ -192,7 +186,54 @@ class Blade(object):
             self.update_indices(original_index)
 
             self._logger.info(
-                f'Iteration {idx + 1}/{n_queries}, Document ID: {query_idx}')
+                f'Iteration {idx + 1}, Document ID: {query_idx}')
+            idx += 1       
+
+        # Display completion message
+        display(HTML("""
+            <div style="text-align: center; margin-top: 20px;">
+                <h2 style='color: green; font-weight: bold;'>Time is up! Your feedback has been collected.</h2>
+                <h3 style='color: gray;'>Please wait a moment while we save your responses...</h3>
+            </div>
+        """))
+        
+        # Save the updated DataFrame to a file after the loop completes
+        self.df_docs.to_csv(self.state_path, index=False)
+        
+        # Save the Blade object
+        blade_state_path = self.blade_state_path.parent /  self.blade_state_path.name.replace(".pkl", "_trained.pkl")
+        print(f"-- -- Saving Blade object to {blade_state_path}")
+        self.save(blade_state_path)
+        
+        # Clear the previous output and display the second message
+        clear_output(wait=True)
+        display(HTML("""
+            <div style="text-align: center; margin-top: 20px;">
+                <h2 style='color: green; font-weight: bold;'>Your feedback has been successfully saved!</h2>
+                <h3 style='color: gray;'>Thank you for your participation.</h3>
+            </div>
+        """))
+
+    def request_labels(self, query_instances, indices):
+        labels = []
+        for query_instance, idx in zip(query_instances, indices):
+            doc_id = self.df_pool.iloc[idx]['id_top']
+            doc_content = self.df_pool.iloc[idx]['text']
+            display_document(doc_id, doc_content)
+            
+            while True:
+                try:
+                    label = int(input())
+                    if label in [0, 1]:
+                        break
+                    else:
+                        display(HTML("<b><span style='color: red;'>Invalid input. Please enter 0 or 1.</span></b>"))
+                except ValueError:
+                    display(HTML("<b><span style='color: red;'>Invalid input. Please enter 0 or 1.</span></b>"))
+            
+            labels.append(label)
+            print(colored("="*40, 'magenta'))  # Adding a separator line between documents
+        return np.array(labels)
 
     def predict(self):
         """
@@ -217,7 +258,9 @@ class Blade(object):
                 self.df_docs.loc[original_index, 'human_labeled'] = False
 
             # Save the updated DataFrame to a file
-            self.df_docs.to_csv(self.state_path, index=False)
+            path_save = self.state_path.parent /  self.state_path.name.replace(".csv", "_predicted.csv")
+            self.df_docs.to_csv(path_save, index=False)
+            print(f"-- -- Predicted labels saved to {path_save}")
 
             return self.df_pool[['id_top', 'text', 'predicted_label']]
         else:
