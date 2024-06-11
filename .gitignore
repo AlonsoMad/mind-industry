@@ -166,3 +166,4 @@ src/corpus_building/preprocessing/.venv_nlpipe
 *.DS_Store
 *Mallet-202108
 src/active_learning/blade_state.pkl
+*pkl
