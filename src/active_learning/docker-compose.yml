@@ -1,0 +1,33 @@
+version: '3'
+
+services:
+  notebook1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jupyter_notebook_1
+    ports:
+      - "2091:8888"
+    volumes:
+      - .:/home/jovyan/work/active_learning
+      - ../../data/models/filtering:/home/jovyan/work/data/models/filtering
+      - ../../data/corpus_rosie/passages:/home/jovyan/work/data/corpus_rosie/passages
+
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    entrypoint: ["audrey.sh"]
+
+  notebook2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jupyter_notebook_2
+    ports:
+      - "2092:8888"
+    volumes:
+      - .:/home/jovyan/work/active_learning
+      - ../../data/models/filtering:/home/jovyan/work/data/models/filtering
+      - ../../data/corpus_rosie/passages:/home/jovyan/work/data/corpus_rosie/passages
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    entrypoint: ["valerie.sh"]
