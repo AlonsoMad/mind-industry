@@ -10,9 +10,10 @@ services:
       - "2091:5000"
     environment:
       - FLASK_APP=app2.py
-      - MODEL_PATH=/app/data/models/filtering/rosie_1_10
+      - MODEL_PATH=/app/data/models/filtering/rosie_1_20
       - SOURCE_PATH=/app/data/source/corpus_rosie/passages/translated/df_1.parquet
-      - BLADE_STATE_PATH=/app/data/models/filtering/rosie_1_10/blade_state_EN.pkl
+      - BLADE_STATE_PATH=/app/data/models/filtering/rosie_1_20/blade_state_EN.pkl
+      - LANG=EN
     volumes:
       - .:/app
       - ../../data/models/filtering:/app/data/models/filtering
@@ -27,9 +28,10 @@ services:
       - "2092:5000"
     environment:
       - FLASK_APP=app2.py
-      - MODEL_PATH=/app/data/models/filtering/rosie_1_5
+      - MODEL_PATH=/app/data/models/filtering/rosie_1_20
       - SOURCE_PATH=/app/data/source/corpus_rosie/passages/translated/df_1.parquet
-      - BLADE_STATE_PATH=/app/data/models/filtering/rosie_1_5/blade_state_EN.pkl
+      - BLADE_STATE_PATH=/app/data/models/filtering/rosie_1_20/blade_state_ES.pkl
+      - LANG=ES
     volumes:
       - .:/app
       - ../../data/models/filtering:/app/data/models/filtering

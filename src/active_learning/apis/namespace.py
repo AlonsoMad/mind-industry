@@ -2,16 +2,23 @@ from flask_restx import Namespace, Resource, reqparse
 from flask import jsonify
 import logging
 from blade import Blade
+import os
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
+# Get paths from environment variables
+model_path = os.environ.get('MODEL_PATH', '/default/path/to/model')
+source_path = os.environ.get('SOURCE_PATH', '/default/path/to/source')
+blade_state_path = os.environ.get('BLADE_STATE_PATH', '/default/path/to/blade_state')
+lang = os.environ.get('LANG', 'EN')
+
 # Create Blade object
 blade = Blade(
-    model_path="/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/filtering/rosie_1_5",
-    source_path="/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/passages/translated/df_1.parquet",
-    lang="EN",
-    blade_state_path='/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/filtering/rosie_1_5/blade_state_EN.pkl'
+    model_path=model_path,
+    source_path=source_path,
+    lang=lang,
+    blade_state_path=blade_state_path
 )
 
 api = Namespace('AL', title='Active Learning API')

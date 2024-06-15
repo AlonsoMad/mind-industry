@@ -4,6 +4,7 @@ Main application entry point
 import logging
 from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 from flask_restx import Api
+from threading import Thread
 import time
 import requests
 from pyfiglet import figlet_format
@@ -11,7 +12,7 @@ from termcolor import cprint
 import os
 
 # Import the namespace
-from apis.namespace2 import api as active_learning_api
+from apis.namespace import api as active_learning_api
 
 # Create Flask app
 app = Flask(__name__)
@@ -21,7 +22,7 @@ app.config["RESTX_MASK_SWAGGER"] = False
 
 # Initialize API and add the namespace
 api = Api(
-    title="Rosie Corpus evaluation",
+    title="EWB's Topic Modeling API",
     version='1.0',
     description='whatever',
 )
@@ -37,8 +38,7 @@ logger = logging.getLogger(__name__)
 # Global variables to control the task
 task_running = False
 stop_task = False
-annotation_duration = 900  # 30 seconds for testing
-global_idx = 0
+annotation_duration = 3600  # 1 hour in seconds
 
 # Ensure task stops gracefully
 def save_and_stop():
@@ -46,8 +46,7 @@ def save_and_stop():
     stop_task = True
     task_running = False
     logger.info("Saving state before stopping the task")
-    response = requests.post('http://app1_container:5000/test/SaveState/')
-    logger.info(response)
+    response = requests.post('http://localhost:2095/test/SaveState/')  # Assuming the app runs on port 5000
     if response.status_code == 200:
         logger.info("State saved successfully")
     else:
@@ -64,10 +63,9 @@ def get_new_document():
     if elapsed_time > annotation_duration:
         return jsonify({"error": "Annotation session has ended"}), 403
 
-    global global_idx
-    idx = global_idx  # Use the global index
+    idx = 0  # Replace with actual logic to get document index
     logger.info("Calling getDocumentToLabel")
-    response = requests.post('http://app1_container:5000/test/getDocumentToLabel/', data={'idx': idx})
+    response = requests.post('http://kumo01:2095/test/getDocumentToLabel/', data={'idx': idx})
     if response.status_code != 200:
         logger.error(f"Error calling getDocumentToLabel: {response.json()}")
         return jsonify({"error": "Failed to fetch document"}), 500
@@ -76,9 +74,9 @@ def get_new_document():
     logger.info(f"Fetched document: {document}")
     return jsonify(document)
 
+# Endpoint to submit annotation
 @app.route('/submit_annotation', methods=['POST'])
 def submit_annotation():
-    global global_idx
     if 'start_time' not in session:
         return jsonify({"error": "Annotation session not started"}), 403
 
@@ -88,16 +86,12 @@ def submit_annotation():
 
     label = request.form['label']
     logger.info("Calling LabelDocument")
-    response = requests.post('http://app1_container:5000/test/LabelDocument/', data={'label': label, 'idx': global_idx})
+    response = requests.post('http://kumo01:2095/test/LabelDocument/', data={'label': label})
     if response.status_code != 200:
         logger.error(f"Error calling LabelDocument: {response.json()}")
         return jsonify({"error": "Failed to label document"}), 500
 
     logger.info("Document labeled successfully")
-
-    # Increment the global index after successful annotation
-    global_idx += 1
-
     return jsonify({"message": "Document labeled successfully"}), 200
 
 # Endpoint to start the task
@@ -107,8 +101,10 @@ def start_annotation_task():
     if not task_running:
         task_running = True
         stop_task = False
-        session['start_time'] = time.time()  # Set the start time in the session
+        session['start_time'] = time.time()
         logger.info("Starting annotation task")
+        thread = Thread(target=run_annotation_task)
+        thread.start()
     return redirect(url_for('annotate'))
 
 # Endpoint to get the start time
@@ -118,6 +114,28 @@ def get_start_time():
         return jsonify({'start_time': session['start_time']})
     return jsonify({'error': 'Annotation session not started'}), 403
 
+# Background task to run the annotation task
+def run_annotation_task(duration=3600):
+    global stop_task, task_running
+    start_time = time.time()
+    while not stop_task and time.time() - start_time < duration:
+        idx = 0  # Replace with actual logic to get document index
+        logger.info("Calling getDocumentToLabel")
+        response = requests.post('http://kumo01:2095/test/getDocumentToLabel/', data={'idx': idx})
+        if response.status_code != 200:
+            logger.error(f"Error calling getDocumentToLabel: {response.json()}")
+            break
+
+        document = response.json()
+        logger.info(f"Fetched document: {document}")
+        time.sleep(5)  # Adjust sleep time as needed
+
+    if not stop_task:
+        save_and_stop()
+
+    logger.info("Annotation task stopped")
+    task_running = False
+
 # Endpoint to stop the task
 @app.route('/stop_annotation_task', methods=['POST'])
 def stop_annotation_task():
@@ -125,11 +143,7 @@ def stop_annotation_task():
     if task_running:
         save_and_stop()
         task_running = False
-        if session.get("save_results"):
-            return jsonify({"redirect": url_for('final_results')})
-        else:
-            return jsonify({"error": "Failed to save results"}), 500
-    return jsonify({"message": "Annotation task is not running"}), 200
+    return jsonify({"message": "Annotation task stopped"}), 200
 
 # Serve the initial page with the "Start Annotation Task" button
 @app.route('/index.html')
@@ -151,6 +165,7 @@ def serve_swagger():
 def swagger_ui():
     return redirect('/swaggerui.html')
 
+
 if __name__ == '__main__':
     cprint(figlet_format("ROISE", font='big'), 'blue', attrs=['bold'])
     print('\n')
@@ -158,7 +173,7 @@ if __name__ == '__main__':
     logger.info("Starting the Flask app")
 
     try:
-        app.run(host='0.0.0.0', port=5000, debug=True)
+        app.run(host='0.0.0.0', port=2095, debug=True)
         # from waitress import serve
         # serve(app, host="0.0.0.0", port=2092)
     except Exception as e:
