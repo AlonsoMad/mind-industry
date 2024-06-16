@@ -298,7 +298,7 @@ class Blade(object):
             print(colored("="*40, 'magenta'))  # Adding a separator line between documents
         return np.array(labels)
 
-    def predict(self):
+    def predict(self, path_save=None):
         """
         Predict the labels for the remaining pool of documents.
 
@@ -308,27 +308,40 @@ class Blade(object):
             DataFrame containing the predicted labels or None if no labeled data is available
         """
         if len(self.y_train) > 0:
+            # Predict the labels for the remaining pool of documents
             predictions = self.learner.predict(self.X_pool)
             self.df_pool['predicted_label'] = predictions
             self.df_pool['human_labeled'] = False
+            
+            self._logger.info(f"-- -- Labels predicted  for the remaining pool of documents.")
 
-            # Merge the predictions with the original df_docs
-            for idx in self.df_pool.index:
-                original_index = list(self.original_to_current_index.keys())[
-                    list(self.original_to_current_index.values()).index(idx)]
-                self.df_docs.loc[original_index,
-                                 'label'] = self.df_pool.loc[idx, 'predicted_label']
-                self.df_docs.loc[original_index, 'human_labeled'] = False
+            # Merge the predictions with the original df_docs based on the document ID
+            self.df_docs = self.df_docs.merge(
+                self.df_pool[['id_top', 'predicted_label']],
+                on='id_top',
+                how='left',
+                suffixes=('', '_pred')
+            )
+            
+            self._logger.info(f"-- -- Merged the predictions with the original df_docs.")
+            
+            # Fill the label column with the predicted labels where applicable
+            self.df_docs['label'] = self.df_docs['label'].combine_first(self.df_docs['predicted_label'])
+            self.df_docs['human_labeled'] = self.df_docs['human_labeled'].combine_first(self.df_pool['human_labeled'])
+            
+            self._logger.info(f"-- -- Filled the label column with the predicted labels.")
 
             # Save the updated DataFrame to a file
-            path_save = self.state_path.parent /  self.state_path.name.replace(".csv", "_predicted.csv")
+            if not path_save:
+                path_save = self.state_path.parent / self.state_path.name.replace(".csv", "_predicted.csv")
             self.df_docs.to_csv(path_save, index=False)
-            print(f"-- -- Predicted labels saved to {path_save}")
+            self._logger.info(f"-- -- Predicted labels saved to {path_save}")
 
             return self.df_pool[['id_top', 'text', 'predicted_label']]
         else:
             self._logger.info('No labeled data available to train the model.')
             return None
+
 
     def save(self, file_path: str):
         with open(file_path, 'wb') as file:
