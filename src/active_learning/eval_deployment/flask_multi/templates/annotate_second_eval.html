@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Annotate Document</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .center-buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .instructions {
+            display: none;
+        }
+        .annotation-buttons {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        .annotation-buttons button {
+            width: 45%;
+        }
+        .message {
+            font-size: 24px; /* Larger font size */
+            font-weight: bold; /* Bold text */
+            text-align: center; /* Center text */
+            margin-top: 20px; /* Top margin */
+        }
+        .text-danger {
+            color: red; /* Red color for errors */
+        }
+        .text-success {
+            color: green; /* Green color for success */
+        }
+        .disabled-button {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Function to fetch document count
+            function fetchDocumentCount() {
+                $.get('/get_document_count', function(data) {
+                    if (data.total_documents !== undefined && data.remaining_documents !== undefined) {
+                        $('#document_count').text('Documents Left: ' + data.remaining_documents + '/' + data.total_documents);
+                    } else {
+                        $('#document_count').text('Error fetching document count').addClass('text-danger');
+                    }
+                });
+            }
+
+            // Function to fetch a new document
+            function fetchDocument() {
+                $.post('/get_new_document', function(data) {
+                    console.log(data)
+                    if (data.error) {
+                        $('#message').text(data.error).addClass('text-danger');
+                        $('#annotation_form').hide();
+                    } else if (data.message) {
+                        $('#message').text(data.message).addClass('text-success');
+                        $('#main_content').hide();
+                        $('#document_count').hide();
+                        $('#completion_message').show();
+                    } else {
+                        $('#document').text(data.text);
+                        $('#doc_id').val(data.doc_id);
+                        $('#message').text('');
+                        $('#annotation_form').show();
+                        fetchDocumentCount();  // Update the document count after fetching a new document
+                    }
+                });
+            }
+
+            // Function to submit annotation
+            function submitAnnotation(label) {
+                const idx = $('#doc_id').val();
+                $.post('/submit_annotation', { label: label, idx: idx }, function(response) {
+                    if (response.message) {
+                        $('#message').text(response.message).removeClass('text-danger').addClass('text-success');
+                        fetchDocument();  // Fetch a new document after successful annotation
+                    } else {
+                        $('#message').text(response.error).removeClass('text-success').addClass('text-danger');
+                    }
+                });
+            }
+
+            $('#in_domain_button').on('click', function() {
+                submitAnnotation(1);
+            });
+
+            $('#not_in_domain_button').on('click', function() {
+                submitAnnotation(0);
+            });
+
+            $('#show_instructions').on('click', function() {
+                $('.instructions').toggle();
+            });
+
+            fetchDocument();  // Fetch the first document when the page loads
+        });
+    </script>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Annotate Document</h1>
+        <div class="center-buttons">
+            <button id="show_instructions" class="btn btn-secondary mb-3">Show Instructions</button>
+        </div>
+        <div class="alert alert-secondary" id="document_count">Loading document count...</div>
+        <div id="main_content">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <p id="document">Loading...</p>
+                    <input type="hidden" id="doc_id" value="">
+                </div>
+            </div>
+            <div id="annotation_form" class="annotation-buttons mb-3">
+                <button id="in_domain_button" class="btn btn-success">In Domain</button>
+                <button id="not_in_domain_button" class="btn btn-danger">Not In Domain</button>
+            </div>
+            <p id="message" class="message mt-3"></p>
+        </div>
+        <div id="completion_message" style="display: none; text-align: center; margin-top: 20px;">
+            <h2 style='color: green; font-weight: bold;'>No more documents to label. Task completed.</h2>
+            <h3 style='color: gray;'>Thank you for your participation!  &#128522;</h3>
+        </div>
+        <div class="instructions alert alert-info">
+            <h1>Instructions for Evaluating Rosie Corpus Documents</h1>
+            <h2>Task Orientation</h2>
+            <p>You are going to be evaluating document passages from the Rosie Corpus. Your task is to review each passage and annotate whether it is "in domain" or "not in domain" based on the following criteria:</p>
+            <ul>
+                <li><strong>In Domain:</strong> Health-relevant documents, even if not specifically about maternal or infant health.</li>
+                <li><strong>Not In Domain:</strong> Meaningless documents (e.g., references, location info, meaningless tables).</li>
+            </ul>
+            <h2>Steps to Follow</h2>
+            <ol>
+                <li><strong>Review the Document</strong></li>
+                <li><strong>Provide Annotation:</strong>
+                    <ul>
+                        <li>You will be prompted to provide a label for each document.</li>
+                        <li>Click the corresponding button:</li><br>
+                        <div class="annotation-buttons mt-2">
+                            <button class="btn btn-success disabled-button">In Domain</button>
+                            <button class="btn btn-danger disabled-button">Not In Domain</button>
+                        </div><br>
+                        <li>Wait for the message <strong>"Document labeled successfully"</strong> before moving to the next document.</li>
+                    </ul>
+                </li>
+                <li><strong>Completion Message:</strong>
+                    <ul>
+                        <li>Once the active learning loop is completed, a completion message will be displayed in large, green font.</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+    </div>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

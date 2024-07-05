@@ -1,0 +1,38 @@
+version: '3'
+
+services:
+  app1:
+    build:
+      context: ../..
+      dockerfile: eval_deployment/flask/Dockerfile
+    container_name: app1_container
+    ports:
+      - "2091:5000"
+    environment:
+      - FLASK_APP=app.py
+      - MODEL_PATH=/app/data/models/filtering/rosie_1_20
+      - SOURCE_PATH=/app/data/source/corpus_rosie/passages/translated/df_1.parquet
+      - BLADE_STATE_PATH=/app/data/models/filtering/rosie_1_20/blade_state_EN.pkl
+      - LANG=EN
+    volumes:
+      - ../..:/app
+      - ../../../../data/models/filtering:/app/data/models/filtering
+      - ../../../../data/source/corpus_rosie/passages:/app/data/source/corpus_rosie/passages
+
+  app2:
+    build:
+      context: ../..
+      dockerfile: eval_deployment/flask/Dockerfile2
+    container_name: app2_container
+    ports:
+      - "2092:5001"
+    environment:
+      - FLASK_APP=app2.py
+      - MODEL_PATH=/app/data/models/filtering/rosie_1_20
+      - SOURCE_PATH=/app/data/source/corpus_rosie/passages/translated/df_1.parquet
+      - BLADE_STATE_PATH=/app/data/models/filtering/rosie_1_20/blade_state_ES.pkl
+      - LANG=ES
+    volumes:
+      - ../..:/app
+      - ../../../../data/models/filtering:/app/data/models/filtering
+      - ../../../../data/source/corpus_rosie/passages:/app/data/source/corpus_rosie/passages

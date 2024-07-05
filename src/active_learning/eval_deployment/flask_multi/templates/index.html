@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Start Annotation Task</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .center-buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .annotation-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .disabled-button {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Instructions for Evaluating Rosie Corpus Documents</h1>
+        <div class="alert alert-info">
+            <strong>Welcome to the Rosie Corpus Documents evaluation task. Please follow the steps below:</strong>
+        </div>
+        <h2>Task Orientation</h2>
+        <p>You are going to be evaluating document passages from the Rosie Corpus. Your task is to review each passage and annotate whether it is "in domain" or "not in domain" based on the following criteria:</p>
+        <ul>
+            <li><strong>In Domain:</strong> Health-relevant documents, even if not specifically about maternal or infant health.</li>
+            <li><strong>Not In Domain:</strong> Meaningless documents (e.g., references, location info, meaningless tables).</li>
+        </ul>
+        <h2>Steps to Follow</h2>
+        <ol>
+            <li><strong>Review the Document</strong>
+
+            </li>
+            <li><strong>Provide Annotation:</strong>
+                <ul>
+                    <li>You will be prompted to provide a label for each document.</li>
+                    <li>Click the corresponding button: </li><br>
+                    <div class="annotation-buttons mt-2">
+                        <button class="btn btn-success disabled-button">In Domain</button>
+                        <button class="btn btn-danger disabled-button">Not In Domain</button>
+                    </div><br>
+                    <li>Wait for the message <strong>"Document labeled successfully"</strong> before moving to the next document.</li>
+                </ul>
+            </li>
+            <li><strong>Completion Message:</strong>
+                <ul>
+                    <li>Once the active learning loop is completed, a completion message will be displayed in large, green font.</li>
+                </ul>
+            </li>
+        </ol>
+        <div class="alert alert-warning">
+            <strong>Important!</strong> If you are unsure about whether the document is In Domain or not, select it as In Domain.
+        </div>
+        <div class="center-buttons">
+            <form action="/start_annotation_task" method="post">
+                <button type="submit" class="btn btn-primary">Start Annotation Task</button>
+            </form>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
