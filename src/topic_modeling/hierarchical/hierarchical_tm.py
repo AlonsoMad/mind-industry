@@ -165,8 +165,11 @@ class HierarchicalTM(object):
             if sub_corpus_file.is_file():
                 sub_corpus_file.unlink()
             topic_to_corpus_lang = topic_to_corpus[topic_to_corpus['lang'] == lang_id]
+            topic_to_corpus_lang['new'] = topic_to_corpus_lang['new'].apply(lambda x: [i for i in x if pd.notna(i)])
+
             with open(sub_corpus_file, 'w', encoding='utf-8') as fout:
                 for row in topic_to_corpus_lang.itertuples():
+                    print(row)
                     fout.write(f"{row.docid} {lang} {' '.join(row.new)}\n")
                     
         return

@@ -332,7 +332,7 @@ class MultiBlade(object):
             self.df_pool['predicted_label'] = [list(pred) for pred in predictions]
             self.df_pool['human_labeled'] = False
             
-            self._logger.info(f("-- -- Labels predicted for the remaining pool of documents."))
+            self._logger.info(f"-- -- Labels predicted for the remaining pool of documents.")
 
             # Merge the predictions with the original df_docs based on the document ID
             self.df_docs = self.df_docs.merge(
@@ -342,19 +342,19 @@ class MultiBlade(object):
                 suffixes=('', '_pred')
             )
             
-            self._logger.info(f("-- -- Merged the predictions with the original df_docs."))
+            self._logger.info(f"-- -- Merged the predictions with the original df_docs.")
             
             # Fill the label column with the predicted labels where applicable
             self.df_docs['label'] = self.df_docs['label'].combine_first(self.df_docs['predicted_label'])
             self.df_docs['human_labeled'] = self.df_docs['human_labeled'].combine_first(self.df_pool['human_labeled'])
             
-            self._logger.info(f("-- -- Filled the label column with the predicted labels."))
+            self._logger.info(f"-- -- Filled the label column with the predicted labels.")
 
             # Save the updated DataFrame to a file
             if not path_save:
                 path_save = self.state_path.parent / self.state_path.name.replace(".csv", "_predicted.csv")
             self.df_docs.to_csv(path_save, index=False)
-            self._logger.info(f("-- -- Predicted labels saved to {path_save}"))
+            self._logger.info(f"-- -- Predicted labels saved to {path_save}")
 
             return self.df_pool[['id_top', 'text', 'predicted_label']]
         else:

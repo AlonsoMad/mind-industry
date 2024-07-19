@@ -119,7 +119,7 @@ if __name__ == "__main__":
         '--father_model',
         type=str,
         required=False,
-        default="/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/POLI/rosie_1_20",
+        default="/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/POLI_FILTERED_AL/rosie_1_20",
         help="Path to the father model to generate the hierarchy from.")
     args = parser.parse_args()
 
