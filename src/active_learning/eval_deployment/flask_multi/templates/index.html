@@ -8,6 +8,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            margin-top: 20px;
         }
         .annotation-buttons {
             display: flex;
@@ -20,6 +21,46 @@
             pointer-events: none;
             opacity: 0.6;
         }
+        .highlight_health {
+            background-color: #9b9a34;
+            color: black;
+            font-weight: bold;
+        }
+        .definition_health {
+            color: #9b9a34;
+        }
+        .highlight_kids {
+            background-color: #329999;
+            color: black;
+            font-weight: bold;
+        }
+        .definition_kids {
+            color: #329999;
+        }
+        .highlight_women {
+            background-color: #329933;
+            color: black;
+            font-weight: bold;
+        }
+        .definition_women {
+            color: #329933;
+        }
+        .highlight_ss {
+            background-color: #fe32fc;
+            color: black;
+            font-weight: bold;
+        }
+        .definition_ss {
+            color: #fe32fc;
+        }
+        .highlight_none {
+            background-color: #808080;
+            color: black;
+            font-weight: bold;
+        }
+        .definition_none {
+            color: #808080;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -28,7 +69,7 @@
         th, td {
             padding: 10px;
             text-align: center;
-            vertical-align: middle; /* Center vertically */
+            vertical-align: middle;
         }
         .table-striped tbody tr:nth-of-type(odd) {
             background-color: rgba(0, 0, 0, 0.05);
@@ -50,8 +91,41 @@
             gap: 10px;
         }
         .thead-custom {
-            background-color: #024287ee; /* Bluish background color */
+            background-color: #024287ee;
             color: white;
+        }
+        .alert-heading {
+            margin-top: 20px;
+        }
+        input[type="radio"] {
+            appearance: none;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            position: relative;
+            cursor: pointer;
+            outline: none;
+        }
+        input[type="radio"]:checked {
+            background-color: #555;
+            border-color: #555;
+        }
+        input[type="radio"]::before {
+            content: '';
+            display: block;
+            width: 60%;
+            height: 60%;
+            border-radius: 50%;
+            background-color: #fff;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        input[type="radio"]:checked::before {
+            background-color: #555;
         }
     </style>
 </head>
@@ -65,8 +139,58 @@
         <h2>📖 Task Orientation</h2>
         <p>
             You are going to be evaluating document passages from the Rosie Corpus. Your task is to review each passage and annotate whether it is relevant for each of the following domains:
-            <b>HEALTH, KIDS, WOMEN, and SOCIAL SERVICES.</b>
+            <b><span class="highlight highlight_health">HEALTH</span>, <span class="highlight highlight_kids">KIDS</span>, <span class="highlight highlight_women">WOMEN</span>, <span class="highlight highlight_ss">SOCIAL SERVICES</span>.</b> You may encounter passages that do not fit into any of the specified categories, in which case you should not select any category.
         </p>
+        
+        <div class="mt-4">
+            <div>
+                <span class="highlight highlight_health">Health</span>
+            </div>
+            <div>
+                <span class="definition_health">Definition:</span> Text that refers to aspects related to physical and mental well-being. Examples: medical care, disease prevention, wellness programs, healthcare services, etc.
+            </div>
+            <div>
+                <span class="definition_health">Text example:</span> <em>“Treatment options for germ cell tumors may include surgery to remove the tumor, chemotherapy with drugs that kill cancer cells, and radiation therapy with powerful energy beams.”</em>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <div>
+                <span class="highlight highlight_kids">Kids</span>
+            </div>
+            <div>
+                <span class="definition_kids">Definition:</span> Text that focuses on issues, programs, or services specifically related to children, such as education, child development, childcare, and pediatric care.
+            </div>
+            <div>
+                <span class="definition_kids">Text example:</span> <em>Astraphobia is the extreme fear of thunder and lightning. It’s most common in children…</em>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <div>
+                <span class="highlight highlight_women">Women</span>
+            </div>
+            <div>
+                <span class="definition_women">Definition:</span> Texts that address the health, rights, and well-being of women, including reproductive health, gender-specific healthcare, etc.
+            </div>
+            <div>
+                <span class="definition_women">Text example:</span> <em>“Because the seroconversion rate after vaccination of pregnant women might be markedly reduced compared with that of other healthy women, serologic tests to determine if a specific yellow fever immune response exists should be considered…”</em>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <div>
+                <span class="highlight highlight_ss">Social Services</span>
+            </div>
+            <div>
+                <span class="definition_ss">Definition:</span> Texts that mention services aimed at improving quality of life and providing assistance to individuals or families. Examples: welfare programs, counseling, housing assistance, and community support services, etc. 
+            </div>
+            <div>
+                <span class="definition_ss">Text example:</span> <em>“The grants, available in fiscal year 2023 and supported and administered by NIOSH, will provide funding to qualified individuals in academia, members of non-profit organizations, municipalities, and businesses involved in the fishing and maritime industries…”</em>
+            </div>
+        </div>
+
+        <br>
 
         <h2>✔️ Steps to Follow</h2>
         <ol>
@@ -75,7 +199,7 @@
                 <strong>Provide annotations by checking the corresponding boxes:</strong>
                 <div class="annotation-buttons mt-2">
                     <div class="checkbox-group">
-                        <label>Is this passage relevant for <b>HEALTH</b>? 🩺</label>
+                        <label>Is this passage relevant for <b><span class="highlight_health">HEALTH</span></b>? 🩺</label>
                         <div>
                             <input class="my_radio" type="radio" id="health_yes" name="health" disabled value="yes"/>
                             <label for="health_yes">YES</label>
@@ -84,7 +208,7 @@
                         </div>
                     </div>
                     <div class="checkbox-group">
-                        <label>Is this passage relevant for <b>KIDS</b>? 🧒</label>
+                        <label>Is this passage relevant for <b><span class="highlight_kids">KIDS</span></b>? 🧒</label>
                         <div>
                             <input class="my_radio" type="radio" id="kids_yes" name="kids" disabled value="yes"/>
                             <label for="kids_yes">YES</label>
@@ -93,7 +217,7 @@
                         </div>
                     </div>
                     <div class="checkbox-group">
-                        <label>Is this passage relevant for <b>WOMEN</b>? 👩</label>
+                        <label>Is this passage relevant for <b><span class="highlight_women">WOMEN</span></b>? 👩</label>
                         <div>
                             <input class="my_radio" type="radio" id="women_yes" name="women" disabled value="yes"/>
                             <label for="women_yes">YES</label>
@@ -102,7 +226,7 @@
                         </div>
                     </div>
                     <div class="checkbox-group">
-                        <label>Is this passage relevant for <b>SOCIAL SERVICES</b>? 🏢</label>
+                        <label>Is this passage relevant for <b><span class="highlight_ss">SOCIAL SERVICES</span></b>? 🏢</label>
                         <div>
                             <input class="my_radio" type="radio" id="services_yes" name="services" disabled value="yes"/>
                             <label for="services_yes">YES</label>
@@ -119,9 +243,9 @@
             </li>
         </ol>
         <div class="center-buttons">
-        <button class="btn btn-secondary" type="button" data-toggle="collapse" data-target="#exampleAnnotations" aria-expanded="false" aria-controls="exampleAnnotations">
-            Toggle Example Annotations
-        </button>
+            <button class="btn btn-secondary" type="button" data-toggle="collapse" data-target="#exampleAnnotations" aria-expanded="false" aria-controls="exampleAnnotations">
+                Toggle Example Annotations
+            </button>
         </div>
         <div id="exampleAnnotations" class="collapse">
             <table class="table table-bordered table-striped">
@@ -132,56 +256,84 @@
                         <th>KIDS</th>
                         <th>WOMEN</th>
                         <th>SOCIAL SERVICES</th>
-                        <th>Reason</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Continue to foster the learning process by engaging, responding, and encouraging exploration. Practice and build on what your little one learns with age-appropriate toys and a safe environment to explore.</td>
-                        <td><input class="my_radio" type="radio" name="doc1_health" disabled/></td>
-                        <td><input class="my_radio" type="radio" name="doc1_kids" checked disabled/></td>
-                        <td><input class="my_radio" type="radio" name="doc1_women" disabled/></td>
-                        <td><input class="my_radio" type="radio" name="doc1_services" disabled/></td>
-                        <td>This passage is not about HEALTH, WOMEN, or SOCIAL SERVICES because it does not mention or focus on health-related issues, women's specific needs or roles, or broader social service contexts; it strictly centers on children's learning and exploration.</td>
-                    </tr>
-                    <tr>
-                        <td>Comprehensive — customized — dedicated: Many Executive Health Program participants remark that the comprehensive nature of our executive physicals, the ability to customize the assessments based on their needs, dedicated time with physicians and the warmth of our staff are what distinguish our program</td>
-                        <td><input class="my_radio" type="radio" name="doc2_health" checked disabled/></td>
-                        <td><input class="my_radio" type="radio" name="doc2_kids" disabled/></td>
-                        <td><input class="my_radio" type="radio" name="doc2_women" disabled/></td>
-                        <td><input class="my_radio" type="radio" name="doc2_services" disabled/></td>
-                        <td>Reason document 2</td>
-                    </tr>
-                    <tr>
-                        <td>Prepare for Myocardial Perfusion Imaging Stress Test: If you wear reading glasses bring them with you. You will need to read and sign a consent form before you start your test</td>
-                        <td><input class="my_radio" type="radio" name="doc3_health" checked disabled/></td>
-                        <td><input class="my_radio" type="radio" name="doc3_kids" disabled/></td>
-                        <td><input class="my_radio" type="radio" name="doc3_women" disabled/></td>
-                        <td><input class="my_radio" type="radio" name="doc3_services" disabled/></td>
-                        <td>Reason document 3</td>
-                    </tr>
-                    <tr>
-                        <td>Document 4</td>
-                        <td><input class="my_radio" type="radio" name="doc4_health" disabled/></td>
-                        <td><input class="my_radio" type="radio" name="doc4_kids" disabled/></td>
+                        <td>Despite that, most babies get diaper rash at some point….</td>
+                        <td><input class="my_radio" type="radio" name="doc4_health" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc4_kids" checked disabled/></td>
                         <td><input class="my_radio" type="radio" name="doc4_women" disabled/></td>
                         <td><input class="my_radio" type="radio" name="doc4_services" disabled/></td>
-                        <td>Reason document 4</td>
                     </tr>
                     <tr>
-                        <td>Document 5</td>
-                        <td><input class="my_radio" type="radio" name="doc5_health" disabled/></td>
+                        <td>Because the seroconversion rate after vaccination of pregnant women might be markedly reduced compared with that of other healthy women, serologic tests to determine if a specific yellow fever immune response exists should be considered….</td>
+                        <td><input class="my_radio" type="radio" name="doc5_health" checked disabled/></td>
                         <td><input class="my_radio" type="radio" name="doc5_kids" disabled/></td>
-                        <td><input class="my_radio" type="radio" name="doc5_women" disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc5_women" checked disabled/></td>
                         <td><input class="my_radio" type="radio" name="doc5_services" disabled/></td>
-                        <td>Reason document 5</td>
+                    </tr>
+                    <tr>
+                        <td>Mayo Clinic's medical rehabilitation expertise will be integrated with MN BIA Resource Facilitation services to connect individuals with TBI to community resources…</td>
+                        <td><input class="my_radio" type="radio" name="doc6_health" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc6_kids" disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc6_women" disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc6_services" checked disabled/></td>
+                    </tr>
+                    <tr>
+                        <td>Children who were treated with antibiotics also experienced nearly four fewer “sick days” at home on average than those who underwent surgery. Their caregivers required less of this time as well…</td>
+                        <td><input class="my_radio" type="radio" name="doc7_health" disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc7_kids" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc7_women" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc7_services" disabled/></td>
+                    </tr>
+                    <tr>
+                        <td>Watch the Meaningful Renewal team work with family child care providers to provide safe learning environments for different age groups. Create environments that promote children's social and emotional development...</td>
+                        <td><input class="my_radio" type="radio" name="doc8_health" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc8_kids" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc8_women" disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc8_services" checked disabled/></td>
+                    </tr>
+                    <tr>
+                        <td>Women are the fastest growing group of female military veterans in the United States and have specific health care needs. And women veterans are taking steps to fully address those needs…</td>
+                        <td><input class="my_radio" type="radio" name="doc9_health" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc9_kids" disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc9_women" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc9_services" checked disabled/></td>
+                    </tr>
+                    <tr>
+                        <td>Continue to foster the learning process by engaging, responding, and encouraging exploration. Practice and build on what your little one learns with age-appropriate toys and a safe environment to explore…</td>
+                        <td><input class="my_radio" type="radio" name="doc10_health" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc10_kids" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc10_women" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc10_services" disabled/></td>
+                    </tr>
+                    <tr>
+                        <td>Each person's journey through postpartum depression (PPD) is specific to each person, but there are many ways to get help. The first step towards healing is to seek support. Listen to Clarissa tell how she found support to help her heal at www.womenshealth.gov/talkingPPD....</td>
+                        <td><input class="my_radio" type="radio" name="doc11_health" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc11_kids" disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc11_women" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc11_services" checked disabled/></td>
+                    </tr>
+                    <tr>
+                        <td>Dual Language Learners: Program and Family Support In this module, explore the four components of effective program and family support for dual language learners…</td>
+                        <td><input class="my_radio" type="radio" name="doc12_health" disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc12_kids" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc12_women" checked disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc12_services" checked disabled/></td>
+                    </tr>
+                    <tr>
+                        <td>The technique involves sexually stimulating the man until he recognizes that he is about to ejaculate……</td>
+                        <td><input class="my_radio" type="radio" name="doc12_health" disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc12_kids"  disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc12_women"  disabled/></td>
+                        <td><input class="my_radio" type="radio" name="doc12_services"  disabled/></td>
                     </tr>
                 </tbody>
             </table>
         </div>
        
-        <div class="mt-4"></div>
-        <div class="alert alert-warning">
+        <div class="alert alert-warning alert-heading">
             <strong>Important!</strong> If you are unsure about whether the document is relevant for a certain category, please select it as <strong>RELEVANT</strong> to avoid missing any relevant documents.
         </div>
         <div class="center-buttons">
