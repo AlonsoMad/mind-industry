@@ -1,125 +1,222 @@
 import dspy
-import os
-from dotenv import load_dotenv
-import pathlib
 from dspy.evaluate import Evaluate
 from dspy.teleprompt import BootstrapFewShot, BootstrapFewShotWithRandomSearch, BootstrapFinetune
-import dsp
+import os
+import pathlib
+import re
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import f1_score, precision_score, recall_score
+import dsp
+import numpy as np
+from scipy import sparse
+import os
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_distances
+import faiss
+import json
+from dsp.utils.utils import deduplicate
+import ast
 
-###########
-# API KEY #
-###########
-path_env = pathlib.Path(os.getcwd()).parent.parent.parent / '.env'
-print(path_env)
-load_dotenv(path_env)
-api_key = os.getenv("OPENAI_API_KEY")
-os.environ["OPENAI_API_KEY"] = api_key
+lm = dspy.HFClientTGI(model="meta-llama/Meta-Llama-3-8B ", port=8090, url="http://127.0.0.1")
+dspy.settings.configure(lm=lm)
 
-###########
-#   LLM   #
-###########
-llm = dspy.OpenAI(model= "gpt-3.5-turbo", max_tokens=1000)
-dspy.settings.configure(lm=llm)
 
-class QAChecker(dspy.Signature):
-    """Evaluate the relationship between two ANSWER1 and ANSWER2 to the given QUESTION.
+def create_faiss_index(df, text_column, id_column, model_name="all-mpnet-base-v2", index_file="faiss_index.index"):
     """
+    Create a FAISS index from a DataFrame containing text data.
+
+    Parameters:
+    df (pd.DataFrame): The input DataFrame.
+    text_column (str): The name of the column containing text data.
+    id_column (str): The name of the column containing unique identifiers for the texts.
+    model_name (str): The name of the SentenceTransformer model to use for embeddings.
+    index_file (str): The file path to save the FAISS index.
+
+    Returns:
+    index: The FAISS index object.
+    model: The SentenceTransformer model used for embeddings.
+    ids: List of document IDs.
+    texts: List of document texts.
+    """
+    texts = df[text_column].tolist()
+    ids = df[id_column].tolist()
+
+    model = SentenceTransformer(model_name, device="cuda")
+
+    # Calculate embeddings for the texts
+    embeddings = model.encode(texts, show_progress_bar=False)
+
+    # Create a FAISS index
+    d = embeddings.shape[1]
+    index = faiss.IndexFlatIP(d)  
+
+    # Normalize embeddings to unit length and add to index
+    faiss.normalize_L2(embeddings)
+    index.add(embeddings)
+
+    # Save the index to a file
+    faiss.write_index(index, index_file)
+
+    return index, model, ids, texts
+
+def retrieve_similar_documents(query_text, model, index, ids, texts, k=5):
+    """
+    Retrieve the k most similar documents to the query text.
+
+    Parameters:
+    query_text (str): The query text.
+    model: The SentenceTransformer model used for embeddings.
+    index: The FAISS index object.
+    ids (list): List of document IDs.
+    texts (list): List of document texts.
+    k (int): The number of nearest neighbors to retrieve.
+
+    Returns:
+    list: A list of dictionaries containing document IDs, distances, and texts of the k most similar documents.
+    """
+    # Encode the query text
+    query_embedding = model.encode([query_text], show_progress_bar=False)
+    faiss.normalize_L2(query_embedding)
     
-    QUESTION = dspy.InputField(desc="The question for which the answers are being evaluated.")
-    ANSWER1 = dspy.InputField(desc="The first answer to the question, used as the reference point.")
-    ANSWER2 = dspy.InputField(desc="The second answer to the question, evaluated against the first answer.")
-    LABEL = dspy.OutputField(desc="The relationship of ANSWER2 to ANSWER1: CONSISTENT or CONTRADICTORY")
-    RATIONALE = dspy.OutputField(desc="The explanation or justification for the assigned LABEL.")
+    # Search the index for the k nearest neighbors
+    distances, indices = index.search(query_embedding, k)
     
+    # Retrieve the corresponding texts and ids
+    results = []
+    for i in range(k):
+        result = {
+            "document_id": ids[indices[0][i]],
+            "distance": distances[0][i],
+            "text": texts[indices[0][i]]
+        }
+        results.append(result)
     
-class LinQAChecker(dspy.Module):
+    return results
+
+
+############
+# DATA #####
+############
+path_orig_en = pathlib.Path("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/corpus_pass_en_tr.parquet")
+path_orig_es = pathlib.Path("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/corpus_pass_es_tr.parquet")
+path_source = pathlib.Path("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/passages/translated_stops_filtered_by_al/df_1.parquet")
+
+path_model = pathlib.Path("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/LDA_FILTERED_AL/rosie_1_20")
+path_corpus_en = path_model / "train_data" / "corpus_EN.txt"
+path_corpus_es = path_model / "train_data" / "corpus_ES.txt"
+
+persist_directory = (path_model / 'db_contr_mono').as_posix()
+
+raw = pd.read_parquet(path_source)
+with path_corpus_en.open("r", encoding="utf-8") as f:
+    lines = [line for line in f.readlines()]
+corpus_en = [line.rsplit(" 0 ")[1].strip().split() for line in lines]
+
+ids = [line.split(" 0 ")[0] for line in lines]
+df_en = pd.DataFrame({"lemmas": [" ".join(doc) for doc in corpus_en]})
+df_en["doc_id"] = ids
+df_en["len"] = df_en['lemmas'].apply(lambda x: len(x.split()))
+df_en["id_top"] = range(len(df_en))
+df_en_raw = df_en.merge(raw, how="inner", on="doc_id")[["doc_id", "id_top", "id_preproc", "lemmas_x", "text", "len"]]
+
+# Read thetas 
+thetas = sparse.load_npz(path_model.joinpath(f"mallet_output/{'EN'}/thetas.npz")).toarray()
+betas = np.load((path_model.joinpath(f"mallet_output/{'EN'}/betas.npy")))
+def get_thetas_str(row,thetas):
+    return " ".join([f"{id_}|{round(el, 4)}" for id_,el in enumerate(thetas[row]) if el!=0.0])
+
+def get_most_repr_tpc(row,thetas):
+    return np.argmax(thetas[row])
+
+# Save thetas in dataframe and "assigned topic"
+df_en_raw["thetas"] = df_en_raw.apply(lambda row: get_thetas_str(row['id_top'], thetas), axis=1)
+df_en_raw["id_tpc"] = df_en_raw.apply(lambda row: get_most_repr_tpc(row['id_top'], thetas), axis=1)
+tpc = 1
+df_tpc = df_en_raw[df_en_raw.id_tpc == tpc]
+
+
+##############################################################################
+# QA GENERATOR
+##############################################################################
+class GenerateFacts(dspy.Signature):
+    """Divide the text into atomic facts"""
+    text = dspy.InputField()
+    claims = dspy.OutputField(desc="List of facts'")
+    
+class GenerateQuestion(dspy.Signature):
+    """Form a close-ended question that directly asks the fact."""
+    fact = dspy.InputField()
+    question = dspy.OutputField(desc="it asks the fact")
+
+class QAGenerator(dspy.Module):
     def __init__(self):
         super().__init__()
-        self.checker = dspy.ChainOfThought(QAChecker)
-    
-    def forward(self, question, gold_answer, gen_answer):        
-        contrad = None
-        if gen_answer:
+        self.generate_facts = dspy.ChainOfThought(GenerateFacts)#"
+        self.generate_question = dspy.ChainOfThought(GenerateQuestion)
+        
+    def facts_check(self, text):
+        correct = False
+        try:
+            parsed_facts = ast.literal_eval(text)
+            if len(parsed_facts[0]) <=1:
+                correct = False
+            else:
+                correct = True
+        except Exception as e:
+            print(f"-- -- Error: {e}")
             try:
-                contrad = self.checker(QUESTION=question, ANSWER1=gold_answer, ANSWER2=gen_answer)
+                pattern = r'\d+\.\s'
+                parsed_facts = re.split(pattern, text)
+                parsed_facts = [s.strip() for s in parsed_facts if s]
+                if len(parsed_facts[0]) == 0:
+                    correct = False
+                else:
+                    correct = True
             except Exception as e:
-                print(f"-- -- Error generating answer: {e}")
-                contrad = None
-        
-        return dspy.Prediction(
-            question=question,
-            gold_answer=gold_answer,
-            pred_answer=gen_answer if gen_answer else None,
-            label=self.process_label(contrad.LABEL) if contrad else None,
-            rationale=contrad.RATIONALE if contrad else None,
-        )
-        
-    def process_label(self, label_resp):
-        norm = dsp.normalize_text(label_resp).lower()
-        if "consistent" in norm:
-            clean_pred = "CONSISTENT"
-        elif "contradictory" in norm or "contradiction" in norm:
-            clean_pred = "CONTRADICTION"
-        else:
-            clean_pred = "FAILED"
-        return clean_pred
-
-## CREATE TRAIN AND DEV SET
-def create_dtset(path_data="/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/src/contradictions/merged_file.json"):
-    # Read the JSON data
-    df = pd.read_json(path_data, orient='records', lines=True)
-
-    # Convert the DataFrame into a list of dictionaries
-    data = []
-    for i, row in df.iterrows():
-        data.append({
-            "id": i,
-            "question": row["question"],
-            "gold_answer": row["answer1"],
-            "gen_answer": row["answer2"],
-            "label": row["label"],
-            "rationale": row["rationale"]
-        })
-
-    # Convert the list of dictionaries back into a DataFrame
-    data_df = pd.DataFrame(data)
-
-    # Split the DataFrame into training and testing sets
-    train_df, test_df = train_test_split(data_df, test_size=0.2, random_state=42)
-
-    # Convert the training and testing DataFrames back into lists of dictionaries
-    data_train = train_df.to_dict('records')
-    data_test = test_df.to_dict('records')
-
-    # Create training examples
-    trainset = [
-        dspy.Example({**row}).with_inputs('question', 'gold_answer', 'gen_answer') for row in data_train
-    ]
-
-    # Create development examples
-    devset = [
-        dspy.Example({**row}).with_inputs('question', 'gold_answer', 'gen_answer') for row in data_test
-    ]
-
-    return trainset, devset
+                print(f"-- -- Error: {e}")
+                correct = False
+        print(f"THIS is hte result from the checking {correct}")
+        return correct
     
-def validate_answer_contained(example, pred, trace=None):
-    print(pred.label, example.label, pred.label == example.label)
-    return pred.label == example.label
+    def process_facts(self, facts):
+        
+        print(f"-- -- GENERATED Facts: {facts}")
+        #import pdb; pdb.set_trace()
+        parsed_facts = []
+        try:
+            parsed_facts = ast.literal_eval(facts)
+        except Exception as e:
+            print(f"-- -- Error: {e}")
+            try:
+                pattern = r'\d+\.\s'
+                parsed_facts = re.split(pattern, facts)
+                parsed_facts = [s.strip() for s in parsed_facts if s]
+            except Exception as e:
+                print(f"-- -- Error: {e}")
+        return parsed_facts
+        
+    def forward(self, text):
+        #import pdb; pdb.set_trace()
+        facts = self.generate_facts(text=text).claims
 
-teleprompter = BootstrapFewShotWithRandomSearch(
-    metric=validate_answer_contained,
-    max_bootstrapped_demos=4,
-    max_labeled_demos=16,
-    num_candidate_programs=16,
-    max_rounds=1,
-)
+        print(f"-- -- Facts: {facts}")
+        questions = []
+        parsed_facts = self.process_facts(facts)
+        
+        import pdb; pdb.set_trace()
+        
+        if len(parsed_facts) == 0:
+            print(f"-- -- No facts found")
+            return questions, parsed_facts
+        
+        questions = [self.generate_question(fact=fact).question for fact in parsed_facts]
+        print(f"-- -- Questions: {questions}")
+        return questions, parsed_facts
 
-trainset, devset = create_dtset()
-compiled_classifier = teleprompter.compile(LinQAChecker(), trainset=trainset, valset=devset)
+qa_generator = QAGenerator()
 
-compiled_classifier.save("LinQAChecker-saved.json")
+#qa_generator = assert_transform_module(QAGenerator(), backtrack_handler)
+doc = df_tpc.iloc[1].text
+questions, facts = qa_generator(text=doc)
 
 import pdb; pdb.set_trace()
