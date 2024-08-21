@@ -3,6 +3,74 @@
     "lm": null,
     "traces": [],
     "train": [],
-    "demos": []
+    "demos": [
+      {
+        "Unnamed: 0": 0,
+        "passage": "Chorioamnionitis: A condition during pregnancy that can cause unexplained fever with uterine tenderness, a high white blood cell count, rapid heart rate in the fetus, rapid heart rate in the woman, and\/or foul-smelling vaginal discharge.",
+        "facts": "['Chorioamnionitis is a condition that occurs during pregnancy.', 'Chorioamnionitis can cause unexplained fever with uterine tenderness.', 'Chorioamnionitis can cause a high white blood cell count.', 'Chorioamnionitis can cause a rapid heart rate in the fetus.', 'Chorioamnionitis can cause a rapid heart rate in the woman.', 'Chorioamnionitis can cause foul-smelling vaginal discharge.']"
+      },
+      {
+        "Unnamed: 0": 17,
+        "passage": "Although most people associate ultrasound with pregnancy, healthcare providers use ultrasound for many different situations and to look at several different parts of the inside of your body.",
+        "facts": "['Most people associate ultrasound with pregnancy.', 'Healthcare providers use ultrasound for many different situations.', 'Healthcare providers use ultrasound to look at several different parts of the inside of the body.']"
+      },
+      {
+        "Unnamed: 0": 15,
+        "passage": "Semen analysis: A low sperm count is diagnosed as part of a semen analysis test. Sperm count is generally determined by examining semen under a microscope to see how many sperm appear within squares on a grid pattern. In some cases, a computer might be used to measure sperm count.",
+        "facts": "['A low sperm count is diagnosed as part of a semen analysis test.', 'Sperm count is generally determined by examining semen under a microscope.', 'The examination of semen under a microscope involves counting how many sperm appear within squares on a grid pattern.', 'In some cases, a computer might be used to measure sperm count.']"
+      },
+      {
+        "Unnamed: 0": 10,
+        "passage": "What are Birth Defects: Birth defects are common, costly, and critical conditions that affect 1 in every 33 babies born in the United States each year.1 Read more about what we have learned about birth defects and how women can improve their chances of having a baby born without a birth defect.",
+        "facts": "['Birth defects are common conditions.', 'Birth defects are costly conditions.', 'Birth defects are critical conditions.', 'Birth defects affect 1 in every 33 babies born in the United States each year.', 'Women can improve their chances of having a baby born without a birth defect.']"
+      },
+      {
+        "Unnamed: 0": 6,
+        "passage": "Jacqueline Maher, M.D., is a reproductive endocrinology and infertility specialist with a focus on pediatric and adolescent gynecology. She leads the female fertility preservation program at Children's National Hospital to counsel patients in egg freezing or ovarian tissue freezing, and post treatment premature ovarian insufficiency, and hormone replacement\/ puberty induction. Her other clinical interests include reproductive endocrine disorders such as premature ovarian insufficiency, polycystic ovary syndrome, precocious puberty, endometriosis and complex contraception; as well as surgery for congenital anomalies of the reproductive tract such as vaginal and uterine septum.",
+        "facts": "['Jacqueline Maher, M.D., is a reproductive endocrinology and infertility specialist.', 'Jacqueline Maher, M.D., focuses on pediatric and adolescent gynecology.', \"Jacqueline Maher, M.D., leads the female fertility preservation program at Children's National Hospital.\", \"The female fertility preservation program at Children's National Hospital counsels patients in egg freezing or ovarian tissue freezing.\", \"The female fertility preservation program at Children's National Hospital addresses post-treatment premature ovarian insufficiency.\", \"The female fertility preservation program at Children's National Hospital provides hormone replacement and puberty induction.\", 'Jacqueline Maher, M.D., has clinical interests in reproductive endocrine disorders such as premature ovarian insufficiency.', 'Jacqueline Maher, M.D., has clinical interests in polycystic ovary syndrome.', 'Jacqueline Maher, M.D., has clinical interests in precocious puberty.', 'Jacqueline Maher, M.D., has clinical interests in endometriosis.', 'Jacqueline Maher, M.D., has clinical interests in complex contraception.', 'Jacqueline Maher, M.D., performs surgery for congenital anomalies of the reproductive tract.', 'Jacqueline Maher, M.D., performs surgery for vaginal septum.', 'Jacqueline Maher, M.D., performs surgery for uterine septum.']"
+      },
+      {
+        "Unnamed: 0": 19,
+        "passage": "Gestational diabetes usually develops around the 24th week of pregnancy, so you\u2019ll probably be tested between 24 and 28 weeks.",
+        "facts": "['Gestational diabetes usually develops around the 24th week of pregnancy.', 'Pregnant individuals will probably be tested for gestational diabetes between 24 and 28 weeks of pregnancy.']"
+      },
+      {
+        "Unnamed: 0": 11,
+        "passage": "Should all women breastfeed? Health care providers agree that breastfeeding is one of the healthiest choices a mother can make for herself and her child. But many moms experience challenges with breastfeeding along the way.",
+        "facts": "['Health care providers agree that breastfeeding is one of the healthiest choices a mother can make for herself and her child.', 'Many mothers experience challenges with breastfeeding along the way.']"
+      },
+      {
+        "Unnamed: 0": 7,
+        "passage": "Note: Positive CRP results also occur during the last half of pregnancy or with the use of birth control pills (oral contraceptives).",
+        "facts": "['Positive CRP results occur during the last half of pregnancy.', 'Positive CRP results occur with the use of birth control pills (oral contraceptives).']"
+      },
+      {
+        "Unnamed: 0": 2,
+        "passage": "But what if you know for sure that you never want to be pregnant again, or even pregnant ever? You might be thinking about having your \u201ctubes tied,\u201d or going through a permanent sterilization procedure. But talking to your doctor about sterilization can be tricky! Especially if you\u2019re young, you may worry that your doctor won\u2019t take you seriously or will try to talk you out of it.",
+        "facts": "['Some people may know for sure that they never want to be pregnant again or ever.', 'Some people might be thinking about having their \u201ctubes tied\u201d or going through a permanent sterilization procedure.', 'Talking to a doctor about sterilization can be tricky.', 'Young people may worry that their doctor won\u2019t take them seriously or will try to talk them out of sterilization.']"
+      },
+      {
+        "Unnamed: 0": 8,
+        "passage": "Read more: Reflux gives preemie baby Ari an extra hurdle to overcome in her first weeks and months of life.",
+        "facts": "['Reflux gives preemie baby Ari an extra hurdle to overcome in her first weeks and months of life.']"
+      },
+      {
+        "Unnamed: 0": 9,
+        "passage": "I often have a burning sensation in my vagina after my partner has ejaculated. My health care provider suggested I may have a semen allergy. Does a semen allergy affect the ability to get pregnant: Semen allergy, also called seminal plasma hypersensitivity, happens when you have a harmful immune system reaction to proteins in semen. This condition is not common. Semen allergy isn't a direct cause of infertility.",
+        "facts": "['A burning sensation in the vagina after a partner has ejaculated may be a symptom of a semen allergy.', 'A health care provider may suggest that a burning sensation in the vagina after ejaculation is due to a semen allergy.', 'A semen allergy is also called seminal plasma hypersensitivity.', 'A semen allergy occurs when the immune system has a harmful reaction to proteins in semen.', 'A semen allergy is not a common condition.', 'A semen allergy is not a direct cause of infertility.']"
+      },
+      {
+        "Unnamed: 0": 13,
+        "passage": "How has family life been during the pandemic: My mother, stepfather, father and stepmother all live in Indiana. I talk to my mother and stepfather a few times a week, usually to check in and just chat. I am very close to my mother, so we always used to talk frequently even before COVID-19. Multiple people in my family have increased risk of adverse outcomes with pre-existing conditions if they were to get COVID, so I have not traveled home, and they haven\u2019t traveled here to visit.",
+        "facts": "[\"The speaker's mother, stepfather, father, and stepmother all live in Indiana.\", 'The speaker talks to their mother and stepfather a few times a week, usually to check in and just chat.', 'The speaker is very close to their mother and always used to talk frequently with her even before COVID-19.', \"Multiple people in the speaker's family have an increased risk of adverse outcomes with pre-existing conditions if they were to get COVID-19.\", 'The speaker has not traveled home, and their family members have not traveled to visit the speaker due to the risk of COVID-19.']"
+      },
+      {
+        "Unnamed: 0": 18,
+        "passage": "Some providers may recommend CA 125 testing combined with transvaginal ultrasound every 6 to 12 months for those at very high risk.",
+        "facts": "['Some providers may recommend CA 125 testing combined with transvaginal ultrasound every 6 to 12 months for those at very high risk.']"
+      }
+    ],
+    "signature_instructions": "\n    Extract self-contained and fully contextualized facts from the given passage.    \n    ",
+    "signature_prefix": "Facts:"
   }
 }
