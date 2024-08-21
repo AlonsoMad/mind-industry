@@ -96,6 +96,8 @@ def get_new_document():
 
 @app.route('/submit_annotation', methods=['POST'])
 def submit_annotation():
+    logger.info("Submitting annotation. HERE IS WHERE IT FAILS...")
+    logger.info("Request Form: %s", request.form)
     label = request.form['label']
     idx = request.form['idx']
     logger.info("Calling LabelDocument")

@@ -12,7 +12,7 @@ services:
       - FLASK_APP=app_second_eval.py
       - ANNOTATION_PATH_EN=/app/data/models/filtering/rosie_1_20/df_docs_updated_EN.csv
       - ANNOTATION_PATH_ES=/app/data/models/filtering/rosie_1_20/df_docs_updated_ES.csv
-      - ANNOTATION_PATH_SECOND=/app/data/models/filtering/rosie_1_20/second_eval_annotations.csv
+      - ANNOTATION_PATH_SECOND=/app/data/models/filtering/rosie_1_20/multi_second_eval_annotations.csv
     volumes:
       - ../..:/app
       - ../../../../data/models/filtering:/app/data/models/filtering

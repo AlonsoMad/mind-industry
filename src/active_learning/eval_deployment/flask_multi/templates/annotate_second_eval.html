@@ -191,11 +191,14 @@
             } else {
               $("#document").text(data.text);
               $("#doc_id").val(data.doc_id);
+              const aux_idx = $("#doc_id").val();
+              console.log("this is the idx");
+              console.log(aux_idx);
               $("#message").text("");
               $("#annotation_form").show();
 
               // Clear all radio button selections
-              $('input[type="radio"]').prop("checked", false);
+              $('#annotation_form input[type="radio"]').prop('checked', false);
 
               fetchDocumentCount(); // Update the document count after fetching a new document
             }
@@ -205,6 +208,8 @@
         // Function to submit annotation
         function submitAnnotation(label) {
           const idx = $("#doc_id").val();
+          console.log("this is the idx");
+          console.log(idx);
           $.post(
             "/submit_annotation",
             { label: label, idx: idx },
@@ -259,8 +264,11 @@
             if (annotations.length === 0) {
               annotations.push(0); // None
             }
-            console.log(annotations);
-            submitAnnotation(annotations);
+            // Convert annotations array to a string
+            const annotationsString = annotations.join(',');
+
+            console.log(annotationsString);
+            submitAnnotation(annotationsString);
           });
 
         $("#show_instructions").on("click", function () {
@@ -279,11 +287,12 @@
           Show Instructions
         </button>
       </div>
-      <div class="alert alert-secondary" id="timer">Loading timer...</div>
+      <div class="alert alert-secondary" id="document_count">Loading document count...</div>
       <div id="main_content">
         <div class="card mb-3">
           <div class="card-body">
             <p id="document">Loading...</p>
+            <input type="hidden" id="doc_id" value="">
           </div>
         </div>
 
@@ -335,17 +344,10 @@
           <p id="message" class="message mt-3"></p>
         </div>
       </div>
-        <div
-          id="time_up_message"
-          style="text-align: center; margin-top: 20px; display: none"
-        >
-          <h2 style="color: green; font-weight: bold">
-            Time is up! Your feedback has been collected.
-          </h2>
-          <h3 style="color: gray">
-            Thank you for your participation! &#128522;
-          </h3>
-        </div>
+      <div id="completion_message" style="display: none; text-align: center; margin-top: 20px;">
+        <h2 style='color: green; font-weight: bold;'>No more documents to label. Task completed.</h2>
+        <h3 style='color: gray;'>Thank you for your participation!  &#128522;</h3>
+    </div>
         <div class="instructions alert alert-info" style="display: none">
           <h1 class="mb-4">Instructions for Evaluating Rosie Corpus Documents</h1>
           <div class="alert alert-info">

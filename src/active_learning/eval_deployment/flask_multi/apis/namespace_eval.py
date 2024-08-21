@@ -21,26 +21,28 @@ def get_balanced_sample(path, size=0.6):
     sixty_percent_size = int(len(df) * size)
 
     # Split the dataframe based on labels
-    positive_df = df[df['label'] == 1.0]
-    negative_df = df[df['label'] == 0.0]
+    #positive_df = df[df['label'] == 1.0]
+    #negative_df = df[df['label'] == 0.0]
 
     # Determine the number of samples needed from each label to maintain balance
     n_samples_per_label = int(sixty_percent_size // 2)
 
-    positive_sample = positive_df.sample(n=n_samples_per_label, random_state=1)
-    negative_sample = negative_df.sample(n=n_samples_per_label, random_state=1)
+    #positive_sample = positive_df.sample(n=n_samples_per_label, random_state=1)
+    #negative_sample = negative_df.sample(n=n_samples_per_label, random_state=1)
 
     # Combine the sampled dataframes into one balanced dataframe
-    balanced_sample = pd.concat([positive_sample, negative_sample])
+    #balanced_sample = pd.concat([positive_sample, negative_sample])
 
     # Shuffle the combined dataframe
-    balanced_sample = balanced_sample.sample(frac=1, random_state=1).reset_index(drop=True)
+    #balanced_sample = balanced_sample.sample(frac=1, random_state=1).reset_index(drop=True)
+    
+    sample = df.sample(n=sixty_percent_size, random_state=1)
 
-    return balanced_sample
+    return sample
 
 # Get balanced samples for English and Spanish docs
-df_en = get_balanced_sample(annotations_path_en)
-df_es = get_balanced_sample(annotations_path_es)
+df_en = get_balanced_sample(annotations_path_en, size=0.48366013071895425)
+df_es = get_balanced_sample(annotations_path_es, size=1)
 
 # Combine and shuffle the balanced samples
 combined_df = pd.concat([df_en, df_es]).sample(frac=1, random_state=1).reset_index(drop=True)
@@ -95,7 +97,7 @@ class LabelDocument(Resource):
     @api.doc(parser=parser)
     def post(self):
         args = parser.parse_args()
-        label = int(args['label'])
+        label = args['label']
         idx = args['idx']
         logger.info(f"Labeling document at index {idx} with label {label}")
         try:
