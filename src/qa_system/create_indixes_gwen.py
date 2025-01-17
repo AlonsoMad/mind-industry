@@ -22,6 +22,13 @@ import matplotlib.pyplot as plt
 from kneed import KneeLocator
 from scipy.ndimage import uniform_filter1d
 from scipy import sparse
+from sentence_transformers import SentenceTransformer
+import torch
+
+# Load the SentenceTransformer model
+MDOEL = SentenceTransformer("multi-qa-mpnet-base-cos-v1")
+    #"BAAI/bge-multilingual-gemma2", model_kwargs={"torch_dtype": torch.float16})
+
 
 def get_doc_top_tpcs(doc_distr, topn=2):
     sorted_tpc_indices = np.argsort(doc_distr)[::-1]
@@ -115,15 +122,15 @@ def thrFig(
     return significant_docs, all_elbows
 
 # Configuration
-LLM_MODEL_EMBEDDINGS = 'mxbai-embed-large'
-BATCH_SIZE = 1024
-EMBEDDING_URL = "http://kumo01.tsc.uc3m.es:11434/api/embeddings"
+#LLM_MODEL_EMBEDDINGS = 'mxbai-embed-large'
+BATCH_SIZE = 8
+#EMBEDDING_URL = "http://kumo01.tsc.uc3m.es:11434/api/embeddings"
 
 # Initialize embedding function
-embedding_function = OllamaEmbeddingFunction(
-    model_name=LLM_MODEL_EMBEDDINGS,
-    url=EMBEDDING_URL,
-)
+#embedding_function = OllamaEmbeddingFunction(
+#    url=EMBEDDING_URL,
+##    model_name=LLM_MODEL_EMBEDDINGS,
+#)
 
 def get_doc_top_topics(doc_distr, topn=2):
     """Extract top topics and their weights."""
@@ -134,30 +141,34 @@ def get_doc_main_topic(doc_distr):
     """Extract the main topic index."""
     return np.argmax(doc_distr)
 
-def process_batch(df_batch, collection, embedding_function):
+def process_batch(df_batch, collection, model):
     """Process a batch of rows and add to ChromaDB collection."""
     try:
+        # Extract metadata
         metadata = df_batch.apply(
             lambda row: row[["id_preproc", "document_id", "common_id", "full_doc"]].to_dict(),
             axis=1
         ).tolist()
         ids = df_batch["id_top"].astype(str).tolist()
         texts = df_batch["text"].tolist()
-        embeddings = embedding_function(texts)
 
+        # Compute embeddings using the SentenceTransformer model
+        embeddings = model.encode(texts, batch_size=BATCH_SIZE, show_progress_bar=True)
+
+        # Add data to the ChromaDB collection
         collection.add(ids=ids, embeddings=embeddings, documents=texts, metadatas=metadata)
     except Exception as e:
         print(f"Error processing batch: {e}")
 
-def create_index(df, collection_name, embedding_function):
+def create_index(df, collection_name, model):
     """Create an index for a specific collection."""
-    client = chromadb.PersistentClient(path="indices2")
+    client = chromadb.PersistentClient(path="indices_multi")
     collection = client.create_collection(name=collection_name)
 
     for start in range(0, len(df), BATCH_SIZE):
         end = min(start + BATCH_SIZE, len(df))
         print(f"Processing rows {start}:{end} / {len(df)}")
-        process_batch(df.iloc[start:end], collection, embedding_function)
+        process_batch(df.iloc[start:end], collection, model)
 
 def main():
     # Paths
@@ -224,14 +235,14 @@ def main():
         
     # Create index for all Spanish documents
     print(f"-- Creating index for all Spanish documents...")
-    create_index(df_es, "docs_all_es", embedding_function)
+    create_index(df_es, "docs_all_es", MDOEL)
 
     # Create indices for each topic
     print(f"-- Creating indices for each topic...")
-    for tpc_idx, topic_key in enumerate(topic_keys):
+    for tpc_idx, topic_key in enumerate(topic_keys[:1]):
         print(f"-- Processing topic {tpc_idx}: {topic_key} --")
         df_es_tpc = df_es[df_es.main_topic == tpc_idx]
-        create_index(df_es_tpc, f"docs_{tpc_idx}_es", embedding_function)
+        create_index(df_es_tpc, f"docs_{tpc_idx}_es", MDOEL)
 
 if __name__ == "__main__":
     main()

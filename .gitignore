@@ -178,3 +178,8 @@ src/qa_system/components/question_qenerator.py
 src/qa_system/cache
 src/qa_system/indices
 src/qa_system/df_en.parquet
+src/qa_system/faiss_indices
+src/qa_system/faiss_indices_50
+src/qa_system/df_info_topic_0.csv
+src/qa_system/df_info_topic_1.csv
+src/qa_system/df_info_topic_2.csv

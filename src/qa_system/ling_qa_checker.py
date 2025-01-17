@@ -1,6 +1,7 @@
 import re
 import ast
 import pandas as pd # type: ignore
+import torch
 from prompter import Prompter
 from chromadb.utils.embedding_functions import OllamaEmbeddingFunction # type: ignore
 import chromadb # type: ignore
@@ -62,7 +63,7 @@ prompter = Prompter(
 ################
 # INDICES PATH #
 ################
-INDICES_PATH = "indices"
+INDICES_PATH = "indices_multi"
 EN_PATH = "df_en.parquet"
 client = chromadb.PersistentClient(path=INDICES_PATH)
 df_en = pd.read_parquet(EN_PATH)
@@ -72,10 +73,15 @@ EMBEDDING_URL = "http://kumo01.tsc.uc3m.es:11434/api/embeddings"
 N_RESULTS = 3
 
 # Initialize embedding function
-embedding_function = OllamaEmbeddingFunction(
-    model_name=LLM_MODEL_EMBEDDINGS,
-    url=EMBEDDING_URL,
-)
+#embedding_function = OllamaEmbeddingFunction(
+#    model_name=LLM_MODEL_EMBEDDINGS,
+#    url=EMBEDDING_URL,
+#)
+
+MODEL = SentenceTransformer("multi-qa-mpnet-base-cos-v1")
+
+def embedding_function(text):
+    return MODEL.encode(text)
 
 ################
 # TRF MODEL    #
@@ -100,7 +106,7 @@ positive_questions = list(
 ocsvm = OneClassSVM(kernel='rbf', gamma='auto', nu=0.1)
 ocsvm.fit(trf_model.encode(positive_questions))
 
-for topic_id in [0,1,2]: #range(num_topics)
+for topic_id in [0]: #range(num_topics)
     
     print("#"*50)
     print(f"--- Processing TOPIC {topic_id} ---")
@@ -110,47 +116,60 @@ for topic_id in [0,1,2]: #range(num_topics)
     # Load collection for the topic #
     #################################
     collection = client.get_collection(name=f"docs_{topic_id}_es")
+    collection = client.get_collection(name=f"docs_all_es")
+    
     
     ############################
     # 1. QUESTION GENERATION   #
     ############################
+    # It looks like you have a detailed script that processes passages, generates questions, searches
+    # for answers, and checks for contradictions. Is there anything specific you would like assistance
+    # with in this script?
+    processed_passages = 0
     info_topic = []
-    for pass_id, pass_row in df_en.iloc[:10].iterrows():
+    for pass_id, pass_row in df_en.iterrows():
         
-        print(f"--- Processing PASSAGE {pass_id} ---")
-        print(f"-- -- -- Passage: {pass_row.text}")
+        if processed_passages < 200:
+        
+            print(f"--- Processing PASSAGE {pass_id} ---")
+            print(f"-- -- -- Passage: {pass_row.text}")
 
-        with open(_1_INSTRUCTIONS_PATH, 'r') as file:
-            template = file.read()
-        
-        question = template.format(passage=pass_row.text, full_document=(extend_to_full_sentence(pass_row.full_doc, 100)+ " [...]"))
-        
-        questions, _ = prompter.prompt(
-            system_prompt_template_path=_1_SYSTEM_PATH,
-            question=question
-        )
-
-        reason = questions.split("[[ ## QUESTIONS ## ]]")[0]
-        questions = [q.strip() for q in questions.split("[[ ## QUESTIONS ## ]]")[1].split("[[ ## completed ## ]]")[0].replace("\\n", "\n").split("\n") if q.strip()]
-        
-        if questions == []:
-            print("-- -- No questions generated.")
-            questions_keep = []
-        
-        else:
-            # predict if the questions are good or bad
-            questions_embeddings = trf_model.encode(questions)
-            predictions = ocsvm.predict(questions_embeddings)
-            questions_keep = [q for q, p in zip(questions, predictions) if p == 1]
+            with open(_1_INSTRUCTIONS_PATH, 'r') as file:
+                template = file.read()
             
-        info_topic.append({
-            "pass_id": pass_id,
-            "passage": pass_row.text,
-            "full_doc": pass_row.full_doc,
-            "questions": questions_keep,
-            "all_questions": questions,
-            "reason": reason
-        })
+            question = template.format(passage=pass_row.text, full_document=(extend_to_full_sentence(pass_row.full_doc, 100)+ " [...]"))
+            
+            questions, _ = prompter.prompt(
+                system_prompt_template_path=_1_SYSTEM_PATH,
+                question=question
+            )
+
+            reason = questions.split("[[ ## QUESTIONS ## ]]")[0]
+            try:
+                questions = [q.strip() for q in questions.split("[[ ## QUESTIONS ## ]]")[1].split("[[ ## completed ## ]]")[0].replace("\\n", "\n").split("\n") if q.strip()]
+            except Exception as e:
+                import pdb; pdb.set_trace()
+            
+            if questions == []:
+                print("-- -- No questions generated.")
+                questions_keep = []
+            
+            else:
+                # predict if the questions are good or bad
+                questions_embeddings = trf_model.encode(questions)
+                predictions = ocsvm.predict(questions_embeddings)
+                questions_keep = [q for q, p in zip(questions, predictions) if p == 1]
+                
+            info_topic.append({
+                "pass_id": pass_id,
+                "passage": pass_row.text,
+                "full_doc": pass_row.full_doc,
+                "questions": questions_keep,
+                "all_questions": questions,
+                "reason": reason
+            })
+            
+            processed_passages += 1
 
     # convert to dataframe
     df_info_topic = pd.DataFrame(info_topic)
@@ -204,8 +223,10 @@ for topic_id in [0,1,2]: #range(num_topics)
         ids_passages_used = []
         text_passages_used = []
         for query in queries:
-            embedding = embedding_function(query)[0]
-            results = collection.query(query_embeddings=[embedding.tolist()],  n_results=N_RESULTS)
+            embedding = embedding_function(query)
+            import pdb; pdb.set_trace()
+            #[0]
+            results = collection.query(query_embeddings=[embedding_function(query).tolist()],  n_results=N_RESULTS)
             
             passages = results["documents"][0]
             ids = results["ids"][0]
@@ -266,16 +287,20 @@ for topic_id in [0,1,2]: #range(num_topics)
         )
         
         contradictions_reason = contradictions.split("[[ ## reasoning ## ]]")[1].split("[[ ## CONTRADICTION ## ]]")[0].strip()
-        contradictions_clean = contradictions.split("[[ ## CONTRADICTION ## ]]")[1].split("[[ ## CONTRADICTION_TYPE ## ]]")[0].strip()
-        contraction_type = contradictions.split("[[ ## CONTRADICTION_TYPE ## ]]")[1].split("[[ ## completed ## ]]")[0].strip()
-        
+        if "CONTRADICTION_TYPE" in contradictions:
+            contradictions_clean = contradictions.split("[[ ## CONTRADICTION ## ]]")[1].split("[[ ## CONTRADICTION_TYPE ## ]]")[0].strip()
+            contraction_type = contradictions.split("[[ ## CONTRADICTION_TYPE ## ]]")[1].split("[[ ## completed ## ]]")[0].strip()
+        else:
+            contradictions_clean = contradictions.split("[[ ## CONTRADICTION ## ]]")[1].split("[[ ## completed ## ]]")[0].strip()
+            contraction_type = ""
+                    
         df_info_topic.loc[question_id, 'contradiction'] = contradictions_clean
         df_info_topic.loc[question_id, 'contradiction_reason'] = contradictions_reason
         df_info_topic.loc[question_id, 'contraction_type'] = contraction_type
     
-    df_info_topic. to_csv(f"df_info_topic_{topic_id}.csv")
-    import pdb; pdb.set_trace()
-        
+    df_info_topic. to_csv(f"df_info_topic_qwen_{topic_id}.csv")
+
+import pdb; pdb.set_trace()        
         
         
         
