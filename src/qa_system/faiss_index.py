@@ -129,7 +129,7 @@ def query_faiss(question, theta_query, top_k=10):
             distances, indices = index.search(np.expand_dims(question_embedding, axis=0), top_k)
             for dist, idx in zip(distances[0], indices[0]):
                 if idx != -1:
-                    results.append({"topic": topic, "doc_id": doc_ids[idx], "score": dist * weight})
+                    results.append({"topic": topic, "doc_id": doc_ids[idx], "score": dist }) #* weight
 
     # Sort results by score
     results = sorted(results, key=lambda x: x["score"], reverse=True)

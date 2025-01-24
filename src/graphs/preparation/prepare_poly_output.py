@@ -112,7 +112,7 @@ if __name__ == "__main__":
         type=str,
         required=False,
         help='Path to the Polylingual TM directory',
-        default="/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/29_dec/all/poly_rosie_1_10"
+        default="/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/29_dec/all/poly_rosie_1_20"
     )
     parser.add_argument(
         '--source_path',

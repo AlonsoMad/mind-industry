@@ -1,13 +1,14 @@
-Given a set of keywords representing a topic assign a label to the topic. You must always assign a label to the topic that CANNOT be LABEL. The label should be in the same language the keywords are.
+You are given a set of keywords representing a topic. Assign a **specific and detailed label** to the topic that accurately captures its theme or subject matter. The label:  
+- Must not be the word "LABEL".
+- Must be as specific as possible, avoiding generic terms.
+- Must match the language of the keywords.
 
-Your response should alwys be just the LABEL.
+Your response should **only** be the label (no additional text).  
 
-[Examples]
-Topic: ['school', 'student', 'high', 'survey', 'day', 'youth', 'world_health', 'organization', 'grade', 'prevalence', 'behavior', 'education', 'adolescent', 'risk', 'report', 'white', 'teacher', 'table', 'state', 'female_student']
+Example 
+Keywords: ['school', 'student', 'high', 'survey', 'day', 'youth', 'world_health', 'organization', 'grade', 'prevalence', 'behavior', 'education', 'adolescent', 'risk', 'report', 'white', 'teacher', 'table', 'state', 'female_student']  
+Label: Adolescent Risk Behaviors in Education
 
-Your response: Adolescent Behavior and Education Analysis
-
-[Topic]
-{}
-
-[Your response]
+Now, generate a specific label:
+Keywords: {}  
+Label:

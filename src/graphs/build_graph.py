@@ -52,13 +52,29 @@ def visualize_graph(G, output_path, filename, topic_labels, positions, dpi=300):
     # Create a list of node colors
     node_colors = [palette[node2comm[node]] for node in G.nodes()]
     degrees = [G.degree(node) for node in G.nodes()]
+    
+    # Label each community with the most frequent topic
+    community_labels = []
+    for i, com in enumerate(communities):
+        topic_counter = Counter([topic_labels[node] for node in com])
+        most_common_topic = topic_counter.most_common(1)[0][0]
+        community_labels.append(most_common_topic)
 
     plt.figure(figsize=(14, 14), dpi=dpi)
     nx.draw_networkx_nodes(G, positions, node_size=[v * 10 for v in degrees], node_color=node_colors, alpha=0.85)
     nx.draw_networkx_edges(G, positions, alpha=0.6, width=0.5)
-
+    nx.draw_networkx_labels(
+        G,
+        positions,
+        labels={node: label for node, label in enumerate(community_labels)},
+        font_size=12,
+        font_color='darkblue',
+        font_weight='bold',
+        bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3')
+    )
     plt.axis('off')
-    plt.savefig(f"{output_path}/{filename}", dpi=dpi, bbox_inches='tight')
+    plt.margins(0.15)
+    plt.savefig(f"{output_path}/{filename}", dpi=dpi, bbox_inches='tight', pad_inches=0.5)
     plt.show()
 
 def process_and_visualize(data_path, output_path, language, n_docs=200, n_edges_per_node=10, gravity=50, random_state=0, dpi=300, use_sample=True):
@@ -150,14 +166,14 @@ def process_and_visualize(data_path, output_path, language, n_docs=200, n_edges_
 
     plt.figure(figsize=(10, 10), dpi=dpi)
     nx.draw_networkx_nodes(G, valid_positions, node_size=50, node_color="blue", alpha=0.7)
-    nx.draw_networkx_edges(G, valid_positions, edge_color="green", alpha=0.3)
+    nx.draw_networkx_edges(G, valid_positions, edge_color="green", alpha=0.1)
     plt.axis('off')
     plt.savefig(f"{output_path}/draw_graph_forceatlas2_{language}.png", dpi=dpi)
 
     topic_labels = df_sample['label'].tolist()
     visualize_graph(G_lcc, output_path, f"draw_graph_communities_{language}.png", topic_labels, positions_lcc, dpi)
 
-    return df_sample, G, X, positions_lcc
+    return df_sample, G, X, positions_lcc, topic_labels
 
 def find_closest_documents(X1, X2):
     similarities = []
@@ -234,6 +250,59 @@ def compare_communities(G1, G2):
     labels2 = [node2comm2.get(node, -1) for node in G2.nodes()]
     return adjusted_rand_score(labels1, labels2)
 
+def analyze_cluster_composition(G1, G2):
+    comms1 = list(nx_comm.louvain_communities(G1, seed=42))
+    comms2 = list(nx_comm.louvain_communities(G2, seed=42))
+
+    # Count nodes in each community
+    sizes1 = [len(comm) for comm in comms1]
+    sizes2 = [len(comm) for comm in comms2]
+
+    print(f"Cluster sizes in Graph 1: {sizes1}")
+    print(f"Cluster sizes in Graph 2: {sizes2}")
+    
+    return sizes1, sizes2
+
+def compute_jaccard_similarity(comms1, comms2):
+    # Convert to sets
+    comms1_sets = [set(comm) for comm in comms1]
+    comms2_sets = [set(comm) for comm in comms2]
+
+    # Compute Jaccard similarity
+    similarities = []
+    for comm1 in comms1_sets:
+        for comm2 in comms2_sets:
+            intersection = len(comm1 & comm2)
+            union = len(comm1 | comm2)
+            jaccard = intersection / union if union > 0 else 0
+            similarities.append(jaccard)
+    return np.mean(similarities)
+
+def compare_clusters_jaccard(G1, G2):
+    comms1 = list(nx_comm.louvain_communities(G1, seed=42))
+    comms2 = list(nx_comm.louvain_communities(G2, seed=42))
+    jaccard_score = compute_jaccard_similarity(comms1, comms2)
+    return jaccard_score
+
+def compute_topic_similarity(X1, X2, output_path):
+    # Compute similarity matrix
+    similarity_matrix = np.sqrt(X1.toarray()) @ np.sqrt(X2.toarray().T)
+
+    # Save similarity matrix
+    similarity_filename = f"{output_path}/topic_similarity_matrix.csv"
+    pd.DataFrame(similarity_matrix).to_csv(similarity_filename, index=False)
+    print(f"Topic similarity matrix saved to {similarity_filename}")
+
+    # Visualize as heatmap
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(similarity_matrix, cmap="coolwarm", annot=False)
+    plt.title("Topic Similarity Matrix")
+    plt.xlabel("Spanish Topics")
+    plt.ylabel("English Topics")
+    plt.savefig(f"{output_path}/topic_similarity_heatmap.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    print("Topic similarity heatmap saved.")
+
 def main(
     data_path_spanish,
     data_path_english,
@@ -245,8 +314,8 @@ def main(
     dpi=300,
     use_sample=True
 ):
-    df_spanish, G_spanish, X_spanish, positions_spanish = process_and_visualize(data_path_spanish, output_path, "spanish", n_docs, n_edges_per_node, gravity, random_state, dpi, use_sample)
-    df_english, G_english, X_english, positions_english = process_and_visualize(data_path_english, output_path, "english", n_docs, n_edges_per_node, gravity, random_state, dpi, use_sample)
+    df_spanish, G_spanish, X_spanish, positions_spanish, labels = process_and_visualize(data_path_spanish, output_path, "spanish", n_docs, n_edges_per_node, gravity, random_state, dpi, use_sample)
+    df_english, G_english, X_english, positions_english, labels = process_and_visualize(data_path_english, output_path, "english", n_docs, n_edges_per_node, gravity, random_state, dpi, use_sample)
 
     # Find closest documents between English and Spanish
     closest_docs_en_to_es = find_closest_documents(X_english, X_spanish)
@@ -261,7 +330,19 @@ def main(
     # Compare communities
     community_similarity = compare_communities(G_spanish, G_english)
     print(f"Adjusted Rand Index for community comparison: {community_similarity}")
+    
+    # Compute Jaccard similarity between clusters
+    print("Computing Jaccard similarity between clusters")
+    jaccard_score = compare_clusters_jaccard(G_spanish, G_english)
+    print(f"Jaccard similarity between clusters: {jaccard_score}")
 
+    # Analyze cluster composition
+    print("Analyzing cluster composition")
+    analyze_cluster_composition(G_spanish, G_english)
+    print("Computing heatmap of topic similarity")
+    compute_topic_similarity(X_english, X_spanish, output_path)
+    
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Process and visualize network data.")
@@ -270,21 +351,21 @@ if __name__ == "__main__":
         type=str,
         required=False, 
         help="Path to the data file",
-        default="/data/source/poly_rosie_1_10/df_graph_en.parquet"
+        default="/data/source/poly_rosie_1_20/df_graph_en.parquet"
     )
     parser.add_argument(
         '--data_path_spanish',
         type=str,
         required=False, 
         help="Path to the data file",
-        default="/data/source/poly_rosie_1_10/df_graph_es.parquet"
+        default="/data/source/poly_rosie_1_20/df_graph_es.parquet"
     )
     parser.add_argument(
         '--output_path',
         type=str,
         required=False,
         help="Path to save output files",
-        default="/data/source/poly_rosie_1_10"
+        default="/data/source/poly_rosie_1_20"
     )
     parser.add_argument(
         '--n_docs',

@@ -20,12 +20,13 @@ def main():
     
     print("-- -- Training PolyLingual Topic Model")
     # Train PolyLingual Topic Model
-    for k in [15,30,50,100]: #,100,200,300,400,500
-        model = PolylingualTM(
-        #model = LDATM(
+    for k in [15,20,30,50,100,200,300,400,500]: #,100,200,300,400,500
+        #model = PolylingualTM(
+        model = LDATM(
             lang1="EN",
             lang2="ES",
-            model_folder= pathlib.Path(f"/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/29_dec/all/poly_rosie_{str(sample)}_{k}"),
+            #model_folder= pathlib.Path(f"/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/29_dec/all/poly_rosie_{str(sample)}_{k}"),
+            model_folder = pathlib.Path(f"/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/29_dec/LDA/lda_rosie_{str(sample)}_{k}"),
             num_topics=k
         )
         model.train(path_save)
