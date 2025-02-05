@@ -183,3 +183,12 @@ src/qa_system/faiss_indices_50
 src/qa_system/df_info_topic_0.csv
 src/qa_system/df_info_topic_1.csv
 src/qa_system/df_info_topic_2.csv
+*src/qa_system/faiss_indices*
+src/qa_system/first_test_to_complicated_questions
+*df_q*
+src/qa_system/annotate_relvance.ipynb
+src/qa_system/check_different_searches.ipynb
+src/qa_system/check_different_searches.ipynb
+src/qa_system/questions_*
+src/topic_modeling/labels
+src/qa_system/notebooks_test_5feb

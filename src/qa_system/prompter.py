@@ -100,7 +100,7 @@ class Prompter:
     ) -> dict:
         """Caching setup."""
         
-        print("Cache miss: computing results...")
+        #print("Cache miss: computing results...")
         if backend == "openai":
             result, logprobs = Prompter._call_openai_api(
                 template=template,
@@ -163,6 +163,7 @@ class Prompter:
             stream=False,
             temperature=params["temperature"],
             max_tokens=params.get("max_tokens", 1000),
+            seed=params.get("seed", 1234),
             logprobs=True,
             top_logprobs=10,
         )

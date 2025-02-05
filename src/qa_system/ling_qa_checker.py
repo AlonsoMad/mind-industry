@@ -1,13 +1,19 @@
+import pathlib
 import re
 import ast
-import pandas as pd # type: ignore
+import numpy as np
+import pandas as pd
+from scipy import sparse # type: ignore
 import torch
 from prompter import Prompter
-from chromadb.utils.embedding_functions import OllamaEmbeddingFunction # type: ignore
-import chromadb # type: ignore
 from sklearn.svm import OneClassSVM
 from sentence_transformers import SentenceTransformer
 import spacy
+
+def get_doc_top_tpcs(doc_distr, topn=10):
+    sorted_tpc_indices = np.argsort(doc_distr)[::-1]
+    top = sorted_tpc_indices[:topn].tolist()
+    return [(k, doc_distr[k]) for k in top if doc_distr[k] > 0]
 
 def extend_to_full_sentence(
     text: str,
@@ -55,7 +61,7 @@ _4_SYSTEM_PATH = "templates/4_system_prompt.txt"
 ####################
 # LLM MODEL TO USE #
 ####################
-llm_model = "llama3.3:70b" #"llama3:70b-instruct" # llama3.1:8b-instruct-q8_0
+llm_model = "qwen:32b" #"llama3.3:70b" #"llama3:70b-instruct" # llama3.1:8b-instruct-q8_0
 prompter = Prompter(
     model_type=llm_model,
 )
@@ -64,13 +70,26 @@ prompter = Prompter(
 # INDICES PATH #
 ################
 INDICES_PATH = "indices_multi"
-EN_PATH = "df_en.parquet"
-client = chromadb.PersistentClient(path=INDICES_PATH)
-df_en = pd.read_parquet(EN_PATH)
+#client = chromadb.PersistentClient(path=INDICES_PATH)
 LLM_MODEL_EMBEDDINGS = 'mxbai-embed-large:latest'
 BATCH_SIZE = 512
 EMBEDDING_URL = "http://kumo01.tsc.uc3m.es:11434/api/embeddings"
 N_RESULTS = 3
+
+################
+# ENGLISH DATA #
+################
+PATH_SOURCE = pathlib.Path("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/passages/26_jan/df_1.parquet")
+PATH_MODEL = pathlib.Path("/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/26_jan/poly_rosie_1_15")
+print("-- Testing query from English corpus...")
+
+# Filter English documents
+thetas_en = sparse.load_npz(PATH_MODEL / "mallet_output" / "thetas_EN.npz").toarray()
+raw = pd.read_parquet(PATH_SOURCE)
+raw_en = raw[raw.doc_id.str.contains("EN")].copy()
+raw_en["thetas"] = list(thetas_en)
+raw_en["top_k"] = raw_en["thetas"].apply(lambda x: get_doc_top_tpcs(x, topn=10))
+raw_en["main_topic"] = raw_en["thetas"].apply(lambda x: np.argmax(x))
 
 # Initialize embedding function
 #embedding_function = OllamaEmbeddingFunction(
@@ -106,7 +125,7 @@ positive_questions = list(
 ocsvm = OneClassSVM(kernel='rbf', gamma='auto', nu=0.1)
 ocsvm.fit(trf_model.encode(positive_questions))
 
-for topic_id in [0]: #range(num_topics)
+for topic_id in [3]: #range(num_topics)
     
     print("#"*50)
     print(f"--- Processing TOPIC {topic_id} ---")
@@ -115,19 +134,16 @@ for topic_id in [0]: #range(num_topics)
     #################################
     # Load collection for the topic #
     #################################
-    collection = client.get_collection(name=f"docs_{topic_id}_es")
-    collection = client.get_collection(name=f"docs_all_es")
+    #collection = client.get_collection(name=f"docs_{topic_id}_es")
+    #collection = client.get_collection(name=f"docs_all_es")
     
     
     ############################
     # 1. QUESTION GENERATION   #
     ############################
-    # It looks like you have a detailed script that processes passages, generates questions, searches
-    # for answers, and checks for contradictions. Is there anything specific you would like assistance
-    # with in this script?
     processed_passages = 0
     info_topic = []
-    for pass_id, pass_row in df_en.iterrows():
+    for pass_id, pass_row in raw_en.iterrows():
         
         if processed_passages < 200:
         
@@ -170,6 +186,8 @@ for topic_id in [0]: #range(num_topics)
             })
             
             processed_passages += 1
+            
+            import pdb; pdb.set_trace()
 
     # convert to dataframe
     df_info_topic = pd.DataFrame(info_topic)
@@ -206,7 +224,9 @@ for topic_id in [0]: #range(num_topics)
         queries_clean = [qu.strip() for qu in queries.split("[[ ## SEARCH_QUERY ## ]]")[1].split("[[ ## completed ## ]]")[0].strip().split(";") if qu.strip()]
         
         df_info_topic.loc[question_id, 'queries'] = str(queries_clean)
-        
+    df_info_topic.to_xlsx(f"questions_topic_{tpc}.xlsx")
+    import pdb; pdb.set_trace()
+    
     # Retrieve related passages from the collection
     df_info_topic["answers"] = None
     df_info_topic["ids_passages_used"] = None

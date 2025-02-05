@@ -317,21 +317,22 @@ class PolylingualTM(object):
             for tpc in range(1, len(values), 2):
                 topic_id = int(values[tpc])
                 weight = float(values[tpc + 1])
-                if doc_id <= (lang1_nr_docs - 1):
+                if doc_id < lang1_nr_docs:
                     lang1_thetas[doc_id, topic_id] = weight if not np.isnan(weight) else 0
                 else:
-                    lang2_thetas[lang1_nr_docs - doc_id, topic_id] = weight
-                    
+                    lang2_thetas[doc_id - lang1_nr_docs, topic_id] = weight if not np.isnan(weight) else 0
+
         # Normalize the thetas
         lang1_thetas = normalize(lang1_thetas, axis=1, norm='l1')
         lang1_thetas = sparse.csr_matrix(lang1_thetas, copy=True)
-        
+
         lang2_thetas = normalize(lang2_thetas, axis=1, norm='l1')
         lang2_thetas = sparse.csr_matrix(lang2_thetas, copy=True)
-        
+
+        # Calculate mean topic proportions (alphas)
         lang1_alphas = np.asarray(np.mean(lang1_thetas, axis=0)).ravel()
-        lang2_alphas = np.asarray(np.mean(lang1_thetas, axis=0)).ravel()
-        
+        lang2_alphas = np.asarray(np.mean(lang2_thetas, axis=0)).ravel()
+
         # Save the thetas and alphas
         sparse.save_npz(self._mallet_out_folder / f"thetas_{self._lang1}.npz", lang1_thetas)
         sparse.save_npz(self._mallet_out_folder / f"thetas_{self._lang2}.npz", lang2_thetas)
@@ -342,6 +343,7 @@ class PolylingualTM(object):
             self._lang1: lang1_thetas,
             self._lang2: lang2_thetas
         }
+
         
         ########################################################################
         # VOCABS
@@ -359,7 +361,7 @@ class PolylingualTM(object):
                 fin, delim_whitespace=True,
                 names=['docid', 'lang', 'wd_docid','wd_vocabid', 'wd', 'tpc'],
                 header=None, skiprows=1)
-        
+        """
         betas_dict = {}
         for lang, id_lang in tuples_lang:
             # Filter by lang
@@ -396,7 +398,41 @@ class PolylingualTM(object):
                     except (ValueError, TypeError):
                         print(f"Skipping invalid term_freq value: {el[1]}")
             np.save(betas_file, betas)
-            
+        """
+        # Shared vocabulary across all languages
+        vocab_size = len(topic_state_df.wd_vocabid.unique())
+        num_topics = len(topic_state_df.tpc.unique())
+        betas = np.zeros((num_topics, vocab_size))
+        vocab = list(topic_state_df.wd.unique())
+        term_freq = np.zeros((vocab_size,))
+
+        # Group by 'tpc' and 'wd_vocabid' to count occurrences
+        grouped = topic_state_df.groupby(['tpc', 'wd_vocabid']).size().reset_index(name='count')
+
+        # Populate the betas matrix with counts
+        for _, row in grouped.iterrows():
+            tpc = row['tpc']
+            vocab_id = row['wd_vocabid']
+            count = row['count']
+            betas[tpc, vocab_id] = count
+            term_freq[vocab_id] += count
+
+        # Normalize betas
+        betas = normalize(betas, axis=1, norm='l1')
+
+        # Save shared vocab and betas
+        vocab_file = self._mallet_out_folder / "vocab.txt"
+        betas_file = self._mallet_out_folder / "betas.npy"
+        with vocab_file.open('w', encoding='utf8') as fout:
+            for el in zip(vocab, term_freq):
+                term = str(el[0])
+                try:
+                    freq = int(float(el[1]))
+                    fout.write(f"{term}\t{freq}\n")
+                except (ValueError, TypeError):
+                    print(f"Skipping invalid term_freq value: {el[1]}")
+        np.save(betas_file, betas)
+
         ########################################################################
         # KEYS
         ########################################################################
@@ -425,14 +461,18 @@ class PolylingualTM(object):
         # S3
         ########################################################################
         for lang, id_lang in tuples_lang:
-        
+            # Get the thetas for the current language
             thetas = thetas_dict[lang].toarray()
-            betas = betas_dict[lang]
-            documents_texts = self._docs_lang[lang]["lemmas"].apply(lambda x: x.split()).tolist()
-            
+
+            # Load the shared betas (no longer language-specific)
+            betas_file = self._mallet_out_folder / "betas.npy"
+            betas = np.load(betas_file)
+
+            # Load the vocab for mapping words to IDs
             vocab_w2id = {}
             vocab_id2w = {}
-            with open(self._mallet_out_folder / f"vocab_{lang}.txt") as file:
+            vocab_file = self._mallet_out_folder / "vocab.txt"
+            with open(vocab_file) as file:
                 for i, line in enumerate(file):
                     # Strip leading and trailing whitespace
                     stripped_line = line.strip()
@@ -444,20 +484,25 @@ class PolylingualTM(object):
                         # Populate the dictionaries
                         vocab_w2id[wd] = i
                         vocab_id2w[str(i)] = wd
-                        
-            D = len(thetas)
-            K = len(betas)
+
+            # Prepare to compute S3
+            documents_texts = self._docs_lang[lang]["lemmas"].apply(lambda x: x.split()).tolist()
+            D = len(thetas)  # Number of documents
+            K = betas.shape[0]  # Number of topics (shared across languages)
             S3 = np.zeros((D, K))
 
+            # Compute S3 by summing beta probabilities for the document's words
             for doc in range(D):
                 for topic in range(K):
-                    wd_ids = [vocab_w2id[word]
-                            for word in documents_texts[doc] if word in vocab_w2id]
+                    # Get word IDs for the current document
+                    wd_ids = [vocab_w2id[word] for word in documents_texts[doc] if word in vocab_w2id]
+                    # Sum beta values for the document's words under the current topic
                     S3[doc, topic] = np.sum(betas[topic, wd_ids])
-            
+
+            # Convert S3 to a sparse matrix and save
             S3 = sparse.csr_matrix(S3, copy=True)
-                    
             s3_file = self._mallet_out_folder / f"s3_{lang}.npz"
             sparse.save_npz(s3_file, S3)
+
 
         return

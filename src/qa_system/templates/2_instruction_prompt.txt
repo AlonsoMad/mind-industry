@@ -1,18 +1,14 @@
 System message:
 
 Your input fields are:
-1. `ENTITIES` (str): Entities that may be relevant to the question.
-2. `CONTEXT` (str): Provides the necessary context for the question.
-3. `QUESTION` (str)
+1. `CONTEXT` (str): Provides the necessary context for the question.
+2. `QUESTION` (str)
 
 Your output fields are:
 1. `reasoning` (str)
 2. `SEARCH_QUERY` (str): Search queries that will help answer the complex question.
 
 All interactions will be structured in the following way, with the appropriate values filled in.
-
-[[ ## ENTITIES ## ]]
-{{ENTITIES}}
 
 [[ ## CONTEXT ## ]]
 {{CONTEXT}}
@@ -33,9 +29,6 @@ In adhering to this structure, your objective is:
 
 
 User message:
-
-[[ ## ENTITIES ## ]]
-[Children, MIS-C, as young as 1 year old]
 
 [[ ## CONTEXT ## ]]
 Risk factors: Children diagnosed with MIS-C are often between the ages of 5 and 11 years old. But cases are reported among children ages 1 to 15. A few cases have also happened in older kids and in babies.
@@ -58,9 +51,6 @@ Multisystem Inflammatory Syndrome in Children (MIS-C) cases in 1-year-old childr
 
 User message:
 
-[[ ## ENTITIES ## ]]
-[]
-
 [[ ## CONTEXT ## ]]
 Removing the catheter:\\n- In the morning, remove the catheter.\\n- First, take the water out of the balloon. Place a syringe on the colored balloon port and let the water fill the syringe on its own. If water is not draining into the syringe, gently pull back on the syringe stopper. Do not use force.\\n- Once the amount of water inserted the night before is in the syringe, gently pull out the Foley catheter.\\n- Continue the normal cathing scheduled during the day.\\n- Wash the Foley catheter with warm, soapy water. Then, rinse and lay it on a clean towel to dry for later use.
 
@@ -78,9 +68,6 @@ Assistant message:
 [[ ## completed ## ]]
 
 User message:
-
-[[ ## ENTITIES ## ]]
-{entities}
 
 [[ ## CONTEXT ## ]]
 {context}

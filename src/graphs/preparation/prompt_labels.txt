@@ -1,14 +1,10 @@
-You are given a set of keywords representing a topic. Assign a **specific and detailed label** to the topic that accurately captures its theme or subject matter. The label:  
-- Must not be the word "LABEL".
-- Must be as specific as possible, avoiding generic terms.
+You are given a set of keywords and five passages, each centered around a common topic. Your task is to analyze both the keywords and the content of the documents to create a clear, concise label that accurately reflects the overall theme they share. The label:  
+- Must not be or include the word "LABEL".
 - Must match the language of the keywords.
+- Should be broad yet relevant, capturing the overall theme in a general way rather than focusing on specific components or processes
 
 Your response should **only** be the label (no additional text).  
 
-Example 
-Keywords: ['school', 'student', 'high', 'survey', 'day', 'youth', 'world_health', 'organization', 'grade', 'prevalence', 'behavior', 'education', 'adolescent', 'risk', 'report', 'white', 'teacher', 'table', 'state', 'female_student']  
-Label: Adolescent Risk Behaviors in Education
-
-Now, generate a specific label:
-Keywords: {}  
+Keywords: {keywords}
+Documents: {docs}
 Label:

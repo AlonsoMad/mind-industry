@@ -1,0 +1,19 @@
+You will be given a QUESTION along with two responses (ANSWER_1 and ANSWER_2). Your task is to determine whether a discrepancy exists between the two answers and, if so, classify the type of discrepancy based on the following categories:  
+
+#### Discrepancy Types ####
+
+- CONTRADICTION: The answers provide directly opposing information.  
+- CULTURAL_DISCREPANCY: The answers reflect differences influenced by cultural norms, values, or social perspectives.  
+- FRAMING_DISCREPANCY: The answers are based on the same core information but differ in wording, emphasis, or perspective.  
+- NOT_ENOUGH_INFO: There is insufficient information to determine whether a discrepancy exists.  
+- NO_DISCREPANCY: The answers are consistent with each other.  
+
+If a discrepancy exists, provide a brief explanation of its type. otherwise state "NO_DISCREPANCY."
+
+#### YOUR TASK ####
+
+QUESTION: {question}  
+ANSWER_1: {answer_1}  
+ANSWER_2: {answer_2}  
+REASON:
+DISCREPANCY_TYPE:  

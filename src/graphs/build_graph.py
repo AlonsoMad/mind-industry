@@ -15,12 +15,37 @@ import argparse
 from scipy.spatial.distance import jensenshannon
 from sklearn.metrics import adjusted_rand_score
 import json
+from sparse_dot_topn import awesome_cossim_topn
+from kneed import KneeLocator
+
 
 # This is a hack to avoid an execution error depending on the version of networkx. You can simply ignore but not remove it
 if not hasattr(nx, "to_scipy_sparse_matrix"):
     def to_scipy_sparse_matrix(G, dtype='f', format='lil'):
         return nx.to_scipy_sparse_array(G)
 nx.to_scipy_sparse_matrix = to_scipy_sparse_matrix
+
+
+def analyze_weight_distribution(sparse_matrix, output_path):
+    weights = np.sort(sparse_matrix.data)  
+    x = np.linspace(0, 1, len(weights))  
+    y = np.cumsum(weights) / np.sum(weights)  
+    kneedle = KneeLocator(x, y, curve="concave", direction="increasing")
+    elbow_point = kneedle.elbow  
+    elbow_weight = weights[int(elbow_point * len(weights))] if elbow_point is not None else None
+
+    # Graficar la curva acumulativa con el codo marcado
+    plt.figure(figsize=(8, 5))
+    plt.plot(weights, y, label="Distribución acumulativa de pesos")
+    if elbow_weight is not None:
+        plt.axvline(x=elbow_weight, color="red", linestyle="--", label=f"Codo en {elbow_weight:.3f}")
+    plt.xlabel("Pesos de enlaces")
+    plt.ylabel("Proporción acumulativa")
+    plt.title("Detección del codo en la distribución de pesos")
+    plt.legend()
+    plt.savefig(f"{output_path}/weight_distribution.png", dpi=300)
+
+    return elbow_weight
 
 def save_graph_data(G, output_path, filename_prefix):
     # Save nodes
@@ -67,7 +92,7 @@ def visualize_graph(G, output_path, filename, topic_labels, positions, dpi=300):
         G,
         positions,
         labels={node: label for node, label in enumerate(community_labels)},
-        font_size=12,
+        font_size=8,
         font_color='darkblue',
         font_weight='bold',
         bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=0.3')
@@ -108,7 +133,21 @@ def process_and_visualize(data_path, output_path, language, n_docs=200, n_edges_
     X = scsp.csr_matrix(X / np.sum(X, axis=1))
     print(f"-- -- Average row sum: {np.mean(X.sum(axis=1).T)}")
 
-    S = np.sqrt(X) * np.sqrt(X.T)
+    #S = np.sqrt(X) * np.sqrt(X.T)
+    if pathlib.Path(f"{output_path}/similarity_matrix_{language}.npz").is_file():
+        S = scsp.load_npz(f"{output_path}/similarity_matrix_{language}.npz")
+        print("-- -- Similarity matrix loaded")
+    else:
+        print("-- -- Computing similarity matrix")
+        X_sqrt = np.sqrt(X)
+        X_col = X_sqrt.T
+        topn=300
+        lb=0
+        S = awesome_cossim_topn(X_sqrt, X_col, topn, lb)
+        print("-- -- Similarity matrix computed")
+        
+    # save the matrix
+    scsp.save_npz(f"{output_path}/similarity_matrix_{language}.npz", S)
     print("-- -- Number of non-zero components: ", S.nnz)
     nnz_prop = S.nnz / (S.shape[0] * S.shape[1])
     print("-- -- Proportion of non-zero components: ", nnz_prop)
@@ -130,6 +169,7 @@ def process_and_visualize(data_path, output_path, language, n_docs=200, n_edges_
     n_edges = n_nodes * n_edges_per_node
     sorted_similarity_values = np.sort(S.data)[::-1]
     thr = sorted_similarity_values[n_edges]
+    thr = analyze_weight_distribution(S, output_path)
 
     # Apply the threshold to similarity matrix
     S.data[S.data < thr] = 0
@@ -307,15 +347,16 @@ def main(
     data_path_spanish,
     data_path_english,
     output_path,
-    n_docs=200,
+    n_docs=10000,
     n_edges_per_node=10,
-    gravity=50,
+    gravity=30,
     random_state=0,
     dpi=300,
-    use_sample=True
-):
-    df_spanish, G_spanish, X_spanish, positions_spanish, labels = process_and_visualize(data_path_spanish, output_path, "spanish", n_docs, n_edges_per_node, gravity, random_state, dpi, use_sample)
+    use_sample=False
+):  
     df_english, G_english, X_english, positions_english, labels = process_and_visualize(data_path_english, output_path, "english", n_docs, n_edges_per_node, gravity, random_state, dpi, use_sample)
+
+    df_spanish, G_spanish, X_spanish, positions_spanish, labels = process_and_visualize(data_path_spanish, output_path, "spanish", n_docs, n_edges_per_node, gravity, random_state, dpi, use_sample)
 
     # Find closest documents between English and Spanish
     closest_docs_en_to_es = find_closest_documents(X_english, X_spanish)
@@ -351,21 +392,21 @@ if __name__ == "__main__":
         type=str,
         required=False, 
         help="Path to the data file",
-        default="/data/source/poly_rosie_1_20/df_graph_en.parquet"
+        default="/data/source/poly_rosie_1_30/df_graph_en.parquet"
     )
     parser.add_argument(
         '--data_path_spanish',
         type=str,
         required=False, 
         help="Path to the data file",
-        default="/data/source/poly_rosie_1_20/df_graph_es.parquet"
+        default="/data/source/poly_rosie_1_30/df_graph_es.parquet"
     )
     parser.add_argument(
         '--output_path',
         type=str,
         required=False,
         help="Path to save output files",
-        default="/data/source/poly_rosie_1_20"
+        default="/data/source/poly_rosie_1_30"
     )
     parser.add_argument(
         '--n_docs',

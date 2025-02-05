@@ -10,3 +10,5 @@ gensim
 openpyxl
 pyarrow
 scikit-learn
+sparse-dot-topn
+kneed

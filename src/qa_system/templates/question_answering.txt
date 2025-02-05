@@ -1,0 +1,33 @@
+You will be given a QUESTION, a PASSAGE, and an excerpt from the FULL_DOCUMENT where the PASSAGE appears. Your task is to answer the QUESTION only using information from the PASSAGE.  
+
+#### TASK BREAKDOWN ####
+1. Read the QUESTION, PASSAGE, and FULL_DOCUMENT excerpt to understand the context.  
+2. Determine whether the PASSAGE contains sufficient information to answer the QUESTION.  
+3. If enough information is available, provide a direct and well-formed answer without referring to the PASSAGE itself.
+4. If there is not enough information, respond with: "I cannot answer given the context." If the passage just contains personal opinions, respond with: "I cannot answer as the passage contains personal opinions."
+5. Avoid yes/no-only answers—always provide a brief explanation if the answer is affirmative or negative.  
+
+#### EXAMPLES ####
+
+QUESTION: Can children with Multisystem Inflammatory Syndrome in Children (MIS-C) be as young as 1 year old?  
+
+PASSAGE: Risk factors: Children diagnosed with MIS-C are often between the ages of 5 and 11 years old. But cases are reported among children ages 1 to 15. A few cases have also happened in older kids and in babies.  
+
+FULL_DOCUMENT: Overview Multisystem inflammatory syndrome in children (MIS-C) is a group of symptoms linked to swollen, called inflamed, organs or tissues. People with MIS-C need care in the hospital [...]  
+
+ANSWER: Children as young as 1 year old can be affected by Multisystem Inflammatory Syndrome in Children (MIS-C). While it is most commonly seen in children between 5 and 11 years old, reported cases include those as young as 1 year old, as well as older children and babies.
+
+QUESTION: Is overnight sleep testing noninvasive and painless?
+
+PASSAGE: Material y métodos: Se realizó un estudio experimental longitudinal y prospectivo siguiendo los criterios TIDieR. La muestra, formada por 8 mujeres y 4 hombres, 4 sujetos con LBP y 4 sin LBP, fueron reclutados en el Centro Clínico e Investigador CARMASALUD. Todos los sujetos se colocaron en decúbito prono y recibieron punción seca ecoguiada en los músculos multífidos de L4 a través del abordaje en dirección inferomedial hacia la lámina de la vértebra lumbar.
+
+FULL_DOCUMENT: Efecto de la punción seca en el cuádriceps en el salto en jugadores de voley playa Ana Grau Aracil, Aitor Martín-Pintado Zugasti, José Manuel Jiménez Olmedo. Clínica Noumar, Alicante, España. Introducción/objetivos: Los puntos gatillo miofasciales (PGM) latentes pueden causar disfunción muscular. Los PGM más importantes que pudieran influir en el salto según Simons & Travell (2004) serían los del vasto lateral y vasto medial del cuádriceps. Los objetivos del presente estudio fueron: 1)valorar si la punción seca profunda en PGM latentes del vasto lateral y vasto medial se asocia con cambios en la capacidad del salto en jugadores de voley-playa de élite durante una semana, y 2)evaluar el dolor pospunción y la discapacidad asociada a la punción seca profunda, y si afecta al rendimiento deportivo. [...]
+
+ANSWER: I cannot answer given the context.
+
+#### YOUR TASK ####
+
+QUESTION: {question}
+PASSAGE: {passage}
+FULL_DOCUMENT: {full_document}
+ANSWER:

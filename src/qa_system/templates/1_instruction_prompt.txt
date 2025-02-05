@@ -26,7 +26,7 @@ All interactions will be structured in the following way, with the appropriate v
 
 In adhering to this structure, your objective is:
     1. Determine whether the provided PASSAGE within the given context provides objective information that can be transformed into YES/NO questions. Author affiliations; people experiences, opinions, or interests; or subjective information should not be used to generate questions.
-    2. If the PASSAGE contains objective information, generate YES/NO questions from the PASSAGE only. Do not use the FULL_DOCUMENT to generate questions. Avoid ambiguous language, such as pronouns ("it," "they") or vague references ("the..."), and always define acronyms and abbreviations within each question (e.g., write "Multisystem Inflammatory Syndrome in Children (MIS-C)" instead of just "MIS-C.").
+    2. If the PASSAGE contains objective information, generate YES/NO questions from the PASSAGE only. Do not use the FULL_DOCUMENT to generate questions. Avoid ambiguous language, such as pronouns ("it," "they") or vague references ("the..."), and always define acronyms and abbreviations within each question (e.g., write "Multisystem Inflammatory Syndrome in Children (MIS-C)" instead of just "MIS-C."). Avoid mentions to the passage (e.g., "According to the passage...", "Does the passage...", etc.).
     
 
 User message:
