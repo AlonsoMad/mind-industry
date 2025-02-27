@@ -131,7 +131,7 @@ class RosieCorpus(object):
         # PREPROCESSING
         #######################################################################
         if not path_save_en.exists() or not path_save_es.exists() or not path_save.exists():
-
+            print("ENTRA AQUI")
             self._logger.info(
                 f"-- -- Saving intermediate files for preprocessing at {path_save_preproc}...")
 

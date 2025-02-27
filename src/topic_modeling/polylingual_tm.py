@@ -174,8 +174,23 @@ class PolylingualTM(object):
                         fout.write(f"{i} {lang.upper()} {t}\n")
                 self._logger.info(
                     f"-- -- Mallet {corpus_txt_path.as_posix()} created.")
-
+        
         if (self._train_data_folder / f"corpus_{self._lang1}.txt").exists() and (self._train_data_folder / f"corpus_{self._lang2}.txt").exists():
+            
+            # if is second_level we need to add the number of documents in training corpus per language
+            if self._is_second_level:
+                for lang in [self._lang1, self._lang2]:
+                    path = self._train_data_folder / f"corpus_{lang}.txt"
+                    with open((self._train_data_folder / f"corpus_{lang}.txt")) as f:
+                        # save documents for each lang
+                        lines = f.readlines()
+                    print("Processing lang: ", lang)
+                    print(path)
+                    
+                    doc_ids = [line.split(f" {lang} ")[0] for line in lines]
+                    doc_texts = [line.split(f" {lang} ")[1] for line in lines]
+                    self._docs_lang[lang] = pd.DataFrame({"doc_id": doc_ids, "lemmas": doc_texts})   
+                    self._lang_lengths[lang] = sum(1 for line in lines)
             return 2
         else:
             return 0
@@ -298,7 +313,6 @@ class PolylingualTM(object):
         self._logger.info(f"-- -- Getting thetas...")
         # Define file paths
         thetas_file = self._mallet_out_folder / "doc-topics.txt"
-
         # Get number of documents
         lang1_nr_docs = self._lang_lengths[self._lang1]
         lang2_nr_docs = self._lang_lengths[self._lang2]
@@ -308,8 +322,7 @@ class PolylingualTM(object):
         lang2_thetas = np.zeros((lang2_nr_docs, self._num_topics))
 
         # Read and parse the thetas file
-        with open(thetas_file, 'r') as file:
-            lines = file.readlines()[1:]  # Skip the first line
+        with open(thetas_file, 'r') as file: lines = file.readlines()[1:]  # Skip the first line
 
         for line in lines:
             values = line.split()
