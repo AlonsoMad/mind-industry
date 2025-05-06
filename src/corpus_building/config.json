@@ -9,5 +9,11 @@
         "id": "id_preproc",
         "raw_text": "tr_text",
         "title": ""
+    },
+
+    "mind_dft": {
+        "id": "chunk_id",
+        "raw_text": "chunk_text",
+        "title": ""
     }
 }

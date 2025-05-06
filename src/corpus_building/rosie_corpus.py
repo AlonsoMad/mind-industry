@@ -7,270 +7,164 @@ import os
 class RosieCorpus(object):
     def __init__(
         self,
-        path_data_en: str,
-        path_data_es: str,
+        paths_data: dict,  # dict como {'EN': path1, 'ES': path2}
         path_preproc: str = "src/corpus_building/preprocessing/NLPipe/nlpipe.py",
         multilingual: bool = True,
         logger: logging.Logger = None
     ) -> None:
 
-        if logger is not None:
-            self._logger = logger
-        else:
-            self._logger = logging.getLogger(__name__)
-            self._logger.setLevel(logging.INFO)
-            # Add a console handler to output logs to the console
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging.INFO)
-            formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            console_handler.setFormatter(formatter)
-            self._logger.addHandler(console_handler)
+        # Logger setup
+        self._logger = logger or logging.getLogger(__name__)
+        self._logger.setLevel(logging.INFO)
+        if not self._logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setLevel(logging.INFO)
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
+            self._logger.addHandler(handler)
 
-        if not pathlib.Path(path_data_en).exists():
-            raise FileNotFoundError(f"File not found: {path_data_en}")
-        if not pathlib.Path(path_data_es).exists():
-            raise FileNotFoundError(f"File not found: {path_data_es}")
+        if not paths_data:
+            raise ValueError("You must provide at least one path to a data file.")
 
-        # Read data
-        self._logger.info(
-            f"-- -- Reading data from {path_data_en} and {path_data_es}")
-        
-        # English corpus
-        self.df_en = pd.read_parquet(path_data_en)
-        self._logger.info(
-            f"-- -- {len(self.df_en)} elements read from {path_data_en}")
+        self.df_by_lang = {}
+        for lang, path in paths_data.items():
+            lang = lang.upper()
+            if not pathlib.Path(path).exists():
+                raise FileNotFoundError(f"File not found: {path}")
+            self.df_by_lang[lang] = pd.read_parquet(path)
+            self._logger.info(f"-- -- Loaded {len(self.df_by_lang[lang])} rows from {path} for language {lang}")
 
-        # Spanish corpus
-        self.df_es = pd.read_parquet(path_data_es)
-        self._logger.info(
-            f"-- -- {len(self.df_es)} elements read from {path_data_es}")
-
-        # Path to save the preprocessed data
+        self._langs = list(self.df_by_lang.keys())
+        self._multilingual = multilingual # Wether the corpus is going to be used for training a PolylingualTM or LdaTM. If PolylingualTM, both the raw and translated corpus will be preprocessed
         self._path_preproc = pathlib.Path(path_preproc)
-
-        # Wether the corpus is going to be used for training a PolylingualTM or LdaTM. If PolylingualTM, both the raw and translated corpus will be preprocessed
-        self._multilingual = multilingual
-        
-        return
 
     def generate_tm_tr_corpus(
         self,
         path_save: str,
         level: str = "passage",
         sample: float = 1.0,
-        spacy_models=["en_core_web_lg", "es_core_news_lg"]
+        spacy_models=None,
+        column_preproc=None,
+        column_id="passage_id"
     ):
-        """
-        Generate a training corpus for the Polylingual Topic Model LDA Topic Model (2 corpus version) from the Rosie corpus (json files in English and Spanish at either document or passage level).
+        if spacy_models is None:
+            spacy_models = {lang: "en_core_web_lg" if lang == "EN" else "es_core_news_lg" for lang in self._langs}
+        elif isinstance(spacy_models, list):
+            spacy_models = {lang: spacy_models[i] for i, lang in enumerate(self._langs)}
 
-        Parameters
-        ----------
-        path_save : str
-            Path to save the training corpus.
-        level : str
-            Level of the corpus to use, either "document" or "passage".
-        sample : float
-            Fraction of the corpus to use. Default is 1.0.
-        """
-
-        #######################################################################
-        # READ DATA AND CREATE FOLDER STRUCTURE
-        #######################################################################
-        # Check if a corpus for this sample size and level has already been generated. If yes, use it, if not, generate it.
         path_save = pathlib.Path(path_save)
         path_save_preproc = path_save.parent / "preproc"
-        path_save = path_save.parent / pathlib.Path(pathlib.Path(
-            path_save).stem + f"_{sample}.parquet")
+        path_save_final = path_save.parent / f"{path_save.stem}_{sample}.parquet"
 
-        if path_save.is_file():
-            self._logger.info(
-                f"-- Training corpus for sample {sample} and level {level} already exists. Loading from {path_save}...")
-            return path_save
-        else:
-            self._logger.info(
-                f"-- Training corpus for sample {sample} and level {level} does not exist. Generating...")
+        if path_save_final.exists():
+            self._logger.info(f"-- Training corpus already exists at {path_save_final}.")
+            return path_save_final
 
-            # Create intermediate files for preprocessing if they don't exist
-            path_save_preproc.mkdir(exist_ok=True)
-            self._logger.info(
-                f"-- Final preprocessed corpus for sample {sample} will be saved at {path_save}")
-            self._logger.info(
-                f"-- Intermediate files for preprocessing will be saved at {path_save_preproc}")
-            path_save_en = path_save_preproc / f"en_{level}_{sample}.parquet"
-            path_save_es = path_save_preproc / f"es_{level}_{sample}.parquet"
+        path_save_preproc.mkdir(parents=True, exist_ok=True)
 
-        # Get the sample of the corpus
-        self._logger.info(
-            f"-- Generating training corpus at {level} level with a sample of {sample}...")
-        df_en_sample = self.df_en.sample(frac=sample)
-        df_es_sample = self.df_es.sample(frac=sample)
-        self._logger.info(
-            f"-- {len(df_en_sample)} elements in English and {len(df_es_sample)} elements in Spanish.")
+        dfs_sampled = {}
+        for lang in self._langs:
+            df = self.df_by_lang[lang].sample(frac=sample)
+            #df = df[df["lang"] == ("eng_Latn" if lang == "EN" else "spa_Latn")]
+            self._logger.info(f"-- {len(df)} samples for language {lang} after filtering.")
+            dfs_sampled[lang] = df
 
-        # Keep documents from the english corpus that are indeed in english and from the spanish corpus that are indeed in spanish
-        df_en_sample = df_en_sample[df_en_sample["lang"] == "eng_Latn"]
-        df_es_sample = df_es_sample[df_es_sample["lang"] == "spa_Latn"]
-        self._logger.info(
-            f"-- {len(df_en_sample)} elements in English and {len(df_es_sample)} elements in Spanish after filtering by language."
-        )
-
-        tuples_get = [
-            (df_en_sample, "EN", path_save_en),
-            (df_es_sample, "ES", path_save_es)]
-
-        def get_doc_id(lang, index, row, level):
+        def get_doc_id(lang, index, row, column_id="passage_id", column_preproc=None):
+            pas_to_return = "passage" if column_preproc is None else column_preproc
             if level == "passage":
-                return f"{lang}_{index}_{row.passage_id}", "passage"
+                return f"{lang}_{index}_{row[column_id]}", pas_to_return
             elif level == "document":
                 return f"{lang}_{index}", "contents"
             else:
                 raise ValueError(f"Level {level} not recognized.")
 
-        #######################################################################
-        # PREPROCESSING
-        #######################################################################
-        if not path_save_en.exists() or not path_save_es.exists() or not path_save.exists():
-            print("ENTRA AQUI")
-            self._logger.info(
-                f"-- -- Saving intermediate files for preprocessing at {path_save_preproc}...")
+        processed_dfs = []
+        for lang in self._langs:
+            df = dfs_sampled[lang]
+            other_lang = [l for l in self._langs if l != lang][0] if self._multilingual else None
 
-            dicts_to_df = []
-            for id, (df, lang, path_save_) in enumerate(tuples_get):
-                self._logger.info(
-                    f"-- -- Generating training corpus at {level} level...")
-                doc_ids, texts, tr_texts = [], [], []
-                for index, row in df.iterrows():
-                    doc_id, text_col = get_doc_id(lang, index, row, level)
-                    doc_ids.append(doc_id)
-                    texts.append(row[text_col])
-                    if self._multilingual:
-                        tr_texts.append(row["tr_text"])
-
+            doc_ids, texts, tr_texts = [], [], []
+            for index, row in df.iterrows():
+                doc_id, text_col = get_doc_id(lang, index, row, column_id, column_preproc)
+                doc_ids.append(doc_id)
+                texts.append(row[text_col])
                 if self._multilingual:
-                    new_df = pd.DataFrame({
-                        "id_preproc": range(len(doc_ids)),
-                        "doc_id": doc_ids,
-                        "text": texts,
-                        "lang": [lang] * len(doc_ids),
-                        "tr_text": tr_texts
-                    })
-                else:
-                    new_df = pd.DataFrame({
-                        "id_preproc": range(len(doc_ids)),
-                        "doc_id": doc_ids,
-                        "text": texts,
-                        "lang": [lang] * len(doc_ids)
-                    })
+                    tr_texts.append(row["tr_text"])
 
-                if path_save_en.exists() and path_save_es.exists():
+            new_df = pd.DataFrame({
+                "id_preproc": range(len(doc_ids)),
+                "doc_id": doc_ids,
+                "text": texts,
+                "lang": [lang] * len(doc_ids)
+            })
 
-                    self._logger.info(
-                        f"-- -- Intermediate files for preprocessing already exist. Loading from {path_save_}...")
-                else:
-                    # Save intermediate files for preprocessing
-                    path_save_text = \
-                        path_save_.parent / f"{lang}_{level}_text.parquet"
-                    new_df.to_parquet(path_save_text)
-                    self._logger.info(
-                        f"-- -- Saving intermediate files for preprocessing at {path_save_text}...")
-
-                    if self._multilingual:
-                        path_save_tr_text = \
-                            path_save_.parent / \
-                            f"{lang}_{level}_tr_text.parquet"
-                        new_df.to_parquet(path_save_tr_text)
-                        self._logger.info(
-                            f"-- -- Saving intermediate files for preprocessing of translated text at {path_save_tr_text}...")
-
-                    # Carry out preprocessing for "text"
-                    self._logger.info(
-                        f"-- -- Preprocessing {lang} corpus in original language...")
-                    self.preproc_tr_corpus(
-                        source_path=path_save_text, lang=lang, spacy_model=spacy_models[id],
-                        column_preproc="text")
-
-                    if self._multilingual:
-                        # Carry out preprocessing for "tr_text"
-                        self._logger.info(
-                            f"-- -- Preprocessing {lang} corpus in translated language...")
-                        if lang == "EN":
-                            lang_tr = "ES"
-                        elif lang == "ES":
-                            lang_tr = "EN"
-                        if id == 0:
-                            spacy_model_tr = spacy_models[1]
-                        elif id == 1:
-                            spacy_model_tr = spacy_models[0]
-                        self.preproc_tr_corpus(
-                            source_path=path_save_tr_text, lang=lang_tr, spacy_model=spacy_model_tr,
-                            column_preproc="tr_text")
-
-                        # Merge preprocessed data and save it
-                        self._logger.info(
-                            f"-- -- Merging preprocessed {lang} corpus with preprocessed translated data and saving at {path_save_.as_posix()}...")
-                        df_preproc_text = pd.read_parquet(path_save_text)
-                        df_preproc_tr_text = pd.read_parquet(path_save_tr_text).rename(columns={
-                            "lemmas": "lemmas_tr",
-                            "raw_text": "text_tr"})[["id_preproc", "lemmas_tr", "text_tr"]]
-                        df_preproc_with_tr = df_preproc_text.merge(
-                            df_preproc_tr_text, how="left", on="id_preproc")
-                        df_preproc_with_tr.to_parquet(path_save_)
-
-                    else:
-                        df_preproc_text = pd.read_parquet(path_save_text)
-                        df_preproc_text.to_parquet(path_save_)
-
-                # Get preprocessed dataframe and append to list
-                self._logger.info(
-                    f"-- -- Loading preprocessed {lang} corpus...")
-                df_preproc = pd.read_parquet(path_save_)
-                self._logger.info(
-                    f"-- -- Merging {lang} corpus with preprocessed data...")
-                df_preproc_with_all_info = df_preproc.merge(
-                    new_df, how="left", on="id_preproc")
-                self._logger.info(
-                    f"-- -- {len(df_preproc_with_all_info)} elements in {lang} corpus.")
-                dicts_to_df.append(df_preproc_with_all_info)
-
-            self._logger.info(f"-- -- Merging both corpora...")
             if self._multilingual:
-                final_df = pd.concat(dicts_to_df)[
-                    ['id_preproc', 'lemmas', 'lemmas_tr', 'doc_id', 'text', 'text_tr', 'lang']]
+                new_df["tr_text"] = tr_texts
+
+            path_text = path_save_preproc / f"{lang}_{level}_text.parquet"
+            path_tr_text = path_save_preproc / f"{lang}_{level}_tr_text.parquet"
+
+            new_df.to_parquet(path_text)
+            self._logger.info(f"-- Saved intermediate text to {path_text}")
+
+            if self._multilingual:
+                new_df.to_parquet(path_tr_text)
+                self._logger.info(f"-- Saved intermediate tr_text to {path_tr_text}")
+
+            # Preprocess original language
+            self.preproc_tr_corpus(
+                source_path=path_text, lang=lang, spacy_model=spacy_models[lang], column_preproc="text"
+            )
+
+            if self._multilingual:
+                lang_tr = other_lang
+                spacy_model_tr = spacy_models[lang_tr]
+                self.preproc_tr_corpus(
+                    source_path=path_tr_text, lang=lang_tr, spacy_model=spacy_model_tr, column_preproc="tr_text"
+                )
+
+                df_preproc_text = pd.read_parquet(path_text)
+                df_preproc_tr_text = pd.read_parquet(path_tr_text).rename(columns={
+                    "lemmas": "lemmas_tr",
+                    "raw_text": "text_tr"
+                })[["id_preproc", "lemmas_tr", "text_tr"]]
+
+                df_preproc_combined = df_preproc_text.merge(df_preproc_tr_text, on="id_preproc", how="left")
+                df_preproc_combined.to_parquet(path_save_preproc / f"{lang}_{level}_{sample}.parquet")
             else:
-                final_df = pd.concat(dicts_to_df)[
-                    ['id_preproc', 'lemmas', 'doc_id', 'text', 'lang']]
-            self._logger.info(
-                f"-- -- Showing some samples of the final dataframe...")
-            self._logger.info(f"{final_df.head()}")
-            self._logger.info(
-                f"-- -- Training corpus generated. Nr elements is {len(dicts_to_df[0])} in {tuples_get[0][1]} and {len(dicts_to_df[1])} in {tuples_get[1][1]}. TOTAL: {len(final_df)}. Saving at {path_save}...")
+                df_preproc_combined = pd.read_parquet(path_text)
+                df_preproc_combined.to_parquet(path_save_preproc / f"{lang}_{level}_{sample}.parquet")
 
-            try:
-                final_df.to_parquet(path_save)
-            except:
-                self._logger.error(
-                    f"-- -- Training corpus could not be saved at {path_save}.")
-                return
+            df_merged = df_preproc_combined.merge(new_df, on="id_preproc", how="left")
+            processed_dfs.append(df_merged)
+
+        self._logger.info(f"-- Merging all processed corpora...")
+        if self._multilingual:
+            final_df = pd.concat(processed_dfs)[
+                ["id_preproc", "lemmas", "lemmas_tr", "doc_id", "text", "text_tr", "lang"]
+            ]
         else:
-            self._logger.info(
-                f"-- Intermediate files for preprocessing already exist. Loading from {path_save}...")
+            final_df = pd.concat(processed_dfs)[
+                ["id_preproc", "lemmas", "doc_id", "text", "lang"]
+            ]
 
-        return path_save
+        final_df.to_parquet(path_save_final)
+        self._logger.info(f"-- Final training corpus saved at {path_save_final} with {len(final_df)} entries.")
+        return path_save_final
 
     def preproc_tr_corpus(
         self,
         source_path,
         lang,
         spacy_model,
-        column_preproc
+        column_preproc,
     ):
 
         if column_preproc == "text":
             source_type = "rosie"
         elif column_preproc == "tr_text":
             source_type = "rosie_tr"
-
+        
         path_python_str = "python3 "  # f"{path_python.as_posix()} "
         path_nlpipe = os.getcwd() / self._path_preproc
 

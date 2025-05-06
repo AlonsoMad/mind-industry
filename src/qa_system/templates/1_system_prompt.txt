@@ -1,1 +1,0 @@
-You are a helpful AI assistant tasked with dividing a passage into a set of YES/NO questions that can be answered by the passage given a context.

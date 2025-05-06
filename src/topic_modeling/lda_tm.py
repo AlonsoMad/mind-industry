@@ -30,8 +30,7 @@ import warnings
 class LDATM(object):
     def __init__(
         self,
-        lang1: str,
-        lang2: str,
+        langs: list,
         model_folder: str,
         num_topics: int = 35,
         alpha: float = 5.0,
@@ -48,10 +47,8 @@ class LDATM(object):
 
         Parameters
         ----------
-        lang1 : str
-            The first language in the corpus.
-        lang2 : str
-            The second language in the corpus.
+        langs : list
+            List of languages to be modeled.
         model_folder : str
             The folder where all information related to the model will be stored.
         num_topics : int
@@ -72,8 +69,7 @@ class LDATM(object):
             The path to the Mallet executable.
 
         """
-        self._lang1 = lang1
-        self._lang2 = lang2
+        self._langs = langs
         self._num_topics = num_topics
         self._alpha = alpha
         self._optimize_interval = optimize_interval
@@ -89,7 +85,7 @@ class LDATM(object):
             self._logger = logger
         else:
             logging.basicConfig(level='INFO')
-            self._logger = logging.getLogger('PolylingualTM')
+            self._logger = logging.getLogger('LDATM')
             # Add a console handler to output logs to the console
             console_handler = logging.StreamHandler()
             # Set handler level to INFO or lower
@@ -115,104 +111,48 @@ class LDATM(object):
 
         return
 
-    def _create_mallet_input_corpus(
-        self,
-        df_path: pathlib.Path,
-    ) -> None:
-        """
-        Given a corpus of documents, create the input files for Mallet. Each language is treated as a separate corpus, i.e., creates 'corpus_lang1.txt' and 'corpus_lang2.txt' files.
-
-        Parameters
-        ----------
-        df_path : pd.DataFrame
-            Path to a dataframe with the following columns: `doc_id`, `lang`, and `raw_text`.
-
-        Returns
-        -------
-        status : int
-            Status of the operation:
-            - 2 if the operation was successful.
-            - 1 if the input format is incorrect.
-            - 0 if the operation failed.
-        """
-
-        # Create 'train_data' folder
+    def _create_mallet_input_corpus(self, df_path: pathlib.Path) -> int:
         self._train_data_folder = self._model_folder / "train_data"
         self._train_data_folder.mkdir(exist_ok=True)
 
-        # Read the dataframe and create the input files
         df = pd.read_parquet(df_path)
-        for lang in [self._lang1, self._lang2]:
-            df_lang = df.copy()
-            # Filter the dataframe by language
-            df_lang = df_lang[df_lang.lang == lang]
 
+        for lang in self._langs:
+            df_lang = df[df.lang == lang]
             if df_lang.empty:
-                self._logger.error(
-                    f"-- -- No documents found for language {lang}.")
+                self._logger.error(f"-- -- No documents found for language {lang}.")
                 return 1
 
             corpus_txt_path = self._train_data_folder / f"corpus_{lang}.txt"
-
-            self._logger.info(
-                f"-- -- Creating Mallet {corpus_txt_path.as_posix()}...")
+            self._logger.info(f"-- -- Creating Mallet {corpus_txt_path}...")
 
             with corpus_txt_path.open("w", encoding="utf8") as fout:
                 for i, t in zip(df_lang.doc_id, df_lang.lemmas):
                     fout.write(f"{i} 0 {t}\n")
 
-            self._logger.info(
-                f"-- -- Mallet {corpus_txt_path.as_posix()} created.")
+        return 2 if all((self._train_data_folder / f"corpus_{lang}.txt").exists() for lang in self._langs) else 0
 
-        if (self._train_data_folder / "corpus_lang1.txt").exists() and (self._train_data_folder / "corpus_lang2.txt").exists():
-            return 2
-        else:
-            return 0
 
-    def _prepare_mallet_input(
-        self,
-    ) -> int:
-        """Assuming there is a 'corpus_es.txt' and 'corpus_en.txt' files in the model folder, prepare the input files for the LDA Mallet, i.e., generates the files 'corpus_lang1.mallet' and 'corpus_lang2.mallet'.
-
-        Returns
-        -------
-        status : int
-            Status of the operation:
-            - 2 if the operation was successful.
-            - 1 if the input files are missing.
-            - 0 if the operation failed.
-        """
-
-        # Create folder for saving Mallet input files
+    def _prepare_mallet_input(self) -> int:
         self._mallet_input_folder = self._model_folder / "mallet_input"
         self._mallet_input_folder.mkdir(exist_ok=True)
 
-        # Transform training data into the format expected by Mallet
-        self._logger.info(f"-- -- Importing data to Mallet...")
-        for lang in [self._lang1, self._lang2]:
+        for lang in self._langs:
             corpus_txt_path = self._train_data_folder / f"corpus_{lang}.txt"
             corpus_mallet = self._mallet_input_folder / f"corpus_{lang}.mallet"
 
-            cmd = self._mallet_path.as_posix() + \
-                ' import-file --preserve-case --keep-sequence ' + \
-                '--remove-stopwords --token-regex "' + self._token_regexp + \
-                '" --print-output --input %s --output %s'
-            cmd = cmd % (corpus_txt_path, corpus_mallet)
+            cmd = f'{self._mallet_path} import-file --preserve-case --keep-sequence --remove-stopwords ' \
+                f'--token-regex "{self._token_regexp}" --print-output --input {corpus_txt_path} --output {corpus_mallet}'
 
             try:
                 self._logger.info(f'-- -- Running command {cmd}')
                 check_output(args=cmd, shell=True)
             except:
-                self._logger.error(
-                    '-- -- Mallet failed to import data. Revise command')
+                self._logger.error('-- -- Mallet failed to import data. Revise command')
                 return 0
 
-            self._logger.info(f"-- -- Data imported to Mallet.")
+        return 2 if all((self._mallet_input_folder / f"corpus_{lang}.mallet").exists() for lang in self._langs) else 1
 
-        if (self._mallet_input_folder / "corpus_lang1.mallet").exists() and (self._mallet_input_folder / "corpus_lang2.mallet").exists():
-            return 2
-        else:
-            return 1
 
     def train(
         self,
@@ -240,7 +180,7 @@ class LDATM(object):
         self._mallet_out_folder.mkdir(exist_ok=True)
 
         # Actual training of the model
-        for lang in [self._lang1, self._lang2]:
+        for lang in self._langs:
 
             # Get the training data
             mallet_input_file = \

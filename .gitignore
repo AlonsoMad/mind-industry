@@ -197,3 +197,7 @@ src/qa_system/dplace-data
 figures
 src/qa_system/data_arr_feb
 src/qa_system/INDICES/
+.venv_fever
+cache
+.vscode
+_old_dont_remove
