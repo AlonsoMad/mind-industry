@@ -1,3 +1,4 @@
+import ast
 import logging
 from pathlib import Path
 import pandas as pd # type: ignore
@@ -110,12 +111,43 @@ class Corpus:
             df_topic = df_topic.sample(n=sample_size, random_state=42).reset_index(drop=True)
 
         self._logger.info(f"Found {len(df_topic)} chunks for topic {topic_id}")
+        
         for _, row in df_topic.iterrows():
+            metadata = {"top_k": row["top_k"]}
+
+            if "questions" in row and pd.notna(row["questions"]):
+                q_raw = row["questions"]
+                if isinstance(q_raw, str):
+                    try:
+                        questions = ast.literal_eval(q_raw)
+                    except:
+                        questions = [q.strip() for q in q_raw.split(";") if q.strip()]
+                elif isinstance(q_raw, list):
+                    questions = q_raw
+                else:
+                    questions = [q_raw]
+                metadata["questions"] = questions
+
+            if "answers" in row and pd.notna(row["answers"]):
+                a_raw = row["answers"]
+                try:
+                    if isinstance(a_raw, str):
+                        answers = ast.literal_eval(a_raw)  
+                    else:
+                        answers = a_raw
+                except:
+                    answers = []
+
+                if isinstance(answers, list) and "questions" in metadata:
+                    metadata["answers"] = dict(zip(metadata["questions"], answers))
+                else:
+                    raise ValueError(f"Answers are not a list or do not match the questions: {answers}")
+
             yield Chunk(
                 id=row["doc_id"],
                 text=row["text"],
                 full_doc=row.get("full_doc", ""),
-                metadata={"top_k": row["top_k"]}
+                metadata=metadata
             )
 
     def retrieve_relevant_chunks(self, query: str, theta_query=None):

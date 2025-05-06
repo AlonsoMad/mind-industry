@@ -69,7 +69,8 @@ llm:
       "llama3.2",
       "llama3.1:8b-instruct-q8_0",
       "qwen:32b",
-      llama3.3:70b
+      "llama3.3:70b",
+      "qwen2.5:7b-instruct"
     }
     host: http://kumo01.tsc.uc3m.es:11434
   vllm:

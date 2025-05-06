@@ -13,22 +13,6 @@ class MIND:
     """
     MIND pipeline class.
     
-    =========================
-    for k in topics:
-        for c_s in source_corpus.chunks_with_topic(k):
-            questions = generate_yes_no_questions(c_s)
-            
-            for p in questions:
-                subqueries = generate_subqueries(p)
-                
-                for subq in subqueries:
-                    c_t_chunks = retrieve_relevant_chunks(subq, target_corpus)
-                    
-                    for c_t in c_t_chunks:
-                        a_s = generate_answer(c_o, subq)
-                        a_t = generate_answer(c_t, subq)
-                        contradiction = check_contradiction(a_o, a_t, p)
-
     =========================                
     All components are build based on the Prompter class. Each component has its own template and is responsible for generating the input for the next component.
     """
@@ -129,21 +113,39 @@ class MIND:
             self._process_chunk(chunk, topic)
 
     def _process_chunk(self, chunk, topic):
-        print(f"Processing chunk {chunk.id} for topic {topic}")
-        questions, _ = self._generate_questions(chunk)
+        self._logger.info(f"Processing chunk {chunk.id} for topic {topic}")
+        
+        questions = chunk.metadata.get("questions")
+        
+        if questions:
+            self._logger.info(f"Using preloaded questions from chunk {chunk.id}")
+        else:
+            questions, _ = self._generate_questions(chunk)
         if questions == []:
             print(f"{Fore.RED}No questions generated for chunk {chunk.id}{Style.RESET_ALL}")
             return
-        print(f"Generated questions: {questions}\n")
+        self._logger.info(f"Generated questions: {questions}\n")
         for question in questions:
             self._process_question(question, chunk, topic)
 
     def _process_question(self, question, source_chunk, topic):
+        # generate subqueries
         subqueries, _ = self._generate_subqueries(question, source_chunk)
-        print(f"Generated subqueries: {subqueries}\n")
-        a_s, _ = self._generate_answer(question, source_chunk)
-        print(f"Generated original answer: {a_s}\n")
+        self._logger.info(f"Generated subqueries: {subqueries}\n")
+        
+        # generate answer in source language
+        a_s = None
+        answers = source_chunk.metadata.get("answers")
+        if answers and isinstance(answers, dict):
+            a_s = answers.get(question)
+        
+        if not a_s:
+            a_s, _ = self._generate_answer(question, source_chunk)
+            self._logger.info(f"Generated original answer: {a_s}\n")
+        else:
+            self._logger.info(f"Using preloaded answer from chunk {source_chunk.id}: {a_s}\n")
 
+        # generate answer in target language for each subquery and target chunk
         for subquery in subqueries:
             target_chunks = self.target_corpus.retrieve_relevant_chunks(subquery, source_chunk.metadata["top_k"])
             for target_chunk in target_chunks:

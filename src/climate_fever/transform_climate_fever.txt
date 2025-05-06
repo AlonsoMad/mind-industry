@@ -2,7 +2,7 @@ You will receive a CLAIM, EVIDENCE, and a LABEL indicating whether the EVIDENCE 
 
 #### TASK BREAKDOWN ####  
 1. Rewrite the CLAIM as a YES/NO question.
-2. Answer the question with "Yes", "No", or "I cannot answer the question given the information".
+2. Answer the question with "Yes", "No", or "I cannot answer the question given context".
 3. Give a brief justification that does not refer to "the claim", "the evidence", or the existence of any supporting or refuting material — the output should stand alone as a natural question-answer pair.
 
 #### EXAMPLES ####  
