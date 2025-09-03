@@ -2,13 +2,14 @@ import logging
 import pathlib
 from typing import Optional, List, Tuple
 
+import numpy as np
 import pandas as pd
 import gzip
 from scipy import sparse
 
 from src.topic_modeling.polylingual_tm import PolylingualTM
 from src.utils.utils import init_logger
-
+from sklearn.preprocessing import normalize
 
 class HierarchicalTM(object):
     """
@@ -31,7 +32,8 @@ class HierarchicalTM(object):
         path_logs : pathlib.Path, optional
             Path for saving logs.
         """
-        self._logger = logger if logger else init_logger(__name__, path_logs)
+        #self._logger = logger if logger else init_logger(__name__, path_logs)
+        self._logger = logging.getLogger('PolylingualTM')
 
     def create_submodel_tr_corpus(
         self,
@@ -218,20 +220,37 @@ class HierarchicalTM(object):
                 'id_top': pd.Series(dtype='int'),
                 'lemmas': pd.Series(dtype='str')
             })
+            
+            print(dfs_save[lang])
+        
+        thetas_file = father_model_path / "mallet_output/doc-topics.txt"
+        with open(thetas_file, 'r') as file: lines = file.readlines()[1:]  # Skip the first line
+        father_k = sparse.load_npz(father_model_path / f"mallet_output/thetas_{lang}.npz").toarray().shape[1]
+        
+        thetas = np.zeros((len(lines), father_k))
+        
+        for line in lines:
+            values = line.split()
+            doc_id = int(values[0])
+            for tpc in range(1, len(values), 2):
+                topic_id = int(values[tpc])
+                weight = float(values[tpc + 1])
+                thetas[doc_id, topic_id] = weight
+        thetas = normalize(thetas, axis=1, norm='l1')
+            
+        # Keep documents that have a proportion larger than thr
+        doc_ids_to_keep = [idx for idx in range(thetas.shape[0]) if thetas[idx, exp_tpc] > thr]
         
         for lang in langs:
-            thetas = sparse.load_npz(father_model_path / f"mallet_output/thetas_{lang}.npz").toarray()
+            df_lang = langs_corpus[lang].copy()
+            dfs_save[lang] = pd.concat(
+                [dfs_save[lang],
+                df_lang[df_lang["id_top"].isin(doc_ids_to_keep)]],
+                ignore_index=True
+            )
             
-            # Keep documents from lang_id that have a proportion larger than thr
-            doc_ids_to_keep = [idx for idx in range(thetas.shape[0]) if thetas[idx, exp_tpc] > thr]
-            
-            for lang in langs:
-                df_lang = langs_corpus[lang].copy()
-                dfs_save[lang] = pd.concat(
-                    [dfs_save[lang],
-                    df_lang[df_lang["id_top"].isin(doc_ids_to_keep)]],
-                    ignore_index=True
-                )
+            print(df_lang)
+                   
         for lang in langs:
             dfs_save[lang]['2mallet'] = dfs_save[lang]['id_top'].astype(str) + f" {lang} " + dfs_save[lang]['lemmas']
             sub_corpus_file = submodel_path / f"train_data/corpus_{lang}.txt"
