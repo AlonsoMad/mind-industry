@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Union
+from dotenv import dotenv_values
 
 import pandas as pd
 import torch
@@ -23,8 +24,8 @@ class MIND:
     def __init__(
         self,
         llm_model: str,
-        source_corpus: Union[Corpus, dict],
-        target_corpus: Union[Corpus, dict],
+        source_corpus: Union[Corpus, dict] = None,
+        target_corpus: Union[Corpus, dict] = None,
         retrieval_method: str = "TB-ENN",
         multilingual: bool = True,
         lang: str = "en",
@@ -32,6 +33,7 @@ class MIND:
         logger=None,
         dry_run: bool = False,
         do_check_entailement: bool = False,
+        env_path = None,
     ):
         self._logger = logger if logger else init_logger(config_path, __name__)
         
@@ -39,13 +41,21 @@ class MIND:
         self.retrieval_method = retrieval_method
         
         self.config = load_yaml_config_file(config_path, "mind", self._logger)
-        self._embedding_model = self.config.get("embedding_models", {}).get("multilingual") if multilingual else self.config.get("embedding_models", {}).get("monolingual").get(lang, "sentence-transformers/all-MiniLM-L6-v2")
+        self._embedding_model = self.config.get("embedding_models", {}).get("multilingual") if multilingual else self.config.get("embedding_models", {}).get("monolingual").get(lang, "BAAI/bge-m3")
         self.cannot_answer_dft = self.config.get("cannot_answer_dft", "I cannot answer the question given the context.")
         self.cannot_answer_personal = self.config.get("cannot_answer_personal", "I cannot answer the question since the context only contains personal opinions.")
+
+        env_path = env_path or self.config.get("llm", {}).get("gpt", {}).get("env_path")
+
+        try:
+            open_api_key = dotenv_values(env_path).get("OPEN_API_KEY", None)
+        except Exception as e:
+            self._logger.error(f"Failed to load environment variables: {e}")
 
         self._prompter = Prompter(
             model_type=llm_model,
             config_path=config_path,
+            openai_key=open_api_key
         )
         
         self._prompter_answer = Prompter(
@@ -75,8 +85,10 @@ class MIND:
                 self._logger.error(f"Failed to load NLI model/tokenizer: {e}")
                 self._nli_tokenizer, self._nli_model = None, None
 
-        self.source_corpus = self._init_corpus(source_corpus, is_target=False)
-        self.target_corpus = self._init_corpus(target_corpus, is_target=True)
+        if source_corpus:
+            self.source_corpus = self._init_corpus(source_corpus, is_target=False)
+        if target_corpus:
+            self.target_corpus = self._init_corpus(target_corpus, is_target=True)
 
         if self.dry_run:
             self._logger.warning("Dry run mode is ON — no LLM calls will be made.")
@@ -202,7 +214,7 @@ class MIND:
             for target_chunk in target_chunks:
                 self._evaluate_pair(question, a_s, source_chunk, target_chunk, topic, subquery, path_save)
 
-    def _evaluate_pair(self, question, a_s, source_chunk, target_chunk, topic, subquery, path_save):
+    def _evaluate_pair(self, question, a_s, source_chunk, target_chunk, topic, subquery, path_save=None, save=True):
         is_relevant, _ = self._check_is_relevant(question, target_chunk)
 
         if is_relevant == 0:
@@ -231,45 +243,45 @@ class MIND:
             reason
         )
         
-        #if discrepancy_label == "CONTRADICTION":
-        #    import pdb; pdb.set_trace()
-        
-        self._print_result(discrepancy_label, question, a_s, a_t, reason, target_chunk.text, source_chunk.text)
-        self.results.append({
-            "topic": topic,
-            "question": question,
-            "subquery": subquery,
-            "source_chunk": source_chunk.text,
-            "target_chunk": target_chunk.text,
-            "a_s": a_s,
-            "a_t": a_t,
-            "label": discrepancy_label,
-            "reason": reason,
-            # add original metadata
-            "source_chunk_id": getattr(source_chunk, "id", None),
-            "target_chunk_id": getattr(target_chunk, "id", None),
-        })
-        # save results every 10 entries
-        if len(self.results) % 10 == 0:
+        if save and path_save is not None:
+            self._print_result(discrepancy_label, question, a_s, a_t, reason, target_chunk.text, source_chunk.text)
+            self.results.append({
+                "topic": topic,
+                "question": question,
+                "subquery": subquery,
+                "source_chunk": source_chunk.text,
+                "target_chunk": target_chunk.text,
+                "a_s": a_s,
+                "a_t": a_t,
+                "label": discrepancy_label,
+                "reason": reason,
+                # add original metadata
+                "source_chunk_id": getattr(source_chunk, "id", None),
+                "target_chunk_id": getattr(target_chunk, "id", None),
+            })
+            # save results every 10 entries
+            if len(self.results) % 10 == 0:
 
-            checkpoint = len(self.results) // 10
-            results_checkpoint_path = Path(f"{path_save}/results_topic_{topic}_{checkpoint}.parquet")
-            discarded_checkpoint_path = Path(f"{path_save}/discarded_topic_{topic}_{checkpoint}.parquet")
+                checkpoint = len(self.results) // 10
+                results_checkpoint_path = Path(f"{path_save}/results_topic_{topic}_{checkpoint}.parquet")
+                discarded_checkpoint_path = Path(f"{path_save}/discarded_topic_{topic}_{checkpoint}.parquet")
 
-            df = pd.DataFrame(self.results)
-            df_discarded = pd.DataFrame(self.discarded)
-            
-            df.to_parquet(results_checkpoint_path, index=False)
-            df_discarded.to_parquet(discarded_checkpoint_path, index=False)
-            
-            # delete previous checkpoints
-            old_results_checkpoint_path = Path(f"{path_save}/results_topic_{topic}_{checkpoint-1}.parquet")
-            old_discarded_checkpoint_path = Path(f"{path_save}/discarded_topic_{topic}_{checkpoint-1}.parquet")
-            
-            if old_results_checkpoint_path.exists():
-                old_results_checkpoint_path.unlink()
-            if old_discarded_checkpoint_path.exists():
-                old_discarded_checkpoint_path.unlink()
+                df = pd.DataFrame(self.results)
+                df_discarded = pd.DataFrame(self.discarded)
+                
+                df.to_parquet(results_checkpoint_path, index=False)
+                df_discarded.to_parquet(discarded_checkpoint_path, index=False)
+                
+                # delete previous checkpoints
+                old_results_checkpoint_path = Path(f"{path_save}/results_topic_{topic}_{checkpoint-1}.parquet")
+                old_discarded_checkpoint_path = Path(f"{path_save}/discarded_topic_{topic}_{checkpoint-1}.parquet")
+                
+                if old_results_checkpoint_path.exists():
+                    old_results_checkpoint_path.unlink()
+                if old_discarded_checkpoint_path.exists():
+                    old_discarded_checkpoint_path.unlink()
+                    
+        return a_t, discrepancy_label, reason
 
     def _print_result(self, label, question, a_s, a_t, reason, target_text, source_text):
         color_map = {

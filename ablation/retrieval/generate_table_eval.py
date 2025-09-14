@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import ast
 import argparse
+import ast
 import math
 from os import listdir
-import warnings
-from typing import Iterable, List, Dict, Tuple, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -21,15 +20,23 @@ METHOD_MAPPING: Dict[str, str] = {
     "1": "ENN",
     "2": "ANN",
     "3_weighted": "TB-ENN-W",
+    "3_weighted_dynamic": "TB-ENN-W-D",
     "3_unweighted": "TB-ENN",
+    "3_unweighted_dynamic": "TB-ENN-D",
     "4_weighted": "TB-ANN-W",
+    "4_weighted_dynamic": "TB-ANN-W-D",
     "4_unweighted": "TB-ANN",
+    "4_unweighted_dynamic": "TB-ANN-D",
     "time_1": "ENN",
     "time_2": "ANN",
     "time_3_weighted": "TB-ENN-W",
+    "time_3_weighted_dynamic": "TB-ENN-W-D",
     "time_3_unweighted": "TB-ENN",
+    "time_3_unweighted_dynamic": "TB-ENN-D",
     "time_4_weighted": "TB-ANN-W",
+    "time_4_weighted_dynamic": "TB-ANN-W-D",
     "time_4_unweighted": "TB-ANN",
+    "time_4_unweighted_dynamic": "TB-ANN-D",
 }
 
 def _safe_eval_listlike(x) -> List:
@@ -106,6 +113,18 @@ def mrr_multi_at_k(doc_ids: List[str], relevant_docs: Iterable[str], k: int) -> 
     best_possible_avg = (R_star * (R_star + 1) / 2 + (k + 1) * (n - R_star)) / n
 
     return best_possible_avg / observed_avg
+
+def mrr_at_k(doc_ids, relevant_docs, k):
+    """
+    Mean Reciprocal Rank at k (MRR@k): how close the rank of the first relevant item is to the best possible under top-k.
+    """
+    if k <= 0: return 0.0
+    rel = set(relevant_docs)
+    if not rel: return 0.0
+    for i, d in enumerate(doc_ids[:k], start=1):  # 1-based ranks
+        if d in rel:
+            return 1.0 / i
+    return 0.0
 
 def ndcg_at_k(doc_ids: List[str], relevant_docs: Iterable[str], k: int) -> float:
     """
@@ -213,8 +232,7 @@ def bootstrap_ci(values: np.ndarray, n_boot: int = 1000, ci: float = 0.95, rando
 
 def summarize(df: pd.DataFrame, metric_cols: List[str]) -> List[Tuple[str, int, str, str, float, float]]:
     """
-    Returns: (Group, FileNum, Method, Metric, mean, ci_half_width)
-    Unweighted means; 95% bootstrap CI half-width over queries for ALL metrics (incl. Time).
+    Group, FileNum, Method, Metric, Mean, CI (in the current version the file could actually be removed)
     """
     results = []
     group = str(df["Group"].iat[0]) if "Group" in df.columns else "ALL"
@@ -222,17 +240,17 @@ def summarize(df: pd.DataFrame, metric_cols: List[str]) -> List[Tuple[str, int, 
 
     for col in metric_cols:
         metric_name, method_display = extract_metric_and_method(col)
+        if col not in df.columns:
+            continue
         values = df[col].dropna()
         if values.empty:
             continue
 
         vals = values.values.astype(float)
         mean_val = float(vals.mean())
-        seed = (hash((group, file_num, method_display, metric_name)) & 0xFFFFFFFF)
-        spread = bootstrap_ci(vals, n_boot=1000, ci=0.95, random_state=seed)
+        spread = bootstrap_ci(vals, n_boot=1000, ci=0.95, random_state=1234)
 
         results.append((group, file_num, method_display, metric_name, mean_val, spread))
-
     return results
 
 def compute_significance_rm(
@@ -240,17 +258,21 @@ def compute_significance_rm(
     retrieval_metrics: List[str],
 ) -> Dict[str, Dict]:
     """
-    Per-metric repeated-measures testing:
+    Significance tests:
       1) Omnibus Friedman across methods on per-query scores.
-      2) Targeted one-sided Wilcoxon signed-rank (Pratt), Holm-adjusted within metric.
+      2) One-sided Wilcoxon signed-rank, Holm-adjusted within families of metrics.
 
-      Hypotheses (A > B for effectiveness; A < B for Time):
+      Hypotheses (A > B):
         - TB-ANN   > ANN
         - TB-ANN-W > ANN
+        - TB-ANN-W-D > ANN
         - TB-ENN   > ENN
         - TB-ENN-W > ENN
+        - TB-ENN-W-D > ENN
         - TB-ANN-W > TB-ANN
+        - TB-ANN-W-D > TB-ANN-D
         - TB-ENN-W > TB-ENN
+        - TB-ENN-W-D > TB-ENN-D
     """
     # collect columns
     keep_cols = [c for c in df_results.columns if any(m in c for m in retrieval_metrics + ["time_"])]
@@ -288,27 +310,30 @@ def compute_significance_rm(
 
     for m in sorted(df_long["MetricName"].unique()):
         sub = df_long[df_long["MetricName"] == m].copy()
-        mat = sub.pivot_table(index="question", columns="Method", values="Value", aggfunc="mean").dropna(how="any")
-        if mat.shape[0] < 2 or mat.shape[1] < 2:
-            continue
-
-        mat_use = mat.values
+        mat = sub.pivot_table(index="question", columns="Method", values="Value", aggfunc="mean")
 
         # 1) Friedman omnibus
         try:
-            stat, p = stats.friedmanchisquare(*[mat_use[:, j] for j in range(mat_use.shape[1])])
-            friedman_p[m] = float(p)
-        except Exception:
+            mat_full = mat.dropna(how="any")
+            if mat_full.shape[0] >= 2 and mat_full.shape[1] >= 2:
+                _, p = stats.friedmanchisquare(*[mat_full.iloc[:, j].values for j in range(mat_full.shape[1])])
+                friedman_p[m] = float(p)
+        except Exception as e:
+            print(f"Exception in Friedman for {m}: {e}")
             continue
 
-        # 2) Targeted Wilcoxon (one-sided), Holm within metric
+        # 2) Wilcoxon
         directional_pairs = [
             ("TB-ANN",   "ANN"),
             ("TB-ANN-W", "ANN"),
+            ("TB-ANN-W-D", "ANN"),
             ("TB-ENN",   "ENN"),
             ("TB-ENN-W", "ENN"),
+            ("TB-ENN-W-D", "ENN"),
             ("TB-ANN-W", "TB-ANN"),
             ("TB-ENN-W", "TB-ENN"),
+            ("TB-ANN-W-D", "TB-ANN-D"),
+            ("TB-ENN-W-D", "TB-ENN-D"),
         ]
         higher_better = (m != "Time (s)")
         alt = "greater" if higher_better else "less"
@@ -318,40 +343,59 @@ def compute_significance_rm(
         dir_es: List[float] = []
         dir_n: List[int] = []
 
+        print("DEBUG Wilcoxon columns for", m, ":", list(mat.columns))
+        
         for a, b in directional_pairs:
             if a in mat.columns and b in mat.columns:
-                a_vals = mat[a].values
-                b_vals = mat[b].values
-                if len(a_vals) >= 2:
+                pair = mat[[a, b]].dropna(how="any")
+                if len(pair) >= 2:
                     try:
                         w = stats.wilcoxon(
-                            a_vals, b_vals,
+                            pair[a].values, pair[b].values,
                             zero_method="pratt",
                             alternative=alt,
                             mode="approx"
                         )
                         dir_ps.append(float(w.pvalue))
                         dir_names.append((a, b))
-                        dir_es.append(rank_biserial(a_vals, b_vals))
-                        dir_n.append(len(a_vals))
+                        dir_es.append(rank_biserial(pair[a].values, pair[b].values))
+                        dir_n.append(len(pair[a].values))
                     except Exception:
                         pass
 
-        dir_dict: Dict[Tuple[str, str], Dict[str, float]] = {}
-        if dir_ps:
+        families = {
+            "ANN_dynamic":   [("TB-ANN",   "ANN"), ("TB-ANN-W",   "ANN"),("TB-ANN-D", "ANN"), ("TB-ANN-W-D", "ANN")],
+            "ENN_dynamic":   [("TB-ENN",   "ENN"), ("TB-ENN-W",   "ENN"),("TB-ENN-D", "ENN"), ("TB-ENN-W-D", "ENN")],
+            "TB_weight_dynamic": [("TB-ANN-W-D", "TB-ANN-D"), ("TB-ENN-W-D", "TB-ENN-D"), ("TB-ANN-W", "TB-ANN"), ("TB-ENN-W", "TB-ENN")],
+        }
+
+        dir_dict = {}
+        for fam_name, fam_pairs in families.items():
+            print("DEBUG family", fam_name, "pairs", fam_pairs)
+            idxs = [i for i,(a,b) in enumerate(dir_names) if (a,b) in fam_pairs]
+            if not idxs:
+                continue
+            fam_ps  = [dir_ps[i] for i in idxs]
+            fam_es  = [dir_es[i] for i in idxs]
+            fam_ns  = [dir_n[i] for i in idxs]
+            fam_n   = len(fam_ps)
+
             if has_statsmodels:
-                _, p_adj, _, _ = multipletests(dir_ps, method="holm")
+                _, p_adj_fam, _, _ = multipletests(fam_ps, method="holm")
             else:
-                order = np.argsort(dir_ps)
-                mtests = len(dir_ps)
-                p_adj = [1.0] * mtests
+                order = np.argsort(fam_ps)
+                p_adj_fam = [1.0]*fam_n
                 running_max = 0.0
-                for rank, idx in enumerate(order):
-                    adj = min(1.0, (mtests - rank) * dir_ps[idx])
+                for rank, j in enumerate(order):
+                    adj = min(1.0, (fam_n - rank) * fam_ps[j])
                     running_max = max(running_max, adj)
-                    p_adj[idx] = running_max
-            for (a, b), p_corr, es, n_eff in zip(dir_names, p_adj, dir_es, dir_n):
-                dir_dict[(a, b)] = {"p_adj": float(p_corr), "r_rb": float(es), "n": int(n_eff)}
+                    p_adj_fam[j] = running_max
+
+            for local_idx, i in enumerate(idxs):
+                a, b = dir_names[i]
+                dir_dict[(a, b)] = {"p_adj": float(p_adj_fam[local_idx]),
+                                    "r_rb": float(fam_es[local_idx]),
+                                    "n":    int(fam_ns[local_idx])}
 
         directional_by_metric[m] = dir_dict
 
@@ -389,10 +433,9 @@ def format_value_with_sig(mean: float,
                 return None
             if isinstance(entry, dict):
                 return entry.get("p_adj")
-            # backward-compat if entry was a float
             return float(entry)
 
-        # †: TB vs baseline
+        # daggers: TB vs baseline
         if method.startswith("TB-ANN"):
             p = dir_p(method, "ANN")
             if p is not None and p < 0.05:
@@ -402,13 +445,10 @@ def format_value_with_sig(mean: float,
             if p is not None and p < 0.05:
                 marks.append("\\dagger")
 
-        # ‡: weighted vs unweighted TB
-        if method == "TB-ANN-W":
-            p = dir_p("TB-ANN-W", "TB-ANN")
-            if p is not None and p < 0.05:
-                marks.append("\\ddagger")
-        if method == "TB-ENN-W":
-            p = dir_p("TB-ENN-W", "TB-ENN")
+        # double daggers: weighted vs unweighted TB
+        if method.startswith("TB-") and "-W" in method:
+            base = method.replace("-W", "")
+            p = dir_p(method, base)
             if p is not None and p < 0.05:
                 marks.append("\\ddagger")
 
@@ -423,170 +463,245 @@ def to_latex_table(
 ) -> str:
     dfw = df_summary.copy()
 
-    # mark best per (Group, FileNum, Metric)
+    if "FileNum" not in dfw.columns:
+        dfw["FileNum"] = 1
+    if "Group" not in dfw.columns:
+        dfw["Group"] = "ALL"
+
+    # Mark best per (Group, Metric)
     best_mask = np.zeros(len(dfw), dtype=bool)
-    for (grp, fnum, metric), grp_df in dfw.groupby(["Group", "FileNum", "Metric"], dropna=False):
+    for (_, metric), grp_df in dfw.groupby(["Group", "Metric"], dropna=False):
         target = grp_df["Mean"].max() if is_higher_better(metric) else grp_df["Mean"].min()
         best_mask[grp_df.index] = grp_df["Mean"].eq(target).values
     dfw["IsBest"] = best_mask
 
+    # Add significance markers
     def _fmt_row(r):
-        sig_block = significance_by_gf.get((r["Group"], int(r["FileNum"])), {})
+        sig_block = significance_by_gf.get((r["Group"], int(r["FileNum"])), {}) if isinstance(significance_by_gf, dict) else {}
         return format_value_with_sig(
-            r["Mean"], r["CI"], r["Metric"], r["Method"], bool(r["IsBest"]), sig_block
+            float(r["Mean"]), float(r["CI"]), str(r["Metric"]), str(r["Method"]), bool(r["IsBest"]), sig_block
         )
+
     dfw["Mean ± CI"] = dfw.apply(_fmt_row, axis=1)
 
-    # Pivot: rows = (Group, FileNum, Method), cols = Metric
-    pivot = (
-        dfw.pivot(index=["Group", "FileNum", "Method"], columns="Metric", values="Mean ± CI")
-           .sort_index()
-    )
-    metric_cols = list(pivot.columns)
+    # @TODO: remove multi-file
+    multi_file = dfw.groupby("Group")["FileNum"].nunique().max() > 1
 
+    # Pivot for latex
+    if multi_file:
+        pivot = (
+            dfw.pivot(index=["Group", "FileNum", "Method"], columns="Metric", values="Mean ± CI")
+               .sort_index()
+        )
+    else:
+        pivot = (
+            dfw.pivot(index=["Group", "Method"], columns="Metric", values="Mean ± CI")
+               .sort_index()
+        )
+
+    metric_cols = list(pivot.columns)
     header_metrics = " & ".join([f"\\textbf{{{c}}}" for c in metric_cols])
+
+    if multi_file:
+        col_spec = f"c c {'c'*len(metric_cols)}"
+        header_line = f"\\textbf{{File}} & \\textbf{{Method}} & {header_metrics} \\\\"
+        leading_cols = 2
+    else:
+        col_spec = f"c {'c'*len(metric_cols)}"
+        header_line = f"\\textbf{{Method}} & {header_metrics} \\\\"
+        leading_cols = 1
+
     latex = (
         "\\begin{table*}[h]\n\\centering\n"
         "\\resizebox{\\textwidth}{!}{%\n"
-        f"\\begin{{tabular}}{{c c {'c'*len(metric_cols)}}}\n"
+        f"\\begin{{tabular}}{{{col_spec}}}\n"
         "\\arrayrulecolor{black}\n\\toprule\n"
-        f"\\textbf{{File}} & \\textbf{{Method}} & {header_metrics} \\\\\n"
+        f"{header_line}\n"
         "\\midrule\n"
     )
 
-    # Iterate by Group, then FileNum; use \multirow for FileNum, and \midrule between files
-    total_cols = len(metric_cols) + 2  # File + Method + metrics
+    total_cols = len(metric_cols) + leading_cols
     current_group = None
 
-    # group level 0 = Group
+    # Iterate by group
     for group, group_df in pivot.groupby(level=0, sort=False):
-        # New group header with thin rules above/below
+        # group header
         if current_group is not None:
             latex += "\\arrayrulecolor{black}\\specialrule{0.5pt}{0pt}{0pt}\\arrayrulecolor{black}\n"
         latex += f"\\multicolumn{{{total_cols}}}{{l}}{{\\textbf{{{group}}}}} \\\\\n"
         latex += "\\arrayrulecolor{black}\\specialrule{0.5pt}{0pt}{0pt}\\arrayrulecolor{black}\n"
         current_group = group
 
-        # files inside this group (level 1 = FileNum)
-        files_in_group = list({idx[1] for idx in group_df.index})
-        for i_file, fnum in enumerate(files_in_group):
-            file_df = group_df.xs((group, fnum), level=(0,1), drop_level=False)
-            # methods for this (group, file)
-            methods = list(file_df.index.get_level_values(2))
-
-            # number of rows to span for the File cell
-            n_methods = len(methods)
-            for j, method in enumerate(methods):
-                row = file_df.xs((group, fnum, method)).reindex(metric_cols).fillna("").astype(str)
+        if multi_file:
+            # Files inside this group (level 1 = FileNum)
+            files_in_group = list({idx[1] for idx in group_df.index})
+            files_in_group = sorted(files_in_group)
+            for i_file, fnum in enumerate(files_in_group):
+                file_df = group_df.xs((group, fnum), level=(0, 1), drop_level=False)
+                methods = list(file_df.index.get_level_values(2))
+                n_methods = len(methods)
+                for j, method in enumerate(methods):
+                    row = file_df.xs((group, fnum, method)).reindex(metric_cols).fillna("").astype(str)
+                    metrics_line = " & ".join(row.tolist())
+                    if j == 0:
+                        latex += f"\\multirow{{{n_methods}}}{{*}}{{{int(fnum)}}} & \\textbf{{{method}}} & {metrics_line} \\\\\n"
+                    else:
+                        latex += f" & \\textbf{{{method}}} & {metrics_line} \\\\\n"
+                if i_file < len(files_in_group) - 1:
+                    latex += "\\midrule\n"
+        else:
+            # Single-file case: rows are just methods
+            group_only = group_df.xs(group, level=0, drop_level=False)
+            methods = list(group_only.index.get_level_values(1))
+            for method in methods:
+                row = group_only.xs((group, method)).reindex(metric_cols).fillna("").astype(str)
                 metrics_line = " & ".join(row.tolist())
-
-                if j == 0:
-                    # First method row: print \multirow in the File column
-                    latex += f"\\multirow{{{n_methods}}}{{*}}{{{int(fnum)}}} & \\textbf{{{method}}} & {metrics_line} \\\\\n"
-                else:
-                    # Subsequent method rows: empty File column
-                    latex += f" & \\textbf{{{method}}} & {metrics_line} \\\\\n"
-
-            # After finishing this file block, add a midrule unless it's the last file in the group
-            if i_file < len(files_in_group) - 1:
-                latex += "\\midrule\n"
+                latex += f"\\textbf{{{method}}} & {metrics_line} \\\\\n"
 
     latex += "\\bottomrule\n\\end{tabular}}\n"
-    latex += "\\caption{Performance metrics per method, grouped by model (Group) and file. "
-    latex += "Best values per (Group, File) are bold. Daggers: † TB variant > baseline; ‡ weighted TB > unweighted TB (one-sided Wilcoxon, Holm-corrected).}\n"
+    latex += "\\caption{Performance metrics per method. "
+    latex += "Values are means over queries with 95\\% bootstrap confidence intervals for retrieval metrics at $L \\in \\{3,5\\}$. "
+    latex += "Results are based on relevant $c_p^{(c)}$ passages for questions from 100 $t_{16}$ $c_p^{(a)}$ passages. "
+    latex += "Best values are bolded. Daggers $\\dagger$ indicate topic-based methods (static or dynamic) significantly outperform their baselines (ANN or ENN). Double daggers $\\ddagger$ indicate weighted topic-based methods (static or dynamic) significantly outperform their unweighted counterparts.} \n"
     latex += "\\label{tab:grouped_results}\n\\end{table*}\n"
     return latex
 
 
-def main(group_label:str, experiment_paths: List[Tuple[str, List[str]]], k_values = (3,5)) -> None:
-    retrieval_metrics = [f"{p}_{k}" for p in ("mrr", "precision", "recall", "ndcg") for k in k_values]
+def main(group_label: str, experiment_paths, k_values=(3, 5)) -> None:
+    print(f"\n***** {group_label} *****")
+    print(f"[{group_label}] files used:")
+    for p in files_found_relevant:
+        print("  -", p)
 
-    summary_rows: List[Tuple[int, str, str, float, float]] = []
-    significance_by_group_file: Dict[Tuple[str, int], Dict[str, Dict]] = {}  
-    
-    for method_idx, (relevant_check_path, result_paths) in enumerate(experiment_paths):
-        print(f"\n***** {group_label} *****")
-        print(f"[{group_label}] files used:")
-        for p in files_found_relevant:
-            print("  -", p)
+    relevant_check_path = experiment_paths[0][0]
+    result_paths = experiment_paths[0][1]
+    annotations = prepare_annotations(relevant_check_path, prepare=True)
+    print(
+        f"Number of relevant passages for {group_label}: "
+        f"{annotations['num_relevant_docs'].mean():.3f}±{annotations['num_relevant_docs'].std():.3f}"
+    )
 
-        annotations = prepare_annotations(relevant_check_path, prepare=True)
-        print(
-            f"Number of relevant passages for {group_label}: "
-            f"{annotations['num_relevant_docs'].mean():.3f}±{annotations['num_relevant_docs'].std():.3f}"
-        )
+    # ---- file 1 (baselines + epsilon = 0 --> static)
+    df1 = (
+        pd.read_parquet(result_paths[0])
+        .drop_duplicates(subset=["question"], keep="first")
+        .rename(columns={"questions": "question"})
+        .merge(annotations, on="question", how="inner")
+    )
+    df1["Group"] = group_label
+    df1["FileNum"] = 1
 
-        for file_id, path_results in enumerate(result_paths, start=1):
-            df = (
-                pd.read_parquet(path_results)
-                .drop_duplicates(subset=["question"], keep="first")
-                .rename(columns={"questions": "question"})
-                .merge(annotations, on="question", how="inner")
-            )
+    keys_f1 = [
+        "results_1", "results_2",
+        "results_3_weighted", "results_3_unweighted",  
+        "results_4_weighted", "results_4_unweighted",
+    ]
+    for key in keys_f1:
+        if key in df1.columns:
+            df1 = compute_per_row_metrics(df1, key, k_values)
 
-            df["Group"] = group_label
-            df["FileNum"] = int(file_id)
+    metric_cols_f1 = []
+    for key in keys_f1:
+        if key in df1.columns:
+            for k in k_values:
+                metric_cols_f1 += [
+                    f"mrr_{k}_{key}",
+                    f"precision_{k}_{key}",
+                    f"recall_{k}_{key}",
+                    f"ndcg_{k}_{key}",
+                ]
+                
+    time_cols_f1 = [c for c in df1.columns if c.startswith("time_")]
+    metric_cols_f1 += time_cols_f1
+    keep_f1 = ["question", "num_relevant_docs"] + metric_cols_f1
+    df1 = df1.loc[:, keep_f1]
 
-            result_keys = [
-                "results_1", "results_2",
-                "results_3_weighted", "results_3_unweighted",
-                "results_4_weighted", "results_4_unweighted",
-            ]
-            for key in result_keys:
-                if key in df.columns:
-                    df = compute_per_row_metrics(df, key, k_values)
+    # ---- file 2 (var epsilon --> dynamic)
+    df2 = (
+        pd.read_parquet(result_paths[1])
+        .drop_duplicates(subset=["question"], keep="first")
+        .rename(columns={"questions": "question"})
+        .merge(annotations, on="question", how="inner")
+    )
+    df2["Group"] = group_label
+    df2["FileNum"] = 2
 
-            metric_cols: List[str] = []
-            for key in result_keys:
-                for k in k_values:
-                    metric_cols.extend([
-                        f"mrr_{k}_{key}",
-                        f"precision_{k}_{key}",
-                        f"recall_{k}_{key}",
-                        f"ndcg_{k}_{key}",
-                    ])
-            time_cols = [c for c in df.columns if c.startswith("time_")]
-            metric_cols.extend(time_cols)
+    # rename to avoid collisions
+    df2 = df2.rename(columns={
+        "results_3_weighted": "results_3_weighted_dynamic",
+        "results_3_unweighted": "results_3_unweighted_dynamic",
+        "results_4_weighted": "results_4_weighted_dynamic",
+        "results_4_unweighted": "results_4_unweighted_dynamic",
+        "time_3_weighted": "time_3_weighted_dynamic",
+        "time_3_unweighted": "time_3_unweighted_dynamic",
+        "time_4_weighted": "time_4_weighted_dynamic",
+        "time_4_unweighted": "time_4_unweighted_dynamic",
+    })
 
-            summary_rows.extend(summarize(df, metric_cols))
+    keys_f2 = [
+        "results_3_weighted_dynamic", "results_3_unweighted_dynamic",
+        "results_4_weighted_dynamic", "results_4_unweighted_dynamic",
+    ]
+    for key in keys_f2:
+        if key in df2.columns:
+            df2 = compute_per_row_metrics(df2, key, k_values)
 
-            sig_block = compute_significance_rm(df, retrieval_metrics)
-            significance_by_group_file[(group_label, int(file_id))] = sig_block
+    metric_cols_f2 = []
+    for key in keys_f2:
+        if key in df2.columns:
+            for k in k_values:
+                metric_cols_f2 += [
+                    f"mrr_{k}_{key}",
+                    f"precision_{k}_{key}",
+                    f"recall_{k}_{key}",
+                    f"ndcg_{k}_{key}",
+                ]
+    time_cols_f2 = [c for c in df2.columns if c.startswith("time_")]
+    metric_cols_f2 += time_cols_f2
+
+    keep_f2 = ["question", "num_relevant_docs"] + metric_cols_f2
+    df2 = df2.loc[:, keep_f2]
+
+    # Merge files (fixed epsilon / variable epsilon)
+    df2 = df2.drop(columns=["time_1", "time_2"], errors="ignore")
+    df = pd.merge(df1, df2, on=["question", "num_relevant_docs"], how="inner")
+
+    df["Group"] = group_label
+    df["FileNum"] = 1  # single merged file for reporting
+
+    # assert: baselines from merged should equal file-1 baselines
+    def _mean(df_, col): return df_[col].mean()
+    for k in k_values:
+        for base_key in ["results_1", "results_2"]:
+            mrr_col = f"mrr_{k}_{base_key}"
+            if mrr_col in df1 and mrr_col in df:
+                m1 = _mean(df1, mrr_col)
+                m  = _mean(df,  mrr_col)
+                assert np.isclose(m, m1, rtol=1e-12, atol=1e-12), f"Baseline mismatch for {mrr_col}: {m} vs {m1}"
+
+    metric_cols = list(dict.fromkeys(metric_cols_f1 + metric_cols_f2))
+
+    required_time_cols = ["time_1", "time_2"]
+    for c in required_time_cols:
+        if c in df.columns and c not in metric_cols:
+            metric_cols.append(c)
+    metric_cols = [c for c in metric_cols if c in df.columns]
+
+    # optional debug
+    print("Merged time cols:", [c for c in df.columns if c.startswith("time_")])
+    print("Metrics passed to summarize:", metric_cols)
+
+    # get significance
+    summary_rows = summarize(df, metric_cols)
+    sig = compute_significance_rm(df, [f"{p}_{k}" for p in ("mrr","precision","recall","ndcg") for k in k_values])
 
     df_summary = pd.DataFrame(summary_rows, columns=["Group", "FileNum", "Method", "Metric", "Mean", "CI"])
-
-    print("\n=== Significance Tests Summary (Repeated-Measures) per (Group, File) ===\n")
-    for (group, fnum), sig in significance_by_group_file.items():
-        print(f"[Group: {group}] [File: {fnum}]")
-        fried = sig.get("Friedman p-value", {})
-        if fried:
-            print("  Friedman p-values:")
-            for metric, p in sorted(fried.items()):
-                print(f"    {metric}: p={float(p):.4g}")
-
-        dir_one = sig.get("Directional Wilcoxon-Holm", {})
-        if dir_one:
-            print("  Directional Wilcoxon-Holm (one-sided; Holm within metric):")
-            for metric, d in dir_one.items():
-                parts = []
-                for (a, b), info in d.items():
-                    p_adj = info["p_adj"] if isinstance(info, dict) else float(info)
-                    r_rb = info.get("r_rb") if isinstance(info, dict) else None
-                    n_eff = info.get("n") if isinstance(info, dict) else None
-                    extra = f", r_rb={r_rb:.3f}, n={n_eff}" if r_rb is not None and n_eff is not None else ""
-                    parts.append(f"{a}>{b}: p_adj={p_adj:.3g}{extra}")
-                if parts:
-                    print(f"    {metric}: " + "; ".join(parts))
-        print()
-
-    latex = to_latex_table(df_summary, significance_by_group_file)
+    latex = to_latex_table(df_summary, {(group_label, 1): sig})
     print(latex)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate retrieval runs with explicit paths (corrected).")
-    parser.add_argument("--model_eval", type=str, default="gpt-4o-2024-08-06")
-                                                             #"llama3.3:70b", "qwen:32b"], help="List of model names to evaluate.")
+    parser.add_argument("--model_eval", type=str, default="gpt-4o-2024-08-06") #"llama3.3:70b", "qwen:32b"
     parser.add_argument("--path_gold_relevant", type=str, default="", help="Path to the relevant_check parquet file.")
     parser.add_argument("--paths_found_relevant", type=str, help="List of paths to found relevant results parquet files.")
     parser.add_argument("--tpc", type=int, default=11, help="Topic ID (used only for printing labels).")

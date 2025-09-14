@@ -26,7 +26,7 @@ mind:
     contradiction_checking: src/mind/pipeline/prompts/discrepancy_detection.txt
     relevance_checking: src/mind/pipeline/prompts/relevance_checking.txt
   embedding_models:
-    multilingual: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+    multilingual: BAAI/bge-m3
     monolingual: 
       en: sentence-transformers/all-MiniLM-L6-v2
   nli_model_name: potsawee/deberta-v3-large-mnli

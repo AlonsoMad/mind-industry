@@ -1,30 +1,36 @@
 import pandas as pd
 
-# Paths per model
-path_results_mind = {
-    "qwen:32b": "data/mind_runs/rosie/results/rosie_results_topic_15.parquet",
-}
-path_save = "data/ablations/qa/eval_tasks"
-
-paths_ = [
-    #"/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/src/qa_system/GENERATIONS/outs_good_model_tpc11/answers/all_models_eval_v6.parquet",
-    #"/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/src/qa_system/GENERATIONS/outs_good_model_tpc15/answers/all_models_eval_v6.parquet"
-    "GENERATIONS/outs_good_model_tpc15/answers/questions_topic_15_qwen:32b_100_seed_1234_results_model30tpc_thr__dynamic.parquet",
-    "GENERATIONS/outs_good_model_tpc15/answers/questions_topic_15_gpt-4o-2024-08-06_100_seed_1234_results_model30tpc_thr__dynamic.parquet",
-    "GENERATIONS/outs_good_model_tpc15/answers/questions_topic_15_llama3.3:70b_100_seed_1234_results_model30tpc_thr__dynamic.parquet",
-    "GENERATIONS/outs_good_model_tpc11/answers/questions_topic_11_qwen:32b_100_seed_1234_results_model30tpc_thr__dynamic.parquet",
-    "GENERATIONS/outs_good_model_tpc11/answers/questions_topic_11_llama3.3:70b_100_seed_1234_results_model30tpc_thr__dynamic.parquet",
-    "GENERATIONS/outs_good_model_tpc11/answers/questions_topic_11_gpt-4o-2024-08-06_100_seed_1234_results_model30tpc_thr__dynamic.parquet",
-]
+# Paths per model and topic
+paths_ = []
+for topic in [11,15]:
+    for model in ["qwen:32b", "gpt-4o-2024-08-06", "llama3.3:70b"]:
+        paths_.append(
+            f"data/ablations/qa/v2/outs_good_model_tpc{topic}/answers/questions_topic_{topic}_{model}_100_seed_1234_results_model30tpc_thr__dynamic.parquet"
+        )
+path_save = "data/ablations/discrepancies/eval_tasks"
 
 all_disc = []
 
 # Process original datasets
 for path in paths_:
     df = pd.read_parquet(path)
-    #print(len(df))
+
+    # we want good questions here: they should have at least three words, end with "?", and do not start with "and" like they are a follow up    
     df = df[~df.question.str.contains("Here are the YES/NO questions generated based on the PASSAGE:")]
-    #print(len(df))
+    
+    no_yes_no = [
+        "If a woman who is lactating chooses to consume alcohol moderately, what is the recommended maximum number of standard drinks per day?",
+        "If a mother with pneumonic plague needs to avoid direct breastfeeding, what should she do to maintain milk supply and support the breastfeeding relationship?",
+        "If a mother with pneumonic plague needs to avoid direct breastfeeding, what should she do to maintain milk supply and support the breastfeeding relationship?"
+    ]
+    
+    df = df[~df.question.isin(no_yes_no)]
+    
+    df = df[df['question'].str.split().str.len() >= 3]
+    df = df[df['question'].str.strip().str.endswith("?")]
+    df = df[~df['question'].str.strip().str.lower().str.startswith("and")]
+    # remove instances where a_s did not entail the original passage and hence a_t was not generated
+    df = df[(df['answer_t'] != "N/A") & (df['discrepancy'] != "N/A")]
 
     if "gpt" in path:
         df["model"] = "gpt-4o"
@@ -33,11 +39,22 @@ for path in paths_:
     else:
         df["model"] = "qwen:32b"
 
-    # Fix discrepancy values
-    df.loc[df['answer_t'].str.contains("cannot answer the question given the context", na=False), 'discrepancy'] = "NOT_ENOUGH_INFO"
-    df.loc[df["answer_t"] == "I cannot answer given the context.", ["discrepancy"]] = "NOT_ENOUGH_INFO"
-    df["discrepancy"] = df["discrepancy"].str.replace("NO_ DISCREPANCY", "NO_DISCREPANCY")
-    df["discrepancy"] = df["discrepancy"].str.replace("CULTURAL_ DISCREPANCY", "CULTURAL_DISCREPANCY")
+
+    # Normalize NOT_ENOUGH_INFO
+    # when a_t contains "cannot answer" should be NOT_ENOUGH_INFO
+    df.loc[df.answer_t.str.contains("cannot answer", case=False, na=False), "discrepancy"] = "NOT_ENOUGH_INFO"
+
+    # Clean up "NO_DISCREPANCY" variants
+    df['discrepancy'] = (
+        df['discrepancy']
+        # Fix spacing: "NO_ DISCREPANCY" → "NO_DISCREPANCY"
+        .str.replace(r'NO_\s+DISCREPANCY', 'NO_DISCREPANCY', regex=True)
+        # Collapse any "TYPE: NO_*" style values to "NO_DISCREPANCY"
+        .str.replace(r'^TYPE:\s*NO_.*$', 'NO_DISCREPANCY', regex=True)
+        # Fix spacing: "CULTURAL_ DISCREPANCY" → "CULTURAL_DISCREPANCY"
+        .str.replace(r'CULTURAL_\s+DISCREPANCY', 'CULTURAL_DISCREPANCY', regex=True)
+    )
+    
 
     # Add source column
     df["source"] = path.split("_tpc")[-1].split("/")[0]
@@ -45,12 +62,19 @@ for path in paths_:
     # Keep only relevant rows
     df_filtered = df[df["discrepancy"].isin(["CONTRADICTION", "CULTURAL_DISCREPANCY"])]
 
-    # Sample 25 rows with NO_DISCREPANCY
-    no_discrepancy_sample = df[df["discrepancy"] == "NO_DISCREPANCY"].groupby("model", group_keys=False).sample(n=10, random_state=42)
+    # Sample 10 rows with NO_DISCREPANCY
+    df_copy = df.copy()
+    # drop duplicates by question
+    df_copy = df_copy.drop_duplicates(subset="question", keep="first").reset_index(drop=True)
+    no_discrepancy_sample = df_copy[df_copy["discrepancy"] == "NO_DISCREPANCY"].sample(n=10, random_state=42)
     print(len(no_discrepancy_sample))
+    
+    # Sample 10 rows with NOT_ENOUGH_INFO if available
+    nei_sample = df_copy[df_copy["discrepancy"] == "NOT_ENOUGH_INFO"].sample(n=10, random_state=42)
+    print(len(nei_sample))
 
     # Concatenate filtered results
-    df_final = pd.concat([df_filtered, no_discrepancy_sample], ignore_index=True)
+    df_final = pd.concat([df_filtered, no_discrepancy_sample, nei_sample], ignore_index=True)
 
     # Keep only necessary columns
     df_final = df_final[["question", "answer_t", "answer_s", "discrepancy", "source", "model", "reason"]]
@@ -59,7 +83,7 @@ for path in paths_:
     all_disc.append(df_final)
 
 # Load FEVER-DPLACE-Q dataset
-df_fever = pd.read_csv("FEVER-DPLACE-Q_v2_discp.csv")
+df_fever = pd.read_csv("data/ablations/discrepancies/results/v2/FEVER-DPLACE-Q_v3_discp.csv")
 
 # Sample 25 rows per unique label
 #fever_samples = df_fever.groupby("label", group_keys=False).apply(lambda x: x.sample(n=min(30, len(x)), random_state=42))
@@ -76,7 +100,7 @@ fever_samples["discrepancy"] = fever_samples["discrepancy"].str.replace("REFUTES
 # Keep only necessary columns
 fever_samples = fever_samples[["question", "answer_t", "answer_s", "discrepancy", "source", "model", "reason"]]
 
-# Append FEVER-DPLACE-Q sampled data to all_disc
+# Append FEVER-DPLACE-Q to all_disc
 all_disc.append(fever_samples)
 
 # Create final dataframe
@@ -86,7 +110,7 @@ final_df["id_discr"] = range(len(final_df))
 
 final_df = final_df[['id_discr','source','question', 'answer_t', 'answer_s', 'discrepancy', 'model', 'reason']]
 final_df["label"] = [""] * len(final_df)
-final_df = final_df.drop_duplicates(subset="question", keep="first").reset_index(drop=True)
+#final_df = final_df.drop_duplicates(subset="question", keep="first").reset_index(drop=True)
 
-final_df.to_excel("GENERATIONS/discrepancies_v4.xlsx")
-final_df.drop(columns=["source", "model", "discrepancy", "reason"]).to_excel("GENERATIONS/discrepancies_v4_users.xlsx", index=False)
+final_df.to_excel(f"{path_save}/discrepancies_v5.xlsx")
+final_df.drop(columns=["source", "model", "discrepancy", "reason"]).to_excel(f"{path_save}/discrepancies_v5_users.xlsx", index=False)
