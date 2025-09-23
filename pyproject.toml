@@ -35,7 +35,8 @@ dependencies = [
     "scikit_posthocs",
     "openpyxl",
     "krippendorff",
-    "irrCAC"
+    "irrCAC",
+    "Wikipedia-API"
 ]
 
 [build-system]

@@ -6,6 +6,23 @@ This repository contains the code and data for reproducing experiments from our 
   <img src="figures_tables/Raupy.png" alt="MIND pipeline" width="50%">
 </p>
 
+- [MIND](#mind)
+  - [**Installation**](#installation)
+    - [Steps for deployment with uv](#steps-for-deployment-with-uv)
+  - [Run MIND pipeline](#run-mind-pipeline)
+  - [ROSIE-MIND](#rosie-mind)
+  - [Replication of ablation experiments](#replication-of-ablation-experiments)
+    - [Question and Answering](#question-and-answering)
+    - [Retrieval](#retrieval)
+    - [Discrepancies](#discrepancies)
+  - [ Other data](#other-data)
+    - [ROSIE](#rosie)
+    - [ENDE corpus](#ende-corpus)
+    - [FEVER-DPLACE-Q](#fever-dplace-q)
+  - [Use cases](#use-cases)
+
+
+
 ## **Installation**
 
 We recommend **uv** for installing the necessary dependencies.
@@ -56,9 +73,9 @@ We recommend **uv** for installing the necessary dependencies.
 
 To run the MIND pipeline, you need a collection of *loosely aligned* documents (e.g., corresponding Wikipedia articles in different languages). These do not need to be perfect translations—just share similar topics.
 
-**Pipeline overview (with commands):**
+**Steps for running the pipeline:**
 
-1. **Preprocess corpora:** Chunk, translate, align, and preprocess passages.
+1. **Preprocess corpora:** There are different scripts available for segmenting, creation of loosely alignments (i.e., translation), NLP preprocessing and the creation of the final dataset in the format expected by the PLTM wrapper. These functionalities are available at the ``mind.corpus_building`` module.
   
     ```bash
     python3 src/mind/pipeline/preprocess.py
@@ -171,3 +188,12 @@ To run the MIND pipeline, you need a collection of *loosely aligned* documents (
 - **Model**
 
 ### FEVER-DPLACE-Q
+
+
+## Use cases
+
+### Wikipedia
+
+```bash
+python3 -m wikipedia.generate_dtset --output-path test
+```

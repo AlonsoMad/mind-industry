@@ -1,6 +1,6 @@
 from pathlib import Path
 import re
-from typing import Union
+from typing import List, Union
 from dotenv import dotenv_values
 
 import pandas as pd
@@ -17,6 +17,7 @@ from collections import defaultdict
 
 import re
 import unicodedata
+
 
 class MIND:
     """
@@ -50,7 +51,7 @@ class MIND:
 
         self.dry_run = dry_run
         self.retrieval_method = retrieval_method
-        
+
         self.config = load_yaml_config_file(config_path, "mind", self._logger)
         self._embedding_model = self.config.get("embedding_models", {}).get("multilingual").get("model") if multilingual else self.config.get(
             "embedding_models", {}).get("monolingual").get(lang).get("model")
@@ -70,7 +71,6 @@ class MIND:
         except Exception as e:
             self._logger.error(f"Failed to load environment variables: {e}")
 
-        
         self._prompter = Prompter(
             model_type=llm_model,
             llm_server=llm_server,
@@ -122,7 +122,7 @@ class MIND:
 
         self.results = []
         self.discarded = []
-        
+
         # keep a unique identifier for the questions generated per topic
         self.questions_id = defaultdict(set)
 
@@ -168,10 +168,10 @@ class MIND:
                 min_clusters=self.config.get(
                     "mind", {}).get("min_clusters", 8),
                 do_weighting=self.config.get(
-                    "mind", {}).get("do_weighting", True) ,
+                    "mind", {}).get("do_weighting", True),
                 nprobe_fixed=self.config.get(
                     "mind", {}).get("nprobe_fixed", False),
-                
+
             )
             retriever.build_or_load_index(
                 source_path=corpus["corpus_path"],
@@ -187,12 +187,13 @@ class MIND:
         return corpus_obj
 
     def run_pipeline(self, topics, sample_size=None, previous_check=None, path_save="mind_results.parquet"):
-        
-        # ensure path_save directory exists
+
+        #  ensure path_save directory exists
         Path(path_save).mkdir(parents=True, exist_ok=True)
-        
+
         for topic in topics:
-            self._process_topic(topic, path_save, previous_check=previous_check, sample_size=sample_size)
+            self._process_topic(
+                topic, path_save, previous_check=previous_check, sample_size=sample_size)
 
     def _process_topic(self, topic, path_save, previous_check=None, sample_size=None):
         for chunk in tqdm(self.source_corpus.chunks_with_topic(
@@ -269,104 +270,109 @@ class MIND:
         all_target_chunks = list(unique_target_chunks.values())
         self._logger.info(
             f"Retrieved {len_target_chunks} target chunks, {len(all_target_chunks)} unique.")
-        
+
         for target_chunk in all_target_chunks:
             self._evaluate_pair(question, a_s, source_chunk,
                                 target_chunk, topic, subquery, path_save)
 
-
-    def _remove_bad_questions(self, questions):
+    def _filter_bad_questions(questions: List[str]) -> List[str]:
         """Remove questions that are not well-formed or relevant.
-        
-        Parameters:
-        -----------
-            questions (list of str): List of questions to filter.
-            
-        Returns:
-        --------
-            list of str: Filtered list of questions.
-            
-        Filters applied:
+
+        Parameters
+        ----------
+        questions : list[str]
+            List of questions to filter.
+
+        Returns
+        -------
+        list[str]
+            Filtered list of questions.
+
+        Filters applied
+        ---------------
         1) Keep only yes/no style questions, trimming any preamble.
-        2) Quick structural filters: must end with '?', have at least 3 words,
-           and not start with follow-up openers like "and", "but", "or", "so".
-        3) Remove questions that reference studies, reports, documents, or
-           sample-specific phrases, as these are often not directly answerable.
+        2) Structural filters: must end with '?', have at least 3 words,
+        and not start with follow-up openers like "and", "but", "or", "so".
+        3) Remove questions that reference studies, reports, documents, sections, or
+        sample-specific phrases, including participle phrasing like
+        "results indicated..." or "the report summarized...".
         """
-        
-        
+
+        # --- Normalization (expanded to your requested version) ---
         def _normalize(s: str) -> str:
-            # Collapse weird unicode spaces/quotes and strip
             s = unicodedata.normalize("NFKC", s)
             s = re.sub(r"\s+", " ", s).strip()
-            # strip leading quotes/punctuation like “, ', -, •
             s = re.sub(r"^[\s\-\–\—\•\"'“”‘’«»]+", "", s)
             return s
 
-        # keep only yes/no style questions, trimming any preamble 
-        aux_starters = [
-            "is","are","am","was","were",
-            "do","does","did",
-            "has","have","had",
-            "can","could",
-            "will","would",
-            "shall","should",
-            "may","might",
+        # yes/no auxiliary verbs
+        _aux = (
+            "is", "are", "am", "was", "were",
+            "do", "does", "did",
+            "has", "have", "had",
+            "can", "could",
+            "will", "would",
+            "shall", "should",
+            "may", "might",
             "must"
-        ]
-        aux_re = re.compile(rf"^\W*(?:{'|'.join(aux_starters)})\b", re.IGNORECASE)
+        )
+        _aux_re = re.compile(rf"^\W*(?:{'|'.join(_aux)})\b", re.IGNORECASE)
+
+        # follow-up openers
+        _followup_openers = ("and", "but", "or", "so")
+
+        # study/doc/sample-like phrases
+        _DOC = (
+            r"(?:study|survey|report|document|guidance|paper|article|memo|white\s*paper|brief|"
+            r"dataset|discussion|section|appendix|table|figure|results?)"
+        )
+        _VERB = (
+            r"(?:include|mention|provide|state|say|note|discuss|address|cover|contain|list|"
+            r"describe|reference|present|report|indicate|summarize|focus)"
+        )
+        _PART = (
+            r"(?:included|mentioned|provided|stated|noted|discussed|addressed|covered|contained|"
+            r"listed|described|referenced|presented|reported|indicated|summarized|focused)"
+        )
+
+        _P1 = rf"\baccording to (?:the |this |that )?(?:results?|{_DOC})\b"
+        _P2 = rf"\b(?:do|does|did|has|have|had)\s+(?:(?:the|this|that|these|those)\s+)?{_DOC}\s+{_VERB}\b"
+        _P3 = rf"\b(?:in|within|from)\s+(?:(?:the|this|that)\s+)?{_DOC}\b"
+        _P4 = rf"\b(?:selected|surveyed|polled|sampled|enrolled)\s+(?:respondents?|participants?|subjects?)\b"
+        _P5 = rf"\bdid\s+(?:the\s+)?(?:study|survey)\b"
+        _P6 = rf"\bresults?\b.*\b{_PART}\b|\b{_DOC}\b.*\b{_PART}\b"
+
+        _study_like_re = re.compile(
+            rf"(?:{_P1}|{_P2}|{_P3}|{_P4}|{_P5}|{_P6})", re.IGNORECASE)
 
         kept = []
         for q in questions:
-            q = _normalize(q)
-            m = aux_re.match(q)
-            if m:
-                # Trim any junk before the auxiliary
-                kept.append(q[m.start():])
+            if not isinstance(q, str) or not q.strip():
+                continue
+            qn = _normalize(q)
 
-        # remove questions that do not end with "?", have less than 3 words, or start with and (i.e., like they are a follow up)
-        followup_openers = ("and", "but", "or", "so")
-        kept = [
-            q for q in kept
-            if q.endswith("?")
-            and len(q.split()) >= 3
-            and not q.lower().startswith(followup_openers)
-        ]
+            m = _aux_re.match(qn)
+            if not m:
+                continue
 
-        # remove questions that are specific to a given study, chart, etc.
-        DOC_NOUNS = r"(?:study|report|document|guidance|paper|article|memo|white\s*paper|brief|dataset|survey|chart|graph|figure|table|appendix|supplementary\s+material|methodology|results?)"
+            # Trim any junk before the auxiliary
+            qn = qn[m.start():]
 
-        # Verbs/requests commonly used to ask whether the doc says/includes/etc.
-        ACTION_VERBS = r"(?:include|mention|provide|state|say|note|discuss|address|cover|contain|list|describe|reference|present|report|indicate|summarize)"
+            # Structural checks
+            if not qn.endswith("?"):
+                continue
+            if len(qn.split()) < 3:
+                continue
+            if qn.lower().startswith(_followup_openers):
+                continue
 
-        # Participle/noun phrases that imply sample-specific questions
-        SAMPLE_PHRASES = r"(?:selected|surveyed|polled|sampled|enrolled)\s+(?:respondents?|participants?|subjects?)"
+            # Study/doc/sample-like filters
+            if _study_like_re.search(qn):
+                continue
 
-        # “according to …”
-        P_ACCORDING = rf"\baccording to (?:the )?(?:results?|{DOC_NOUNS})\b"
+            kept.append(qn)
 
-        # "does the report/document/study <verb> …"
-        P_DOES_DOC_VERB = rf"\b(?:do|does|did|has|have|had)\s+(?:the\s+)?{DOC_NOUNS}\s+{ACTION_VERBS}\b"
-
-        # "in/within/from the study/report/document …"
-        P_IN_DOC = rf"\b(?:in|within|from)\s+(?:the\s+)?{DOC_NOUNS}\b"
-
-        # sample-specific phrasing like "selected respondents/participants"
-        P_SAMPLE = rf"\b{SAMPLE_PHRASES}\b"
-
-        # short forms like "did the study …"
-        P_DID_STUDY = rf"\bdid\s+(?:the\s+)?(?:study|survey)\b"
-
-        # Combine all into one efficient regex
-        study_like_re = re.compile(
-            rf"(?:{P_ACCORDING}|{P_DOES_DOC_VERB}|{P_IN_DOC}|{P_SAMPLE}|{P_DID_STUDY})",
-            re.IGNORECASE
-        )
-
-        cleaned = [q for q in kept if not study_like_re.search(q)]
-
-        return cleaned
-
+        return kept
 
     def _evaluate_pair(self, question, a_s, source_chunk, target_chunk, topic, subquery, path_save=None, save=True):
         is_relevant, _ = self._check_is_relevant(question, target_chunk)
@@ -401,10 +407,10 @@ class MIND:
         if save and path_save is not None:
             self._print_result(discrepancy_label, question, a_s,
                                a_t, reason, target_chunk.text, source_chunk.text)
-            
+
             question_id = len(self.questions_id[topic])
             self.questions_id[topic].add(question_id)
-            
+
             self.results.append({
                 "topic": topic,
                 "question_id": question_id,
@@ -422,7 +428,7 @@ class MIND:
             })
             # save results every 200 entries
             if len(self.results) % 200 == 0:
-                
+
                 checkpoint = len(self.results) // 200
                 results_checkpoint_path = Path(
                     f"{path_save}/results_topic_{topic}_{checkpoint}.parquet")
@@ -492,11 +498,12 @@ class MIND:
                         q.strip() for q in response.split(sep)
                         if q.strip() and "passage" not in q
                     ]
-                    # remove 
+                    # remove
                     len_q = len(questions)
-                    questions = self._filter_no_yes_no_questions(questions)
-                    self._logger.info(f"Filtered out {len_q - len(questions)} / {len_q} NO yes/no questions.")
-                    
+                    questions = self._filter_bad_questions(questions)
+                    self._logger.info(
+                        f"Filtered out {len_q - len(questions)} / {len_q} NO yes/no questions.")
+
                     return questions, ""
             return [], "No valid separator found"
 
@@ -619,7 +626,7 @@ class MIND:
         for wrong, right in corrections.items():
             discrepancy_label = discrepancy_label.replace(wrong, right)
         return discrepancy_label
-        
+
     def _check_entailement(self, textA, textB, threshold=0.5):
         """
         Compute textual entailment between (textA -> textB) using a 2-class MNLI head.
