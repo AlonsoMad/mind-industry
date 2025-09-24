@@ -2,8 +2,8 @@
 set -euo pipefail
 
 LLM_MODEL="llama3.3:70b" #"qwen:32b"
-TOPICS="11,15,24"
-SAMPLE_SIZE=500 #1000
+TOPICS="24"
+SAMPLE_SIZE=348 #1000
 PATH_SAVE="data/mind_runs/rosie/results"
 
 SRC_CORPUS_PATH="/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/passages/26_jan/df_1.parquet"
@@ -12,7 +12,8 @@ SRC_ID_COL="doc_id"
 SRC_PASSAGE_COL="text"
 SRC_FULL_DOC_COL="full_doc"
 SRC_LANG_FILTER="EN"
-SRC_FILTER_IDS_PATH="data/mind_runs/rosie/v1/src_filter_ids.txt"
+#SRC_FILTER_IDS_PATH="data/mind_runs/rosie/v1/src_filter_ids.txt"
+SRC_FILTER_IDS_PATH="data/mind_runs/rosie/results/src_filter_ids_tp24.txt"
 
 TGT_CORPUS_PATH="/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/source/corpus_rosie/passages/26_jan/df_1.parquet"
 TGT_THETAS_PATH="/export/usuarios_ml4ds/lbartolome/Repos/umd/LinQAForge/data/models/28_jan/poly_rosie_1_30/mallet_output/thetas_ES.npz"
@@ -21,7 +22,8 @@ TGT_PASSAGE_COL="text"
 TGT_FULL_DOC_COL="full_doc"
 TGT_LANG_FILTER="ES"
 TGT_INDEX_PATH="data/mind_runs/rosie/indexes"
-TGT_FILTER_IDS_PATH="data/mind_runs/rosie/v1/src_filter_ids.txt"
+#TGT_FILTER_IDS_PATH="data/mind_runs/rosie/v1/src_filter_ids.txt"
+TGT_FILTER_IDS_PATH="data/mind_runs/rosie/results/src_filter_ids_tp24.txt"
 #PREVIOUS_CHECK="data/mind_runs/rosie/results/results_topic_15_504_check.parquet"
 # --previous_check "$PREVIOUS_CHECK"
 

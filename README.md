@@ -3,7 +3,7 @@
 This repository contains the code and data for reproducing experiments from our paper Discrepancy Detection at the Data Level: Toward Consistent Multilingual Question Answering.
 
 <p align="center">
-  <img src="figures_tables/Raupy2.png" alt="MIND pipeline" width="50%">
+  <img src="figures_tables/Raupi2.png" alt="MIND pipeline" width="50%">
 </p>
 
 - [MIND](#mind)

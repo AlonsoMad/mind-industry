@@ -1,11 +1,13 @@
-from pathlib import Path
 import re
+import unicodedata
+from collections import defaultdict
+from pathlib import Path
 from typing import List, Union
-from dotenv import dotenv_values
 
 import pandas as pd
 import torch
 from colorama import Fore, Style
+from dotenv import dotenv_values
 from mind.pipeline.corpus import Corpus
 from mind.pipeline.retriever import IndexRetriever
 from mind.pipeline.utils import extend_to_full_sentence
@@ -13,10 +15,6 @@ from mind.prompter.prompter import Prompter
 from mind.utils.utils import init_logger, load_prompt, load_yaml_config_file
 from sentence_transformers import SentenceTransformer  # type: ignore
 from tqdm import tqdm  # type: ignore
-from collections import defaultdict
-
-import re
-import unicodedata
 
 
 class MIND:
@@ -126,6 +124,9 @@ class MIND:
         # keep a unique identifier for the questions generated per topic
         self.questions_id = defaultdict(set)
 
+        # keep track of seen (question, source_chunk.id, target_chunk.id) triplets to avoid duplicates
+        self.seen_triplets = set()
+
     def _init_corpus(
         self,
         corpus: Union[Corpus, dict],
@@ -194,6 +195,12 @@ class MIND:
         for topic in topics:
             self._process_topic(
                 topic, path_save, previous_check=previous_check, sample_size=sample_size)
+
+    def _normalize(self, s: str) -> str:
+        s = unicodedata.normalize("NFKC", s)
+        s = re.sub(r"\s+", " ", s).strip()
+        s = re.sub(r"^[\s\-\–\—\•\"'“”‘’«»]+", "", s)
+        return s
 
     def _process_topic(self, topic, path_save, previous_check=None, sample_size=None):
         for chunk in tqdm(self.source_corpus.chunks_with_topic(
@@ -272,10 +279,19 @@ class MIND:
             f"Retrieved {len_target_chunks} target chunks, {len(all_target_chunks)} unique.")
 
         for target_chunk in all_target_chunks:
+            src_id = getattr(source_chunk, "id", None)
+            tgt_id = getattr(target_chunk, "id", None)
+            qkey = self._norm(question)
+
+            triplet = (qkey, src_id, tgt_id)
+            if triplet in self.seen_triplets:
+                continue
+            self.seen_triplets.add(triplet)
+
             self._evaluate_pair(question, a_s, source_chunk,
                                 target_chunk, topic, subquery, path_save)
 
-    def _filter_bad_questions(questions: List[str]) -> List[str]:
+    def _filter_bad_questions(self, questions: List[str]) -> List[str]:
         """Remove questions that are not well-formed or relevant.
 
         Parameters
@@ -297,13 +313,6 @@ class MIND:
         sample-specific phrases, including participle phrasing like
         "results indicated..." or "the report summarized...".
         """
-
-        # --- Normalization (expanded to your requested version) ---
-        def _normalize(s: str) -> str:
-            s = unicodedata.normalize("NFKC", s)
-            s = re.sub(r"\s+", " ", s).strip()
-            s = re.sub(r"^[\s\-\–\—\•\"'“”‘’«»]+", "", s)
-            return s
 
         # yes/no auxiliary verbs
         _aux = (
@@ -349,7 +358,7 @@ class MIND:
         for q in questions:
             if not isinstance(q, str) or not q.strip():
                 continue
-            qn = _normalize(q)
+            qn = self._normalize(q)
 
             m = _aux_re.match(qn)
             if not m:

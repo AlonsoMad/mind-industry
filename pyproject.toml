@@ -36,7 +36,8 @@ dependencies = [
     "openpyxl",
     "krippendorff",
     "irrCAC",
-    "Wikipedia-API"
+    "Wikipedia-API",
+    "dask"
 ]
 
 [build-system]

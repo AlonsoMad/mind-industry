@@ -124,8 +124,7 @@ class DataPreparer:
         out["lang"] = self._upper_lang(lang_val)
 
         # Keep any extra columns from input that are not mapped by schema
-        mapped_cols = set([c_chunk, c_text, c_lang, c_full])
-        mapped_cols.update([c for c in [c_doc, c_title, c_url, c_equiv] if c])
+        mapped_cols = set([c_chunk, c_text, c_lang, c_full, c_doc])
         extras = [c for c in df.columns if c not in mapped_cols]
         for c in extras:
             out[c] = df[c]
@@ -134,16 +133,17 @@ class DataPreparer:
 
     def _spacy_model_for(self, lang_upper: str) -> str:
         """Get the spaCy model name for a specific language."""
-        if not self.spacy_models or lang_upper not in self.spacy_models:
+        if not self.spacy_models or self._upper_lang(lang_upper) not in self.spacy_models:
             raise ValueError(f"No spaCy model configured for '{lang_upper}'. "
-                             f"Provide spacy_models like {{'EN':'en_core_web_sm'}}.")
-        return self.spacy_models[lang_upper]
+                             f"Provide spacy_models like {{'en':'en_core_web_sm'}}.")
+        return self.spacy_models[self._upper_lang(lang_upper)]
 
     def _preprocess_df(
         self,
         df: pd.DataFrame,
         lang_upper: str,
-        tag: str
+        tag: str,
+        path_save: Optional[Path] = None
     ) -> pd.DataFrame:
         """
         Run NLPipe on a temporary parquet file containing only the required columns:
@@ -162,7 +162,7 @@ class DataPreparer:
                 f"Missing: {missing}. Did _normalize() set 'chunk_id' from your schema?"
             )
 
-        tmp_dir = (self.storing_path / "_tmp_preproc")
+        tmp_dir = (Path(path_save).parent / "_tmp_preproc")
         tmp_dir.mkdir(parents=True, exist_ok=True)
 
         # temp parquet for nlpipe
@@ -211,6 +211,9 @@ class DataPreparer:
         to_drop = [c for c in merged.columns if c.startswith("id_preproc")]
         merged = merged.drop(columns=to_drop)
 
+        # remove tmp file
+        tmp_parq.unlink(missing_ok=True)
+        
         return merged
 
     @staticmethod
@@ -265,7 +268,7 @@ class DataPreparer:
         comp_norm = self._normalize(comp)
 
         # Save per-language temporaries, run NLPipe once per language to fill 'lemmas'
-        tmp_dir = (self.storing_path / "_tmp_preproc")
+        tmp_dir = (Path(path_save).parent / "_tmp_preproc")
         tmp_dir.mkdir(parents=True, exist_ok=True)
         anc_parq = tmp_dir / f"anchor_{anchor_lang}.parquet"
         comp_parq = tmp_dir / f"comparison_{comp_lang}.parquet"
@@ -278,8 +281,8 @@ class DataPreparer:
         # Run preprocessing per language
         self._logger.info(
             "Running NLPipe preprocessing for anchor and comparison...")
-        anc_proc = self._preprocess_df(anc_norm, anchor_lang, tag="anchor")
-        comp_proc = self._preprocess_df(comp_norm, comp_lang, tag="comparison")
+        anc_proc = self._preprocess_df(anc_norm, anchor_lang, tag="anchor", path_save=path_save)
+        comp_proc = self._preprocess_df(comp_norm, comp_lang, tag="comparison", path_save=path_save)
 
         # Build pairing keys representing the original source chunk
         def add_pair_key(df: pd.DataFrame) -> pd.DataFrame:
@@ -366,6 +369,6 @@ class DataPreparer:
         # Save unified parquet
         if path_save:
             final_df.to_parquet(path_save)
-            self._logger.info(f"Saved: {path_save.as_posix()}")
+            self._logger.info(f"Saved: {path_save}")
 
         return final_df

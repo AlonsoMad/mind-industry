@@ -160,9 +160,9 @@ if __name__ == "__main__":
         config_path="config.json",
         stw_path="externals/NLPipe/src/nlpipe/stw_lists",
         spacy_models={
-            "EN": "en_core_web_sm",
-            "DE": "de_core_news_sm",
-            "ES": "es_core_news_sm"},
+            "en": "en_core_web_sm",
+            "de": "de_core_news_sm",
+            "es": "es_core_news_sm"},
         schema={
             "chunk_id": "id_preproc",
             "doc_id": "id",
