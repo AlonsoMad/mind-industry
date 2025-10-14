@@ -80,16 +80,22 @@ if __name__ == "__main__":
                         help="Path to save segmented output file.")
     parser.add_argument("--text_col", type=str, default="text",
                         help="Name of the text column to segment.")
-    parser.add_argument("--lang_col", type=str, default="lang",
-                        help="Name of the language column.")
+    parser.add_argument("--min_length", type=int, default=100,
+                        help="Minimum length for a paragraph to be kept.")
+    parser.add_argument("--separator", type=str, default="\n",
+                        help="Separator for splitting paragraphs.")
     args = parser.parse_args()
 
     segmenter = Segmenter()
-    segmented_df = segmenter.segment(
-        input_path=args.input,
-        output_path=args.output,
+    result_path = segmenter.segment(
+        path_df=Path(args.input),
+        path_save=Path(args.output),
         text_col=args.text_col,
-        lang_col=args.lang_col
+        min_length=args.min_length,
+        sep=args.separator
     )
+    
+    # Read the result to get row count
+    result_df = pd.read_parquet(result_path)
     print(
-        f"Segmentation complete. Saved to {args.output}. Rows: {len(segmented_df)}")
+        f"Segmentation complete. Saved to {args.output}. Rows: {len(result_df)}")

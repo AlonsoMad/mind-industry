@@ -79,7 +79,7 @@ To run the MIND pipeline, you need a collection of *loosely aligned* documents (
 
     ```bash
     # Segment documents into passages
-    python3 src/mind/corpus_building/segmenter.py --input INPUT_PATH --output OUTPUT_PATH --text_col TEXT_COLUMN --lang_col LANG_COLUMN
+    python3 src/mind/corpus_building/segmenter.py --input INPUT_PATH --output OUTPUT_PATH --text_col TEXT_COLUMN --min_length MIN_LENGTH --separator SEPARATOR
 
     # Translate passages from anchor to comparison language (and vice versa)
     python3 src/mind/corpus_building/translator.py --input INPUT_PATH --output OUTPUT_PATH --src_lang SRC_LANG --tgt_lang TGT_LANG --text_col TEXT_COLUMN --lang_col LANG_COLUMN
@@ -88,7 +88,8 @@ To run the MIND pipeline, you need a collection of *loosely aligned* documents (
     python3 src/mind/corpus_building/data_preparer.py --anchor ANCHOR_PATH --comparison COMPARISON_PATH --output OUTPUT_PATH --schema SCHEMA_JSON_OR_PATH
     ```
 
-    - Replace `INPUT_PATH`, `OUTPUT_PATH`, `TEXT_COLUMN`, `LANG_COLUMN`, `SRC_LANG`, `TGT_LANG`, `ANCHOR_PATH`, `COMPARISON_PATH`, and `SCHEMA_JSON_OR_PATH` with your actual file paths and column names.
+    - Replace `INPUT_PATH`, `OUTPUT_PATH`, `TEXT_COLUMN`, `MIN_LENGTH`, `SEPARATOR`, `SRC_LANG`, `TGT_LANG`, `LANG_COLUMN`, `ANCHOR_PATH`, `COMPARISON_PATH`, and `SCHEMA_JSON_OR_PATH` with your actual file paths and column names.
+    - For `segmenter.py`: `MIN_LENGTH` is the minimum paragraph length (default: 100), `SEPARATOR` is the split character (default: "\n")
     - The `--schema` argument for `data_preparer.py` can be a JSON string or a path to a JSON file mapping required columns.
 
     Alternatively, you can import and use these modules programmatically. See the [Wikipedia use case](use_cases/wikipedia/generate_dtset.py) for a complete example of how to use all these scripts in a workflow.
