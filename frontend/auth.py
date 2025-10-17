@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app, session
-import requests
+import requests, dotenv, os
+
 
 auth = Blueprint('auth', __name__)
+dotenv.load_dotenv()
 
-# URL del microservicio auth desde Docker
-AUTH_API_URL = "http://auth:5002/auth"  # este nombre 'auth' viene del docker-compose
+AUTH_API_URL = f"{os.environ.get('AUTH_API_URL', 'http://auth:5002/')}/auth"
+
 
 def validate_password(password, password_rep):
     """Validate account strength."""
@@ -29,6 +31,7 @@ def login():
 
         # Enviar login al microservicio auth
         try:
+            print(f"{AUTH_API_URL}/login")
             response = requests.post(f"{AUTH_API_URL}/login", json={
                 "email": email,
                 "password": password
@@ -40,6 +43,7 @@ def login():
         if response.status_code == 200:
             data = response.json()
             session['user_id'] = data.get('user_id')
+            session['username'] = data.get('username')
             flash("Login successful", "success")
             return redirect(url_for('views.home'))
         else:
@@ -87,8 +91,9 @@ def sign_up():
             })
             if login_response.status_code == 200:
                 session['user_id'] = login_response.json().get('user_id')
+                session['username'] = login_response.json().get('username')
             return redirect(url_for('views.home'))
         else:
-            flash(response.json().get('error', 'Registration failed'), "danger")
+            flash(response.json(), "danger")
 
     return render_template('sign_up.html')

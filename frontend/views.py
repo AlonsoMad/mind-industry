@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request,flash, jsonify, session, send_file
-from flask_login import current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash 
 from werkzeug.utils import secure_filename
+from functools import wraps
 from models import User
 from enum import Enum
 import glob
@@ -15,6 +15,7 @@ from tools.tools import *
 from auth import validate_password
 from __init__ import db
 
+
 views = Blueprint('views', __name__)
 dotenv.load_dotenv()
 
@@ -25,27 +26,37 @@ class LastInstruction(str, Enum):
 
 current_instruction = {"instruction": LastInstruction.idle, "last_updated": None}
 MIND_WORKER_URL = os.environ.get('MIND_WORKER_URL')
-    
+AUTH_API_URL = f"{os.environ.get('AUTH_API_URL', 'http://auth:5002/')}/auth"    
+
+def login_required_custom(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash("Please log in to access this page.", "warning")
+            return render_template("home.html")
+        return f(*args, **kwargs)
+    return decorated_function
 
 @views.route('/')
-# @login_required
 def home():
-    return render_template("home.html", user=current_user)
+    user_id = session.get('user_id')
+    return render_template("home.html", user_id=user_id)
 
 @views.route('/about_us')
-# @login_required
 def about_us():
-    return render_template("about_us.html", user=current_user)
+    user_id = session.get('user_id')
+    return render_template("about_us.html", user_id=user_id)
 
 
 @views.route('/datasets')
-@login_required
+@login_required_custom
 def datasets():
+    user_id = session.get('user_id')
     dataset_path = os.getenv("DATASET_PATH", "/data/3_joined_data")
     dataset_list = []
     if not os.path.exists(dataset_path):
         flash(f"Dataset path {dataset_path} does not exist.", "danger")
-        return render_template("datasets.html", user=current_user, datasets=[])
+        return render_template("datasets.html", user_id=user_id, datasets=[])
     else:
         # try:
         dataset_list, datasets_name, shapes = load_datasets(dataset_path)
@@ -53,7 +64,7 @@ def datasets():
             flash(f"Datasets loaded successfully!", "success")
         else:
             flash(f"No datasets found in {dataset_path}.", "warning")
-        return render_template("datasets.html", user=current_user, datasets=dataset_list, names=datasets_name, shape=shapes)
+        return render_template("datasets.html", user_id=user_id, datasets=dataset_list, names=datasets_name, shape=shapes)
 
 @views.get('/get_instruction')
 def get_last_instruction():
@@ -64,7 +75,7 @@ def get_last_instruction():
     })
 
 @views.route('/dataset_selection', methods=['POST'])
-@login_required
+@login_required_custom
 def dataset_selection():
     data = request.get_json()
     dataset = data.get('dataset')
@@ -82,7 +93,7 @@ def dataset_selection():
     return jsonify({'message': 'Dataset received', 'dataset': dataset})
 
 @views.route('/topic_selection', methods=['GET', 'POST'])
-@login_required
+@login_required_custom
 def topic_selection():
     data = request.get_json()
     topic_id = data.get('topic_id')
@@ -99,7 +110,7 @@ def topic_selection():
 
 
 @views.route('/get_pyldavis', methods=['GET', 'POST'])
-@login_required
+@login_required_custom
 def get_pyldavis():
 
     #Get path to mallet ds
@@ -127,7 +138,7 @@ def get_pyldavis():
     return jsonify(response.json())
 
 @views.route('/analyze_topic', methods=['GET', 'POST'])
-@login_required
+@login_required_custom
 def analyze_topic():
     '''
     Stores the selected topic ID in the session for later use.
@@ -143,7 +154,7 @@ def analyze_topic():
     return jsonify({"message": "Topic stored, awaiting sample count."})
 
 @views.route('/submit_analysis', methods=['GET','POST'])
-@login_required
+@login_required_custom
 def submit_analysis():
     data = request.get_json()
     topic_id = session.get('selected_topic')
@@ -173,18 +184,19 @@ def submit_analysis():
     return jsonify({"message": "Sample recieved, starting analysis."})
 
 @views.route('/preprocessing', methods=['GET', 'POST'])
-@login_required
+@login_required_custom
 def preprocessing():
+    user_id = session.get('user_id')
     dataset_path = os.getenv("DATASET_PATH", "/data/3_joined_data")
     dataset_list = []
     if not os.path.exists(dataset_path):
         flash(f"Dataset path {dataset_path} does not exist.", "danger")
     else:
         dataset_list, datasets_name, shapes = load_datasets(dataset_path)
-    return render_template('preprocessing.html', datasets=dataset_list, names=datasets_name)
+    return render_template('preprocessing.html', user_id=user_id, datasets=dataset_list, names=datasets_name)
 
 @views.route('/confirm_preprocessing_step2', methods=['POST'])
-@login_required
+@login_required_custom
 def confirm_preprocessing_step2():
     """Recibe la petición del HTML y la reenvía al Worker."""
     
@@ -216,7 +228,7 @@ def confirm_preprocessing_step2():
         }), 500
 
 @views.route('/mode_selection', methods=['GET', 'POST'])
-@login_required
+@login_required_custom
 def mode_selection():
     data = request.get_json()
     mode = data.get('instruction')
@@ -251,8 +263,9 @@ def mode_selection():
         return jsonify({'error': f'MIND is not initialized. Current status: {status}'})
 
 @views.route('/detection', methods=['GET', 'POST'])
-@login_required
+@login_required_custom
 def detection():
+    user_id = session.get('user_id')
     mind_api_url = f"{os.getenv('MIND_API_URL', 'http://mind:93')}"
     dataset_path = os.getenv("DATASET_PATH", "/Data/3_joined_data")
 
@@ -363,7 +376,7 @@ def detection():
     except requests.RequestException as e:
         flash(f"Error connecting to MIND: {e}", "danger")
 
-    return render_template("detection.html", user=current_user, status=status, ds_tuple=ds_tuple, mind_info=mind_info)
+    return render_template("detection.html", user_id=user_id, status=status, ds_tuple=ds_tuple, mind_info=mind_info)
 
 @views.route('/upload_dataset', methods=['GET','POST'])
 def upload_dataset():
@@ -407,8 +420,10 @@ def get_results():
     return send_file(full_path, as_attachment=True, download_name=f"results_topic_{topic_id}_samples_{n_samples}.parquet")
 
 @views.route('/profile', methods=['GET', 'POST'])
-@login_required
+@login_required_custom
 def profile():
+    user_id = session.get('user_id')
+    username = session.get('username')
     from __init__ import db
     datasets = []
     dataset_path = os.path.join(os.getenv("OUTPUT_PATH", "/Data/mind_folder"), 'final_results')
@@ -435,27 +450,29 @@ def profile():
         new_password = request.form.get('password')
         new_password_rep = request.form.get('password_rep')
         
-        update = False
+        update_payload = {}
+        if new_email and new_email != session.get('email'):
+            update_payload['email'] = new_email
+        if new_username and new_username != session.get('username'):
+            update_payload['username'] = new_username
+        if new_password and new_password_rep:
+            update_payload['password'] = new_password
+            update_payload['password_rep'] = new_password_rep
 
-        if new_email and new_email != current_user.email:
-            current_user.email = new_email
-            update = True
-        if new_username and new_username != current_user.user:
-            current_user.user = new_username
-            update = True
-        if new_password and new_password_rep and new_password == new_password_rep:
-            valid , message = validate_password(new_password, new_password_rep)
-            print(f"Password validation result: {valid}, message: {message}")
-            if valid:
-                current_user.password = generate_password_hash(new_password, method='pbkdf2:sha256')
-                update = True
-            else:
-                flash(message, "danger")
-                return render_template("profile.html", user=current_user)
-            
-        if update:
-            db.session.commit()
-            flash("Profile updated successfully!", "success")
+        if update_payload:
+            try:
+                response = requests.put(f"{AUTH_API_URL}/user/{session['user_id']}", json=update_payload)
+                if response.status_code == 200:
+                    # Actualizamos la sesión para reflejar cambios
+                    if 'email' in update_payload:
+                        session['user_id'] = update_payload['email']
+                    if 'username' in update_payload:
+                        session['username'] = update_payload['username']
+                    flash("Profile updated successfully!", "success")
+                else:
+                    flash(response.json().get('error', 'Error updating profile'), "danger")
+            except requests.exceptions.RequestException:
+                flash("Authentication service unavailable", "danger")
         else:
-            flash("No changes made to the profile.", "info")
-    return render_template("profile.html", user=current_user, datasets=datasets)
+            flash("No changes made.", "info")
+    return render_template("profile.html", user_id=user_id, username=username, datasets=datasets)

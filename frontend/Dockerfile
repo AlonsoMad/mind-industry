@@ -4,7 +4,7 @@ FROM python:3.12.3
 WORKDIR /frontend
 
 COPY ./frontend/ . 
-COPY .env ./frontend/.env 
+COPY .env .env 
 # COPY ./data ./data 
 
 ENV PYTHONPATH=/frontend

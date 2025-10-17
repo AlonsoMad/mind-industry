@@ -26,7 +26,7 @@
             <li class="nav-item active">
                 <a class="nav-link" href="/about_us">About us<span class="sr-only">(current)</span></a>
             </li>
-            {% if current_user.is_authenticated %}
+            {% if user_id %}
             <li class="nav-item">
                 <a class="nav-link" href="/datasets">Datasets for detection</a>
             </li>
@@ -42,7 +42,7 @@
 
         <!-- Right-side navigation -->
         <ul class="navbar-nav ml-auto">
-            {% if current_user.is_authenticated %}
+            {% if user_id %}
             <li class="nav-item">
                 <a class="nav-link" href="/profile">Profile</a>
             </li>
