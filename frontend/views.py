@@ -2,7 +2,6 @@ from flask import Blueprint, render_template, request,flash, jsonify, session, s
 from werkzeug.security import generate_password_hash, check_password_hash 
 from werkzeug.utils import secure_filename
 from functools import wraps
-from models import User
 from enum import Enum
 import glob
 
@@ -13,7 +12,6 @@ import numpy as np
 import requests
 from tools.tools import *
 from auth import validate_password
-from __init__ import db
 
 
 views = Blueprint('views', __name__)
@@ -424,7 +422,7 @@ def get_results():
 def profile():
     user_id = session.get('user_id')
     username = session.get('username')
-    from __init__ import db
+
     datasets = []
     dataset_path = os.path.join(os.getenv("OUTPUT_PATH", "/Data/mind_folder"), 'final_results')
 
@@ -455,7 +453,7 @@ def profile():
             update_payload['email'] = new_email
         if new_username and new_username != session.get('username'):
             update_payload['username'] = new_username
-        if new_password and new_password_rep:
+        if new_password == new_password_rep and validate_password(new_password, new_password_rep)[0]:
             update_payload['password'] = new_password
             update_payload['password_rep'] = new_password_rep
 
