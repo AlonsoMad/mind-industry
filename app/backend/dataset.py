@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, current_app
+from flask import Blueprint, jsonify, request
 import os, glob
 import pandas as pd
 import numpy as np
@@ -7,7 +7,9 @@ datasets_bp = Blueprint("datasets", __name__)
 
 @datasets_bp.route("/datasets", methods=["GET"])
 def get_datasets():
-    dataset_path = os.getenv("DATASET_PATH", "/data/3_joined_data")
+    email = request.args.get("email")
+
+    dataset_path = f"/data/{email}/1_Preprocess/"
 
     if not os.path.exists(dataset_path):
         return jsonify({"error": f"Dataset path {dataset_path} does not exist."}), 404
@@ -81,7 +83,7 @@ def load_datasets(dataset_path: str):
     shapes = np.empty((len(datasets_name), 2), dtype=int)
 
     for i, d in enumerate(datasets_name):
-        ds_path = os.path.join(dataset_path, d, 'polylingual_df')
+        ds_path = os.path.join(dataset_path, d, 'dataset')
         try:
             ds = pd.read_parquet(ds_path)
             shapes[i] = ds.shape

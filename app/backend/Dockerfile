@@ -2,13 +2,13 @@ FROM python:3.12.3
 
 WORKDIR /backend
 
-COPY ./backend/requirements.txt . 
+COPY ./app/backend/requirements.txt . 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./backend/ .
+COPY ./app/backend/ .
 COPY ./src/mind /src/mind
-COPY .env . 
-COPY ./data .
+COPY ./app/.env . 
+COPY ./app/data .
 
 ENV PYTHONPATH=/backend:/src
 

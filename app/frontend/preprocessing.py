@@ -20,7 +20,7 @@ def preprocessing():
     user_id = session.get('user_id')
 
     try:
-        response = requests.get(f"{MIND_WORKER_URL}/datasets")
+        response = requests.get(f"{MIND_WORKER_URL}/datasets", params={"email": user_id})
         if response.status_code == 200:
             data = response.json()
             datasets = data.get("datasets", [])

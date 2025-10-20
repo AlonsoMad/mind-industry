@@ -4,7 +4,7 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: frontend/Dockerfile
+      dockerfile: app/frontend/Dockerfile
     
     user: root
     
@@ -12,7 +12,7 @@ services:
       - "5000:5000"
     
     volumes:
-      - ./data:/data
+      - ./app/data:/data
     
     environment:
       - PYTHONUNBUFFERED=1
@@ -20,7 +20,7 @@ services:
       - AUTH_API_URL=http://auth:5002
     
     env_file:
-      - ./.env
+      - ./app/.env
     
     depends_on:
       - backend
@@ -29,7 +29,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: app/backend/Dockerfile
     
     user: root
     
@@ -37,9 +37,9 @@ services:
       - "5001:5001"
     
     volumes:
-      - ./backend:/backend
+      - ./app/backend:/backend
       - ./src/mind:/src/mind
-      - ./data:/data
+      - ./app/data:/data
     
     environment:
       - PYTHONUNBUFFERED=1
@@ -47,7 +47,7 @@ services:
       - AUTH_API_URL=http://auth:5002
     
     env_file:
-      - ./.env
+      - ./app/.env
     
     depends_on:
       - auth
@@ -55,7 +55,7 @@ services:
   auth:
     build:
       context: .
-      dockerfile: auth/Dockerfile
+      dockerfile: app/auth/Dockerfile
     
     user: root
     
@@ -63,15 +63,15 @@ services:
       - "5002:5002"
     
     volumes:
-      - ./auth:/auth
-      - ./data/1_users:/auth/data/1_users
+      - ./app/auth:/auth
+      - ./app/data/1_users:/auth/data/1_users
     
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql://auth_user:auth_pass@db:5432/auth_db
     
     env_file:
-      - ./.env
+      - ./app/.env
     
     depends_on:
       - db

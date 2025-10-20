@@ -3,8 +3,8 @@ FROM python:3.12.3
 # Set the working directory
 WORKDIR /frontend
 
-COPY ./frontend/ . 
-COPY .env .env 
+COPY ./app/frontend/ . 
+COPY app/.env .env 
 
 ENV PYTHONPATH=/frontend
 
