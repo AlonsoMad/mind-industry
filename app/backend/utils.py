@@ -4,22 +4,7 @@ from flask import jsonify
 
 
 def validate_and_get_dataset(email: str, dataset: str, output: str, phase: str):
-    """
-    Verifica la existencia del dataset y que no exista ya el output.
-    
-    Parámetros:
-        email (str): correo del usuario
-        dataset (str): nombre del dataset
-        output (str): nombre del output especificado por el usuario
-        phase (str): nombre de la fase, ej. "1_Segmenter" o "2_Translator"
-
-    Devuelve:
-        tuple(dataset_path, output_dir) si todo es válido,
-        o una respuesta Flask (jsonify, status_code) si hay error.
-    """
-
     try:
-        # 1️⃣ Buscar el dataset en el parquet principal
         parquet_path = "/data/datasets_stage_preprocess.parquet"
         if not os.path.exists(parquet_path):
             return jsonify({
@@ -43,15 +28,17 @@ def validate_and_get_dataset(email: str, dataset: str, output: str, phase: str):
 
         dataset_path = row.iloc[0]["Path"]
 
-        # 2️⃣ Comprobar que no exista el output
-        output_dir = f"/data/{email}/Stage_1/{dataset}/{phase}/{output}/dataset"
-        if os.path.exists(output_dir):
+        if phase == '3_Preparer': output_dir = f"/data/{email}/2_TopicModelling/{output}/dataset"
+        else: output_dir = f"/data/{email}/1_Preprocess/{dataset}/{phase}/{output}"
+        
+        if os.path.exists(f"{output_dir}/dataset"):
             return jsonify({
                 "status": "error",
                 "message": f"Output already exists at {output_dir}. Please choose another output name."
             }), 400
+        os.makedirs(output_dir)
 
-        return dataset_path, output_dir
+        return dataset_path, f"{output_dir}/dataset"
 
     except Exception as e:
         return jsonify({

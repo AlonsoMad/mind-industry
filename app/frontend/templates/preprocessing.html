@@ -8,27 +8,20 @@
     <div class="d-flex justify-content-center align-items-center flex-wrap">
         <!-- Step 1 -->
         <div class="step-box" data-toggle="modal" data-target="#stepModal" data-step="1">
-            Dataset selection<br><small>Click to tune</small>
+            Preprocessing<br><small>Click to tune</small>
         </div>
 
         <div class="arrow">&#8594;</div>
 
         <!-- Step 2 -->
         <div class="step-box" data-toggle="modal" data-target="#stepModal" data-step="2">
-            Preprocessing<br><small>Click to tune</small>
+            Topic Modeling<br><small>Click to tune</small>
         </div>
 
         <div class="arrow">&#8594;</div>
 
         <!-- Step 3 -->
         <div class="step-box" data-toggle="modal" data-target="#stepModal" data-step="3">
-            Topic Modeling<br><small>Click to tune</small>
-        </div>
-
-        <div class="arrow">&#8594;</div>
-
-        <!-- Step 4 -->
-        <div class="step-box" data-toggle="modal" data-target="#stepModal" data-step="4">
             Data<br><small>Download</small>
         </div>
     </div>
@@ -44,7 +37,7 @@
         </button>
       </div>
 
-      <!-- Step 1: Data Selection -->
+      <!-- Step 1: Preprocess Dataset -->
       <div class="modal-body" id="modal-body-1">
         <label for="optionsDatasets">Select an option: </label>
         <select id="optionsDatasets">
@@ -58,12 +51,29 @@
           {% endif %}
         </select>
 
-        <button type="button" class="btn btn-secondary" id="confirmDataset">Accept Dataset</button>
+        <div class="form-group mt-3">
+            <label for="TextColumnOutput-Segmentor">Output Dataset Name:</label>
+            <input type="text" id="TextColumnOutput-Segmentor" class="form-control" placeholder="Enter the name for the new dataset">
+        </div>
 
-        <!-- <div id="resultDataset">
-          Actual selection: <b>None</b>
-        </div> -->
-      </div>
+        <hr>
+
+        <div class="form-group mt-3">
+            <label for="TextColumn-Segmentor">Text Column:</label>
+            <input type="text" id="TextColumn-Segmentor" class="form-control" placeholder="Enter text column name">
+        </div>
+
+        <div class="form-group mt-3">
+            <label for="MinimumLength-Segmentor">Minimum Length:</label>
+            <input type="number" id="MinimumLength-Segmentor" class="form-control" placeholder="100" min="1" value="100">
+        </div>
+
+        <div class="form-group mt-3">
+            <label for="Separator-Segmentor">Separator:</label>
+            <input type="text" id="Separator-Segmentor" class="form-control" placeholder="\\n" value="\n">
+        </div>
+        
+        <button type="button" class="btn btn-secondary mt-3" id="confirmDatasetPreprocess">Accept Dataset to Preprocess</button>
 
       <!-- Step 2: Preprocessing -->
       <div class="modal-body" id="modal-body-2">
@@ -181,89 +191,93 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Step 1
     const selector = document.getElementById('optionsDatasets');
-    const datasetButton = document.getElementById('confirmDataset');
-    // const resultDiv = document.getElementById('resultDataset');
+    const datasetButton = document.getElementById('confirmDatasetPreprocess');
     
-    function confirmarSeleccion() {
+    function Stage1Selection() {
+        const selector = document.getElementById("optionsDatasets");
         const dbSelected = selector.value;
-        if (dbSelected != "") {
-            // resultDiv.innerHTML = `Actual selection: <b>${dbSelected}`;
+
+        const textColumnInput = document.getElementById("TextColumn-Segmentor");
+        const OutputPathInput = document.getElementById("TextColumnOutput-Segmentor");
+        const minLengthInput = document.getElementById("MinimumLength-Segmentor");
+        const separatorInput = document.getElementById("Separator-Segmentor");
+
+        const defaultMinLength = 100;
+        const defaultSeparator = "\n";
+
+        if (dbSelected !== "" && textColumnInput !== "") {
             db_selected = dbSelected;
             step1Done = true;
+
+            const textColumn = textColumnInput.value.trim();
+            const OutputPath = OutputPathInput.value.trim();
+            const minLength = minLengthInput.value ? parseInt(minLengthInput.value) : defaultMinLength;
+            const separator = separatorInput.value.trim() !== "" ? separatorInput.value : defaultSeparator;
+            
+            const segmentor_data = {
+                "output": OutputPath,
+                "text_col": textColumn,
+                "min_length": minLength,
+                "sep": separator
+            }
+
+            const translator_data = {
+                "output": OutputPath
+            }
+
+            const preparer_data = {
+                "output": OutputPath
+            }
+
+            const data = {
+                'dataset': db_selected,
+                'segmentor_data': segmentor_data,
+                'translator_data': translator_data,
+                'preparer_data': preparer_data
+            };
+
+            console.log(data)
+
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            loadingSpinner.style.display = 'inline-block';
+
+            // LLAMADA AJAX
+            fetch("/preprocess/Stage1", {
+                method: "POST", 
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(data), 
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.message || `HTTP Error: ${response.status}`);
+                    });
+                }
+
+                return response.json();
+            })
+            .then(response => {
+                // alert('Success (' + response.status + '): ' + response.message);
+                step2Done = response.next_step_available;
+            })
+            .catch(error => {
+                console.error("Error in Fetch/AJAX:", error.message);
+                // alert('Error: ' + error.message);
+            })
+            .finally(() => {
+                loadingSpinner.style.display = 'none';
+            });
+
         } else {
-            // resultDiv.innerHTML = `Actual selection: <b>None`;
             step1Done = false;
             alert('Please select an available dataset before accepting.');
         }
     }
 
     if (datasetButton) {
-        datasetButton.addEventListener('click', confirmarSeleccion);
-    }
-
-    // Función para ejecutar la acción de AJAX en el Step 2
-    function executeStep2Action() {
-        // const confirmButton = document.getElementById('confirmStep2');
-        // // Desactivar el botón para evitar múltiples envíos
-        // confirmButton.disabled = true;
-        // confirmButton.textContent = 'Processing...';
-    
-        const data_a_enviar = {
-            'dataset_name': db_selected,
-            // Puedes añadir más parámetros de configuración de preprocesamiento aquí
-        };
-
-        // LLAMADA AJAX
-        fetch("/confirm_preprocessing_step2", {
-            method: "POST", 
-            headers: {
-                "Content-Type": "application/json",
-            },
-            // Convertir el objeto JS a una cadena JSON para enviar al backend
-            body: JSON.stringify(data_a_enviar), 
-        })
-        .then(response => {
-            // El bloque then() inicial solo verifica el estado HTTP
-            if (!response.ok) {
-                // Si el status es 4xx o 5xx (ej. 500 Internal Server Error)
-                // Lanza un error para que el bloque .catch() lo maneje
-                return response.json().then(err => {
-                    throw new Error(err.message || `HTTP Error: ${response.status}`);
-                });
-            }
-            // Si la respuesta es OK (2xx), la convierte a JSON
-            return response.json();
-        })
-        .then(response => {
-            // Manejar la respuesta de éxito (response.status === "success")
-            alert('Éxito (' + response.status + '): ' + response.message);
-            step2Done = response.next_step_available;
-            
-            // Actualizar la interfaz usando innerHTML para inyectar etiquetas HTML
-            if (bodyTwo) {
-                bodyTwo.innerHTML = `<p class="text-success">✅ ${response.message}</p>`;
-            }
-
-            // 3. Volver a habilitar el botón y actualizar su texto
-            // confirmButton.disabled = false;
-            // confirmButton.textContent = 'Confirmar';
-        })
-        .catch(error => {
-            // Manejar errores de red, errores HTTP, o errores lanzados en el bloque .then()
-            console.error("Error en la solicitud Fetch/AJAX:", error.message);
-            
-            // Muestra el mensaje de error al usuario
-            alert('Error: ' + error.message);
-            
-            // 4. Volver a habilitar el botón y actualizar su texto
-            // confirmButton.disabled = false;
-            // confirmButton.textContent = 'Confirmar';
-
-            // Actualizar la interfaz con el mensaje de error
-            if (bodyTwo) {
-                bodyTwo.innerHTML = `<p class="text-danger">❌ ${error.message}</p>`;
-            }
-        });
+        datasetButton.addEventListener('click', Stage1Selection);
     }
 
     // === Listener para el botón de Confirmar del Step 2 (DEBES CREAR ESTE BOTÓN EN TU HTML) ===
@@ -337,7 +351,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             else {
                 // ÚLTIMO PASO: EJECUTAR LA ACCIÓN AJAX
-                executeStep2Action();
                 nextButton.setAttribute('data-dismiss', 'modal');
             }
         });

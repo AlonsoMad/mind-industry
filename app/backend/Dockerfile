@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ./app/backend/ .
 COPY ./src/mind /src/mind
+COPY ./config /src/config
 COPY ./app/.env . 
 COPY ./app/data /data
 

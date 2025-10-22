@@ -1,11 +1,10 @@
 import os
 import time
 import uuid
-import random
 import dotenv
 import requests
 import threading
-from flask import Blueprint, jsonify, request, Response
+from flask import Blueprint, jsonify, request
 
 
 dotenv.load_dotenv()
@@ -38,7 +37,7 @@ def background_preprocess_task(task_id, task_name, email, dataset, segmenter_dat
     try:
         # Hacemos por ahora para los 3 pasos
         for step in range(1, TOTAL_STEPS + 1):
-            time.sleep(random.uniform(2, 5))
+            # time.sleep(random.uniform(2, 5))
             
             percent = int((step / TOTAL_STEPS) * 100)
             
@@ -99,13 +98,16 @@ def background_preprocess_task(task_id, task_name, email, dataset, segmenter_dat
         print(f"Task: {task_name} removed from the active tasks")
 
 
-@preprocess_bp.route('/start_preprocess', methods=['POST'])
+@preprocess_bp.route('/preprocess/Stage1', methods=['POST'])
 def start_preprocess():
     global RUNNING_TASKS, TASK_COUNTER
 
     data = request.get_json()
     email = data.get('email')
     dataset = data.get('dataset')
+    segmentor_data = data.get('segmentor_data')
+    translator_data = data.get('translator_data')
+    preparer_data = data.get('preparer_data')
 
     with tasks_lock:
         if len(RUNNING_TASKS) >= MAX_CONCURRENT_TASKS:
@@ -129,7 +131,7 @@ def start_preprocess():
 
     thread = threading.Thread(
         target=background_preprocess_task, 
-        args=(new_task_id, new_task_name, email, dataset)
+        args=(new_task_id, new_task_name, email, dataset, segmentor_data, translator_data, preparer_data)
     )
     thread.start()
     
