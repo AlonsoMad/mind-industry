@@ -1,9 +1,11 @@
-import os, requests
+import os
+import requests
 
 from database import db
 from models import User
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
+
 
 auth_bp = Blueprint("auth", __name__)
 MIND_WORKER_URL = os.getenv("MIND_WORKER_URL")

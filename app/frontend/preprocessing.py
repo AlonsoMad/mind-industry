@@ -7,7 +7,7 @@ import threading
 
 from tools.tools import *
 from views import login_required_custom
-from flask import Blueprint, render_template, request,flash, jsonify, session
+from flask import Blueprint, render_template, request, flash, jsonify, session
 
 
 preprocess = Blueprint('preprocess', __name__)
@@ -64,6 +64,7 @@ def preprocessing():
             data = response.json()
             datasets = data.get("datasets", [])
             names = data.get("names", [])
+            stages = data.get("stages", [])
         else:
             flash("Error loading datasets from backend.", "danger")
             datasets, names = [], []
@@ -71,7 +72,7 @@ def preprocessing():
         flash("Backend service unavailable.", "danger")
         datasets, names = [], []
 
-    return render_template('preprocessing.html', user_id=user_id, datasets=datasets, names=names)
+    return render_template('preprocessing.html', user_id=user_id, datasets=datasets, names=names, stages=stages, zip=zip)
 
 def wait_for_step_completion(step_id, step_name, timeout=600, interval=5):
     start = time.time()

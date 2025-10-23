@@ -1,27 +1,25 @@
-from flask import Blueprint, render_template, request,flash, jsonify, session, send_file
-from werkzeug.utils import secure_filename
-from functools import wraps
-from enum import Enum
-
-import dotenv
 import os
-import pandas as pd
+import dotenv
 import requests
+
+from enum import Enum
 from tools.tools import *
-from auth import validate_password
+from functools import wraps
+from flask import Blueprint, render_template, request, flash, jsonify, session, send_file
 
-
-views = Blueprint('views', __name__)
-dotenv.load_dotenv()
 
 class LastInstruction(str, Enum):
     idle = "Idle"
     explore_topics = "Explore topics"
     analyze_contradictions = "Analyze contradictions"
 
+views = Blueprint('views', __name__)
+dotenv.load_dotenv()
+
 current_instruction = {"instruction": LastInstruction.idle, "last_updated": None}
 MIND_WORKER_URL = os.environ.get('MIND_WORKER_URL')
 AUTH_API_URL = f"{os.environ.get('AUTH_API_URL', 'http://auth:5002/')}/auth"    
+
 
 def login_required_custom(f):
     @wraps(f)
@@ -41,29 +39,6 @@ def home():
 def about_us():
     user_id = session.get('user_id')
     return render_template("about_us.html", user_id=user_id)
-
-
-@views.route('/datasets')
-@login_required_custom
-def datasets():
-    user_id = session.get('user_id')
-
-    try:
-        response = requests.get(f"{MIND_WORKER_URL}/datasets", params={"email": user_id})
-        if response.status_code == 200:
-            data = response.json()
-            datasets = data.get("datasets", [])
-            names = data.get("names", [])
-            shapes = data.get("shapes", [])
-            flash(f"Datasets loaded successfully!", "success")
-        else:
-            flash(f"Error loading datasets: {response.text}", "danger")
-            datasets, names, shapes = [], [], []
-    except requests.exceptions.RequestException:
-        flash("Backend service unavailable.", "danger")
-        datasets, names, shapes = [], [], []
-
-    return render_template("datasets.html", user_id=user_id, datasets=datasets, names=names, shape=shapes)
 
 @views.get('/get_instruction')
 def get_last_instruction():
@@ -309,36 +284,6 @@ def detection():
 
     return render_template("detection.html", user_id=user_id, status=status, ds_tuple=ds_tuple, mind_info=mind_info)
 
-@views.route('/upload_dataset', methods=['GET','POST'])
-def upload_dataset():
-    upload_folder = os.getenv("USER_DS_PATH", "/Data/0_input_data")
-    os.makedirs(upload_folder, exist_ok=True)
-
-    # Check if file part exists
-
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part"}), 400
-
-    file = request.files['file']
-
-    # Check if no file selected
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
-
-    # Validate extension
-    if not allowed_file(file.filename):
-        return jsonify({"error": "Invalid file type"}), 400
-
-    # Secure and save file
-    filename = secure_filename(file.filename)
-    save_path = os.path.join(upload_folder, filename)
-    try:
-        file.save(save_path)
-    except Exception as e:
-        return jsonify({"error": f"Could not save file: {e}"}), 500
-
-    return jsonify({"message": f"File uploaded successfully to {save_path}"}), 200
-
 @views.route('/get_results', methods=['GET','POST'])
 def get_results():
     dataset_path = os.getenv("OUTPUT_PATH", "/Data/mind_folder")
@@ -349,63 +294,3 @@ def get_results():
         n_samples = 5 
     full_path = os.path.join(dataset_path,'final_results',f"topic_{topic_id}",f'samples_len_{n_samples}', 'results.parquet')
     return send_file(full_path, as_attachment=True, download_name=f"results_topic_{topic_id}_samples_{n_samples}.parquet")
-
-@views.route('/profile', methods=['GET', 'POST'])
-@login_required_custom
-def profile():
-    user_id = session.get('user_id')
-    username = session.get('username')
-
-    datasets = []
-    dataset_path = os.path.join(os.getenv("OUTPUT_PATH", "/Data/mind_folder"), 'final_results')
-
-    for root, dirs, files in os.walk(dataset_path):
-        for file in files:
-            if file == "results.parquet":
-                full_path = os.path.join(root, file)
-                try:
-                    df = pd.read_parquet(full_path)
-                    datasets.append({
-                        "name": f'results_topic_{extract_topic_id(root)}_samples_{extract_sample_len(root)}',
-                        "topic": extract_topic_id(root),
-                        "sample_len": extract_sample_len(root),
-                        "data": df
-                    })
-                except Exception as e:
-                    print(f"Error reading {full_path}: {e}")
-
-    if request.method == 'POST':
-
-        new_email = request.form.get('email')
-        new_username = request.form.get('username')
-        new_password = request.form.get('password')
-        new_password_rep = request.form.get('password_rep')
-        
-        update_payload = {}
-        if new_email and new_email != session.get('email'):
-            update_payload['email'] = new_email
-        if new_username and new_username != session.get('username'):
-            update_payload['username'] = new_username
-        if new_password == new_password_rep and new_password != '' and new_password_rep != '':
-            if validate_password(new_password, new_password_rep)[0]:
-                update_payload['password'] = new_password
-                update_payload['password_rep'] = new_password_rep
-
-        if update_payload:
-            try:
-                response = requests.put(f"{AUTH_API_URL}/user/{session['user_id']}", json=update_payload)
-                if response.status_code == 200:
-                    if 'email' in update_payload:
-                        session['user_id'] = update_payload['email']
-                        user_id = update_payload['email']
-                    if 'username' in update_payload:
-                        session['username'] = update_payload['username']
-                        username = update_payload['username']
-                    flash("Profile updated successfully!", "success")
-                else:
-                    flash(response.json().get('error', 'Error updating profile'), "danger")
-            except requests.exceptions.RequestException:
-                flash("Authentication service unavailable", "danger")
-        else:
-            flash("No changes made.", "info")
-    return render_template("profile.html", user_id=user_id, username=username, datasets=datasets)

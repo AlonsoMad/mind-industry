@@ -1,7 +1,11 @@
-from flask import Blueprint, jsonify, request
-import os, glob, shutil
-import pandas as pd
+import os
+import glob
+import shutil
 import numpy as np
+import pandas as pd
+
+from flask import Blueprint, jsonify, request
+
 
 datasets_bp = Blueprint("datasets", __name__)
 
@@ -40,21 +44,17 @@ def update_user_folders():
     parquet_path = "/data/datasets_stage_preprocess.parquet"
 
     try:
-        # Crear la carpeta nueva
         os.makedirs(new_path, exist_ok=True)
 
-        # Mover subcarpetas
         for folder in folders:
             old_folder = os.path.join(old_path, folder)
             new_folder = os.path.join(new_path, folder)
             if os.path.exists(old_folder):
                 shutil.move(old_folder, new_folder)
 
-        # Eliminar la carpeta vieja si quedó vacía
         if os.path.exists(old_path) and not os.listdir(old_path):
             os.rmdir(old_path)
 
-        # Actualizar el parquet
         if os.path.exists(parquet_path):
             df = pd.read_parquet(parquet_path, engine="pyarrow")
             print(df.keys())
@@ -69,22 +69,86 @@ def update_user_folders():
 @datasets_bp.route("/datasets", methods=["GET"])
 def get_datasets():
     email = request.args.get("email")
+    folders = ["1_Preprocess", "2_TopicModelling", "3_Download"]
+    path = f"/data/{email}"
 
-    dataset_path = f"/data/{email}/1_Preprocess/"
+    final_dataset_preview = []
+    final_datasets_name = []
+    final_shapes = []
+    stages = []
 
-    if not os.path.exists(dataset_path):
-        return jsonify({"error": f"Dataset path {dataset_path} does not exist."}), 404
+    for i in range(len(folders)):
+        dataset_path = f'{path}/{folders[i]}'
+        if not os.path.exists(dataset_path):
+            return jsonify({"error": f"Dataset path {dataset_path} does not exist."}), 404
 
-    dataset_list, datasets_name, shapes = load_datasets(dataset_path)
+        dataset_list, datasets_name, shapes = load_datasets(dataset_path)
 
-    # Convertimos cada dataframe a lista de diccionarios para JSON
-    dataset_preview = [df.head(20).to_dict(orient="records") for df in dataset_list]
+        # Convert DF into lists for JSON
+        dataset_preview = [df.head(20).to_dict(orient="records") for df in dataset_list]
+
+        final_dataset_preview.extend(dataset_preview)
+        final_datasets_name.extend(datasets_name)
+        final_shapes.extend(shapes.tolist())
+        stages.extend([i + 1] * len(dataset_list))
 
     return jsonify({
-        "datasets": dataset_preview,
-        "names": datasets_name,
-        "shapes": shapes.tolist()
+        "datasets": final_dataset_preview,
+        "names": final_datasets_name,
+        "shapes": final_shapes,
+        "stages": stages
     })
+
+@datasets_bp.route('/upload_dataset', methods=['POST'])
+def upload_dataset():
+    file = request.files.get('file')
+
+    data = request.args
+    path = data.get('path')
+    email = data.get('email')
+    stage = data.get('stage')
+    dataset_name = data.get('dataset_name')
+    output_dir = f"/data/{path}/"
+
+    new_data = {
+        "Usermail": email,
+        "Dataset": dataset_name,
+        "Stage": int(stage),
+        "Path": f'{output_dir}/dataset'
+    }
+
+    df = pd.read_parquet('/data/datasets_stage_preprocess.parquet')
+
+    if ((df['Usermail'] == new_data['Usermail']) &
+        (df['Dataset'] == new_data['Dataset']) & 
+        (df['Stage'] == new_data['Stage'])
+        ).any():
+        print('Existing that dataset for that stage for that user')
+        return jsonify({'error': 'Existing that dataset in that stage'}), 450
+
+
+    print('Creating new dataset...')
+
+    if not file or not path or not email or not stage or not dataset_name:
+        return jsonify({'error': 'Missing file or arg'}), 400
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Save file
+    with open(f'{output_dir}/dataset', 'wb') as f:
+        f.write(file.read())
+
+    try:
+        df_new_data = pd.DataFrame([new_data])
+        df_final = pd.concat([df, df_new_data], ignore_index=True)
+        df_final.to_parquet('/data/datasets_stage_preprocess.parquet')
+
+        return jsonify({'message': "File processed and saved"})
+    
+    except Exception as e:
+        print(e)
+        shutil.rmtree(output_dir)
+        return jsonify({'error': 'Couldn\'t save file'}), 400
 
 @datasets_bp.route("/final_results/<og_dataset>", methods=["GET"])
 def get_final_results(og_dataset):

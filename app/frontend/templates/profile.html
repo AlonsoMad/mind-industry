@@ -17,16 +17,28 @@
         <p class="text-muted">No labeled data available.</p>
 
     {% endif %}
-<h2 class="mt-3">My Datasets</h2>
-<p class="text-muted">Upload your dataset files (.parquet, .xlsx, .csv)</p>
 
-<form id="upload-form" action="{{ url_for('views.upload_dataset') }}" method="POST" enctype="multipart/form-data">
+<h2 class="mt-3">My Datasets</h2>
+<p class="text-muted">Upload your dataset files (.parquet)</p>
+
+<form id="upload-form" enctype="multipart/form-data">
     <div class="border rounded p-4 text-center bg-light" id="drop-zone">
         <p class="mb-2">Drag & drop your file here, or click to select</p>
-        <input type="file" name="dataset_file" id="file-input" class="d-none" accept=".parquet,.xlsx,.csv" required>
+        <input type="file" name="dataset_file" id="file-input" class="d-none" accept=".parquet" required>
         <button type="button" class="btn btn-outline-primary btn-sm" id="browse-btn">Choose File</button>
         <p class="mt-2 text-muted" id="file-name"></p>
     </div>
+
+    <div class="mt-3">
+        <label for="action-select">Choose a Stage:</label>
+        <select id="action-select" name="action" class="form-select" required>
+            <option value="" disabled selected>Select an option</option>
+            <option value="1_Preprocess">Preprocess</option>
+            <option value="2_TopicModelling">TopicModelling</option>
+            <option value="3_Download">Download</option>
+        </select>
+    </div>
+
     <div class="text-right mt-3">
         <button type="submit" class="btn btn-success" id="btn-success-files">Upload Dataset</button>
     </div>
@@ -54,28 +66,13 @@
 </form>
 
 <script>
-function uploadFile() {
-    const file = document.getElementById('file-input').files[0];
-    if (!file) return alert("Please select a file first.");
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    fetch('/upload_dataset', {
-        method: 'POST',
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => alert(data.message || data.error))
-    .catch(err => console.error(err));
-}
-
 document.addEventListener('DOMContentLoaded', function () {
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const browseBtn = document.getElementById('browse-btn');
     const fileNameDisplay = document.getElementById('file-name');
-    const inputBtn = document.getElementById('btn-success-files');
+    const uploadForm = document.getElementById('upload-form');
+    const actionSelect = document.getElementById('action-select');
 
     browseBtn.addEventListener('click', () => fileInput.click());
 
@@ -83,6 +80,7 @@ document.addEventListener('DOMContentLoaded', function () {
         fileNameDisplay.textContent = fileInput.files[0]?.name || '';
     });
 
+    // Drag & Drop
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropZone.classList.add('border-primary');
@@ -101,13 +99,42 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    inputBtn.addEventListener('click', uploadFile);
+    uploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
 
+        const file = fileInput.files[0];
+        if (!file) return alert("Please select a file first.");
+
+        let stage = actionSelect.value;
+        if (!stage) return alert("Please select an stage.");
+
+        const buttonSubmit = document.getElementById('btn-success-files')
+        buttonSubmit.disabled = true;
+        buttonSubmit.textContent = 'Uploading...';
+
+        stage = stage.replace(/\s+/g, "_");
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('action', stage);
+
+        fetch('/upload_dataset', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            alert(data.message || data.error);
+            buttonSubmit.disabled = false;
+            buttonSubmit.textContent = 'Upload Dataset';
+        })
+        .catch(err => {
+            console.error(err);
+            buttonSubmit.disabled = false;
+            buttonSubmit.textContent = 'Upload Dataset';
+        });
+    });
 });
-
 </script>
-
-<!-- <script src="http://localhost:3000/static/js/profile.js" ></script> -->
-
 
 {% endblock %}

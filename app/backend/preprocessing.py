@@ -8,15 +8,11 @@ preprocessing_bp = Blueprint('preprocessing', __name__, url_prefix='/preprocessi
 
 TASKS = {}
 
+
 def run_step(step_name, func, app, *args, **kwargs):
-    """
-    Ejecuta un paso en segundo plano y devuelve step_id.
-    Actualiza TASKS con estado y mensaje.
-    """
     step_id = str(uuid.uuid4())
     
     def target():
-        # Crear contexto de aplicación explícitamente
         with app.app_context():
             TASKS[step_id] = {'status': 'running', 'message': f"{step_name} in progress", 'name': step_name}
             try:
@@ -30,7 +26,6 @@ def run_step(step_name, func, app, *args, **kwargs):
     from threading import Thread
     Thread(target=target).start()
     
-    # Inicializamos el paso como pendiente
     TASKS[step_id] = {'status': 'pending', 'message': f"{step_name} task created", 'name': step_name}
     return step_id
 
@@ -120,7 +115,6 @@ def translator():
                 lang_col=translator_data['lang_col'],
             )
 
-            time.sleep(5)
             print(f'Finalize translating dataset {output_dir}')
 
         step_id = run_step("Translating", do_translate, app=current_app._get_current_object())

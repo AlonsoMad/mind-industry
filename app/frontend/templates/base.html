@@ -85,6 +85,8 @@
     {% block content %}{% endblock %}
 </div>
 
+<div class="container mt-5" style="margin-top: 20px; width: 1px; height: 5px;"></div>
+
 <script
     src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
     integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
@@ -103,22 +105,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-    const PROGRESS_API_ENDPOINT = '/api/preprocess_status'; // Este debe ser tu endpoint en Flask/Django
-    const POLL_INTERVAL = 2500; // Consultar cada 2.5 segundos
-    // URL del endpoint de tu API para iniciar la tarea
+    const PROGRESS_API_ENDPOINT = '/api/preprocess_status';
+    const POLL_INTERVAL = 2500;
     const START_API_ENDPOINT = '/api/start_preprocess';
 
-    // Elementos del DOM para actualizar
-    const startButton = document.getElementById('startButton');
-    const buttonText = document.getElementById('buttonText');
-    // NOTA: Se eliminó el elemento 'statusMessage' ya que no se quieren mensajes.
-
-    /**
-     * Función para hacer la llamada POST y lanzar el proceso de preprocesado.
-     * La respuesta visual se gestiona en la barra de progreso de base.html.
-     */
     function startPreprocessTask() {
-        // 2. Llamada AJAX (Fetch API)
         fetch(START_API_ENDPOINT, {
             method: 'POST',
             headers: {
@@ -126,7 +117,6 @@
             },
         })
         .then(response => {
-            // Manejar respuestas 4xx (Error) o 200 (OK)
             return response.json().then(data => ({
                 status: response.status,
                 body: data
@@ -136,25 +126,14 @@
             const status = result.status;
         })
         .catch(error => {
-            // Error de red: Habilitamos para reintento.
             console.error('Error de red al iniciar la tarea:', error);
-            buttonText.textContent = 'Fallo de Conexión';
-            // startButton.disabled = false; 
         })
         .finally(() => {
-            // Si hubo un fallo (el botón se re-habilitó), restauramos el texto
-            if (startButton.disabled === false) {
-                 buttonText.textContent = 'Lanzar Preprocesamiento';
-            }
         });
     }
     
     const MAX_CONCURRENT_TASKS = 4;
-    
-    // Almacena los IDs de las tareas que el usuario ha cerrado
     let dismissedTaskIds = new Set();
-    
-    // Variable global para que otras páginas (como preprocessing_page.html) puedan leer el estado de las tareas
     window.currentRunningTaskCount = 0;
 
     function createProgressBarHTML(task) {
@@ -169,7 +148,6 @@
             barClass += ' progress-bar-animated';
         }
 
-        // HTML del componente de alerta/barra
         return `
             <div id="alert-${task.id}" class="alert alert-${category} alert-dismissible fade show mb-2" role="alert" data-task-id="${task.id}">
                 <h6 class="alert-heading mb-1">${task.name}</h6>
@@ -193,7 +171,6 @@
         `;
     }
     
-    // Función llamada cuando el usuario hace clic en 'X'
     window.dismissTask = function(taskId) {
         dismissedTaskIds.add(taskId);
     }
@@ -210,7 +187,6 @@
                 const tasks = data.tasks || [];
                 const container = document.getElementById('dynamic-progress-bars');
                 
-                // Actualiza la variable global para el control del botón
                 window.currentRunningTaskCount = data.running_count || 0;
                 
                 const activeTaskIds = tasks.map(t => t.id);
@@ -229,43 +205,35 @@
                         const existingAlert = document.getElementById(`alert-${task.id}`);
                         
                         if (existingAlert) {
-                            // Tarea existente: Solo actualizar el contenido (evita parpadeos)
                             const percent = task.percent;
                             const message = task.message;
                             const isSuccess = percent === 100;
                             const isError = percent < 0;
                             const category = isSuccess ? 'success' : isError ? 'danger' : 'info';
                             
-                            // Actualizar clases de color y estado
                             existingAlert.className = `alert alert-${category} alert-dismissible fade show mb-2`;
                             
-                            // Actualizar barra
                             const bar = document.getElementById(`bar-${task.id}`);
                             bar.style.width = percent + '%';
                             bar.setAttribute('aria-valuenow', percent);
                             bar.textContent = percent < 0 ? 'Error' : percent + '%';
                             
-                            // Detener animación si finalizó o hay error
                             if (isSuccess || isError) {
                                 bar.classList.remove('progress-bar-animated');
                             } else {
                                 bar.classList.add('progress-bar-animated');
                             }
                             
-                            // Actualizar mensaje
                             existingAlert.querySelector('p').textContent = message;
 
-                            // Si la tarea finalizó, configurar el cierre automático
                             if (isSuccess || isError) {
                                 if (!existingAlert.dataset.autoCloseSet) {
                                     existingAlert.dataset.autoCloseSet = 'true';
                                     setTimeout(() => {
-                                        // Cierra la alerta si no ha sido cerrada manualmente
                                         if (!dismissedTaskIds.has(task.id)) {
                                             function closeAlert(taskId) {
                                                 const alertElement = document.getElementById(`alert-${taskId}`);
                                                 if (alertElement) {
-                                                    // Bootstrap 5: crear instancia de alerta y cerrar
                                                     const alertInstance = bootstrap.Alert.getOrCreateInstance(alertElement);
                                                     alertInstance.close();
                                                 }
@@ -281,39 +249,31 @@
                                             }, 8000); 
                                             dismissedTaskIds.add(task.id);
                                         }
-                                    }, 8000); // Se muestra el 100% por 8 segundos
+                                    }, 8000);
                                 }
                             }
                             
                         } else {
-                            // Tarea nueva: Añadir a la lista para renderizar
                             tasksToRender.push(task);
                         }
                     }
                 });
                 
-                // 3. Renderizar nuevas tareas (al final del contenedor)
                 if (tasksToRender.length > 0) {
                     tasksToRender.forEach(task => {
                         container.insertAdjacentHTML('beforeend', createProgressBarHTML(task));
                     });
                 }
-                
-                // 4. Continuar el polling
                 setTimeout(updateProgressBar, POLL_INTERVAL);
 
             })
             .catch(error => {
                 console.warn('Error en el API de progreso. Se reintentará.', error);
-                // Si hay error, seguir reintentando
                 setTimeout(updateProgressBar, POLL_INTERVAL);
             });
     }
 
-    // Iniciar la función de actualización al cargar la página
-    document.addEventListener('DOMContentLoaded', () => {
-        updateProgressBar();
-    });
+    document.addEventListener('DOMContentLoaded', () => {updateProgressBar();});
 </script>
 
 </body>

@@ -1,8 +1,9 @@
-from dotenv import load_dotenv
-from flask_cors import CORS
-from flask import Flask
-
 import os
+
+from flask import Flask
+from flask_cors import CORS
+from dotenv import load_dotenv
+
 
 load_dotenv()  # Load environment variables from .env file
 
@@ -13,11 +14,15 @@ def create_app():
 
     CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
 
-    from views import views
     from auth import auth
+    from views import views
+    from profile import profile_bp
+    from datasets import dataset_bp
     from preprocessing import preprocess
 
     app.register_blueprint(preprocess, url_prefix='/')
+    app.register_blueprint(profile_bp, url_prefix='/')
+    app.register_blueprint(dataset_bp, url_prefix='/')
     app.register_blueprint(views, url_prefix='/')
     app.register_blueprint(auth, url_prefix='/')
 

@@ -39,16 +39,18 @@
 
       <!-- Step 1: Preprocess Dataset -->
       <div class="modal-body" id="modal-body-1">
-        <label for="optionsDatasets">Select an option: </label>
-        <select id="optionsDatasets">
-          {% if datasets %}
-          <option value="" disabled selected>-- Choose an avaible dataset --</option>
-            {% for ds in datasets %}
-            <option value="{{ names[loop.index - 1] }}">{{ names[loop.index - 1] }}</option> 
+        <label for="optionsDatasets1">Select an option: </label>
+        <select id="optionsDatasets1">
+        {% if datasets %}
+            <option value="" disabled selected>-- Choose an avaible dataset --</option>
+            {% for ds, name, stage in zip(datasets, names, stages) %}
+                {% if stage == 1 or stage == '1' %}
+                    <option value="{{ name }}">{{ name }}</option> 
+                {% endif %}
             {% endfor %}
-          {% else %}
-          <p>No datasets available.</p>
-          {% endif %}
+        {% else %}
+            <option value="" disabled>No datasets available.</option>
+        {% endif %}
         </select>
 
         <div class="form-group mt-3">
@@ -227,7 +229,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const nextButton = document.getElementById('nextStep2');
 
     // Step 1
-    const selector = document.getElementById('optionsDatasets');
     const datasetPreprocessButton = document.getElementById('confirmDatasetPreprocess');
 
     function validateInputsTranslator() {
@@ -263,7 +264,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     
     function Stage1Selection() {
-        const selector = document.getElementById("optionsDatasets");
+        const selector = document.getElementById("optionsDatasets1");
         const dbSelected = selector.value;
 
         const textColumnInput = document.getElementById("TextColumn-Segmentor");

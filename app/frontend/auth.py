@@ -1,5 +1,8 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app, session
-import requests, dotenv, os
+import os
+import dotenv
+import requests
+
+from flask import Blueprint, render_template, request, flash, redirect, url_for, session
 
 
 auth = Blueprint('auth', __name__)
@@ -70,7 +73,6 @@ def sign_up():
         if not validate_password(password, password_rep)[0]:
             return render_template('sign_up.html')
 
-        # Enviar registro al microservicio auth
         try:
             response = requests.post(f"{AUTH_API_URL}/register", json={
                 "email": email,
@@ -84,7 +86,6 @@ def sign_up():
 
         if response.status_code == 201:
             flash("Account created successfully", "success")
-            # Login automático tras registro
             login_response = requests.post(f"{AUTH_API_URL}/login", json={
                 "email": email,
                 "password": password

@@ -6,50 +6,74 @@
 <p>Check below the datasets available for use.</p>
 
 {% if datasets %}
-<div id="accordion" class="mt-4">
-    {% for ds in datasets %}
-    <div class="card">
-        <div class="card-header" id="heading{{ loop.index }}">
-            <h5 class="mb-0">
-                <button class="btn btn-link collapsed" data-toggle="collapse" data-target="#collapse{{ loop.index }}"
-                        aria-expanded="false" aria-controls="collapse{{ loop.index }}">
-                    {{ names[loop.index - 1] }}
-                </button>
-            </h5>
-        </div>
 
-        <div id="collapse{{ loop.index }}" class="collapse" aria-labelledby="heading{{ loop.index }}"
-             data-parent="#accordion">
-            <div class="card-body">
+{% set combined_data = zip(datasets, names, shape, stages) %}
+{% for group in combined_data | groupby(3) %}
+    <h2 class="mt-4">
+        {% if group.grouper == 1 %}
+            1. Preprocess
+        {% elif group.grouper == 2 %}
+            2. Topic Modelling
+        {% elif group.grouper == 3 %}
+            3. Download
+        {% else %}
+            Datasets - Unknown {{ group.grouper }}
+        {% endif %}
+    </h2>
 
-                <p><strong>Shape:</strong> {{ shape[loop.index - 1][0] }} rows × {{ shape[loop.index - 1][1] }} columns</p>
+    <div id="accordion-stage-{{ group.grouper }}" class="mt-4">
+        {% for item in group.list %}
+            {% set ds = item[0] %}
+            {% set name = item[1] %}
+            {% set shape_tuple = item[2] %}
+            {% set unique_id_base = "stage-" ~ group.grouper ~ "-item-" ~ loop.index %}
 
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped table-bordered">
-                        <thead class="thead-light">
-                            <tr>
-                                {% for col in ds[0] %}
-                                    <th>{{ col }}</th>
-                                {% endfor %}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in ds[:5] %}
-                            <tr>
-                                {% for cell in row.values() %}
-                                    <td>{{ cell }}</td>
-                                {% endfor %}
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <div class="card">
+                <div class="card-header" id="heading-{{ unique_id_base }}">
+                    <h5 class="mb-0">
+                        <button class="btn btn-link collapsed" data-toggle="collapse"
+                                data-target="#collapse-{{ unique_id_base }}"
+                                aria-expanded="false" aria-controls="collapse-{{ unique_id_base }}">
+                            {{ name }}
+                        </button>
+                    </h5>
                 </div>
 
+                <div id="collapse-{{ unique_id_base }}" class="collapse" 
+                     aria-labelledby="heading-{{ unique_id_base }}"
+                     data-parent="#accordion-stage-{{ group.grouper }}">
+                    <div class="card-body">
+
+                        <p><strong>Shape:</strong> {{ shape_tuple[0] }} rows × {{ shape_tuple[1] }} columns</p>
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped table-bordered">
+                                <thead class="thead-light">
+                                    <tr>
+                                        {% for col in ds[0] %}
+                                            <th>{{ col }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for row in ds[:5] %}
+                                    <tr>
+                                        {% for cell in row.values() %}
+                                            <td>{{ cell }}</td>
+                                        {% endfor %}
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
             </div>
-        </div>
+        {% endfor %}
     </div>
-    {% endfor %}
-</div>
+{% endfor %}
+
 {% else %}
 <p>No datasets available.</p>
 {% endif %}
