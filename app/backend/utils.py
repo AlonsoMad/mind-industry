@@ -1,4 +1,5 @@
 import os
+import shutil
 import pandas as pd
 
 from flask import jsonify
@@ -105,6 +106,19 @@ def validate_and_get_datasetTM(email: str, dataset: str, output: str):
             "status": "error",
             "message": f"Validation error: {e}"
         }), 500
+    
+def cleanup_output_dir(email: str, dataset: str, output: str):
+    phases = ["1_Segmenter", "2_Translator", "3_Preparer"]
+    
+    for phase in phases:
+        try:
+            if phase == "3_Preparer": output_dir = f"/data/{email}/2_TopicModelling/{output}/"
+            else: output_dir = f"/data/{email}/1_Preprocess/{dataset}/{phase}/"
+            if os.path.exists(output_dir):
+                shutil.rmtree(output_dir)
+                print(f"[CLEANUP] Removed incomplete dataset at: {output_dir}")
+        except Exception as e:
+            print(f"[CLEANUP ERROR] Could not remove {output_dir}: {e}")
     
 def get_download_dataset(email: str, dataset: str):
     try:

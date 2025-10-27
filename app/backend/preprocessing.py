@@ -2,6 +2,7 @@ import os
 import time
 import uuid
 
+from utils import cleanup_output_dir
 from flask import Blueprint, request, jsonify, current_app, send_file
 
 
@@ -77,7 +78,8 @@ def segmenter():
         return jsonify({"step_id": step_id, "message": "Segmenter task started"}), 200
 
     except Exception as e:
-        print(e)
+        print(str(e))
+        cleanup_output_dir(email, dataset, segmenter_data['output'])
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @preprocessing_bp.route('/translator', methods=['POST'])
@@ -138,6 +140,7 @@ def translator():
 
     except Exception as e:
         print(str(e))
+        cleanup_output_dir(email, dataset, translator_data['output'])
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -192,6 +195,8 @@ def preparer():
         return jsonify({"step_id": step_id, "message": "Segmenter task started"}), 200
 
     except Exception as e:
+        print(str(e))
+        cleanup_output_dir(email, dataset, preparer_data['output'])
         return jsonify({"status": "error", "message": str(e)}), 500
     
 @preprocessing_bp.route('/topicmodeling', methods=['POST'])
@@ -219,23 +224,25 @@ def topicmodelling():
             else:
                 raise Exception("Validation failed")
 
-            print(f'Training model for dataset {output_dir}...')
+            print(f'Training model (k = {k}) for dataset {output_dir}...')
             model = PolylingualTM(
                 lang1=lang1,
                 lang2=lang2,
                 model_folder=output_dir,
-                num_topics=int(k)
+                num_topics=int(k),
+                mallet_path="/backend/Mallet/bin/mallet",
+                add_stops_path="/src/mind/topic_modeling/stops"
             )
 
             model.train(dataset_path)
 
             print('Finalize train model')
 
-        step_id = run_step("Segmenting", train_topicmodel, app=current_app._get_current_object())
+        step_id = run_step("TopicModeling", train_topicmodel, app=current_app._get_current_object())
         return jsonify({"step_id": step_id, "message": "Segmenter task started"}), 200
 
     except Exception as e:
-        print(e)
+        print(str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @preprocessing_bp.route("/download", methods=["POST"])
