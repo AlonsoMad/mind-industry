@@ -1,8 +1,9 @@
 import os
-import time
+import json
 import uuid
 
-from utils import cleanup_output_dir
+from pathlib import Path
+from utils import cleanup_output_dir, aggregate_row
 from flask import Blueprint, request, jsonify, current_app, send_file
 
 
@@ -63,16 +64,23 @@ def segmenter():
                 raise Exception("Validation failed")
 
             print(f'Segmenting dataset {output_dir}...')
-            seg = Segmenter(config_path="/src/config/config.yaml")
-            seg.segment(
-                path_df=dataset_path,
-                path_save=f'{output_dir}/dataset',
-                text_col=segmenter_data['text_col'],
-                min_length=segmenter_data['min_length'],
-                sep=segmenter_data['sep']
-            )
 
-            print(f'Finalize segmenting dataset {output_dir}')
+            try:
+                seg = Segmenter(config_path="/src/config/config.yaml")
+                seg.segment(
+                    path_df=dataset_path,
+                    path_save=f'{output_dir}/dataset',
+                    text_col=segmenter_data['text_col'],
+                    min_length=segmenter_data['min_length'],
+                    sep=segmenter_data['sep']
+                )
+
+                print(f'Finalize segmenting dataset {output_dir}')
+
+            except Exception as e:
+                print(str(e))
+                cleanup_output_dir(email, dataset, segmenter_data['output'])
+                raise e
 
         step_id = run_step("Segmenting", do_segment, app=current_app._get_current_object())
         return jsonify({"step_id": step_id, "message": "Segmenter task started"}), 200
@@ -111,32 +119,41 @@ def translator():
             # Translator
             print(f"Translating dataset {dataset}...")
 
-            trans = Translator(config_path="/src/config/config.yaml")
+            try:
+                # os.system(f'cp /data/{email}/1_Preprocess/{dataset}/1_Segmenter/{translator_data["output"]}/dataset {output_dir}/dataset_{translator_data["tgt_lang"]}2{translator_data["src_lang"]}')
+                # os.system(f'cp /data/{email}/1_Preprocess/{dataset}/dataset {output_dir}/dataset_{translator_data["src_lang"]}2{translator_data["tgt_lang"]}')
+                
+                trans = Translator(config_path="/src/config/config.yaml")
+                
+                # First src -> tgt
+                trans.translate(
+                    path_df=dataset_path,
+                    save_path=f'{output_dir}/dataset_{translator_data["tgt_lang"]}2{translator_data["src_lang"]}',
+                    src_lang=translator_data['src_lang'],
+                    tgt_lang=translator_data['tgt_lang'],
+                    text_col=translator_data['text_col'],
+                    lang_col=translator_data['lang_col'],
+                )
+
+                # Second tgt -> src
+                trans.translate(
+                    path_df=dataset_path,
+                    save_path=f'{output_dir}/dataset_{translator_data["src_lang"]}2{translator_data["tgt_lang"]}',
+                    src_lang=translator_data['tgt_lang'],
+                    tgt_lang=translator_data['src_lang'],
+                    text_col=translator_data['text_col'],
+                    lang_col=translator_data['lang_col'],
+                )
+
+                print(f'Finalize translating dataset {output_dir}')
             
-            # First src -> tgt
-            trans.translate(
-                path_df=dataset_path,
-                save_path=f'{output_dir}/dataset_{translator_data["tgt_lang"]}2{translator_data["src_lang"]}',
-                src_lang=translator_data['src_lang'],
-                tgt_lang=translator_data['tgt_lang'],
-                text_col=translator_data['text_col'],
-                lang_col=translator_data['lang_col'],
-            )
-
-            # Second tgt -> src
-            trans.translate(
-                path_df=dataset_path,
-                save_path=f'{output_dir}/dataset_{translator_data["src_lang"]}2{translator_data["tgt_lang"]}',
-                src_lang=translator_data['tgt_lang'],
-                tgt_lang=translator_data['src_lang'],
-                text_col=translator_data['text_col'],
-                lang_col=translator_data['lang_col'],
-            )
-
-            print(f'Finalize translating dataset {output_dir}')
+            except Exception as e:
+                print(str(e))
+                cleanup_output_dir(email, dataset, translator_data['output'])
+                raise e
 
         step_id = run_step("Translating", do_translate, app=current_app._get_current_object())
-        return jsonify({"step_id": step_id, "message": "Segmenter task started"}), 200
+        return jsonify({"step_id": step_id, "message": "Translator task started"}), 200
 
     except Exception as e:
         print(str(e))
@@ -170,33 +187,60 @@ def preparer():
             # Data Preparer
             print(f"Preparing dataset: {dataset}")
 
-            # prep = DataPreparer(
-            #     preproc_script="/backend/NLPipe/src/nlpipe/cli.py",
-            #     config_path="/src/config/config.yaml",
-            #     stw_path="/backend/NLPipe/src/nlpipe/stw_lists",
-            #     spacy_models={
-            #         "en": "en_core_web_sm",
-            #         "de": "de_core_news_sm",
-            #         "es": "es_core_news_sm"},
-            #     schema=preparer_data['schema'],
-            # )
+            try:
+                nlpipe_json = {
+                        "id": f"{preparer_data["schema"]["chunk_id"]}",
+                        "raw_text": f"{preparer_data["schema"]["text"]}",
+                        "title": ""
+                    }
 
-            # prep.format_dataframes(
-            #     anchor_path=str(output_dir / f"{args.base_name}_trans_s{args.seed_lang}_t{args.target_lang}_n{args.ndocs}.parquet.gzip"),
-            #     comparison_path=str(output_dir / f"{args.base_name}_trans_s{args.target_lang}_t{args.seed_lang}_n{args.ndocs}.parquet.gzip"),
-            #     path_save=str(output_dir / f"{args.base_name}_polylingual_s{args.seed_lang}_t{args.target_lang}_n{args.ndocs}.parquet.gzip")
-            # )
+                with open("./NLPipe/config.json", 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                data['mind'] = nlpipe_json
 
-            time.sleep(5)
+                with open(f"temp_{preparer_data['output']}.json", 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=4)
 
-            print(f'Finalize preparing dataset {output_dir}')
+                prep = DataPreparer(
+                    preproc_script="/backend/NLPipe/src/nlpipe/cli.py",
+                    config_path=f"temp_{preparer_data['output']}.json",
+                    config_logger_path="/src/config/config.yaml",
+                    stw_path="/backend/NLPipe/src/nlpipe/stw_lists",
+                    spacy_models={
+                        "en": "en_core_web_sm",
+                        "de": "de_core_news_sm",
+                        "es": "es_core_news_sm"},
+                    schema=preparer_data['schema'],
+                )
+
+                prep.format_dataframes(
+                    anchor_path=f'{dataset_path}/dataset_{preparer_data["src_lang"]}2{preparer_data["tgt_lang"]}',
+                    comparison_path=f'{dataset_path}/dataset_{preparer_data["tgt_lang"]}2{preparer_data["src_lang"]}',
+                    path_save=f'{output_dir}/dataset'
+                )
+
+                os.remove(f"temp_{preparer_data['output']}.json")
+                os.rmdir(f"{output_dir}/_tmp_preproc")
+
+                aggregate_row(email, preparer_data['output'], 2, f'{output_dir}/dataset')
+
+                print(f'Finalize preparing dataset {output_dir}')
+            
+            except Exception as e:
+                print(str(e))
+                cleanup_output_dir(email, dataset, preparer_data['output'])
+                os.remove(f"temp_{preparer_data['output']}.json")
+                os.rmdir(f"{output_dir}/_tmp_preproc")
+                raise e
 
         step_id = run_step("Data Preparer", do_preparer, app=current_app._get_current_object())
-        return jsonify({"step_id": step_id, "message": "Segmenter task started"}), 200
+        return jsonify({"step_id": step_id, "message": "Data Preparer task started"}), 200
 
     except Exception as e:
         print(str(e))
         cleanup_output_dir(email, dataset, preparer_data['output'])
+        os.remove(f"temp_{preparer_data['output']}.json")
         return jsonify({"status": "error", "message": str(e)}), 500
     
 @preprocessing_bp.route('/topicmodeling', methods=['POST'])
@@ -224,22 +268,28 @@ def topicmodelling():
             else:
                 raise Exception("Validation failed")
 
-            print(f'Training model (k = {k}) for dataset {output_dir}...')
-            model = PolylingualTM(
-                lang1=lang1,
-                lang2=lang2,
-                model_folder=output_dir,
-                num_topics=int(k),
-                mallet_path="/backend/Mallet/bin/mallet",
-                add_stops_path="/src/mind/topic_modeling/stops"
-            )
+            print(f'Training model (k = {k}) for dataset {dataset_path}...')
 
-            model.train(dataset_path)
+            try:
+                model = PolylingualTM(
+                    lang1=lang1,
+                    lang2=lang2,
+                    model_folder=Path(output_dir),
+                    num_topics=int(k),
+                    mallet_path="/backend/Mallet/bin/mallet",
+                    add_stops_path="/src/mind/topic_modeling/stops"
+                )
 
-            print('Finalize train model')
+                model.train(dataset_path)
+
+                print('Finalize train model')
+
+            except Exception as e:
+                print(str(e))
+                raise e
 
         step_id = run_step("TopicModeling", train_topicmodel, app=current_app._get_current_object())
-        return jsonify({"step_id": step_id, "message": "Segmenter task started"}), 200
+        return jsonify({"step_id": step_id, "message": "Training Topic Model task started"}), 200
 
     except Exception as e:
         print(str(e))

@@ -67,7 +67,7 @@ def preprocessing():
 
     return render_template('preprocessing.html', user_id=user_id, datasets=datasets, names=names, stages=stages, zip=zip)
 
-def wait_for_step_completion(step_id, step_name, timeout=600, interval=5):
+def wait_for_step_completion(step_id, step_name, timeout=600000, interval=5):
     start = time.time()
     while time.time() - start < timeout:
         try:
@@ -109,7 +109,7 @@ def preprocess_stage1(task_id, task_name, email, dataset, segmenter_data, transl
 
     try:
         for step in range(1, TOTAL_STEPS + 1):
-            percent = int((step / TOTAL_STEPS) * 100)
+            percent = int((step / (TOTAL_STEPS + 1)) * 100)
             task_state['percent'] = percent
 
             if step == 1:
@@ -163,7 +163,7 @@ def preprocess_stage1(task_id, task_name, email, dataset, segmenter_data, transl
         task_state['percent'] = -1
 
     finally:
-        time.sleep(3)
+        time.sleep(5)
         with tasks_lock:
             RUNNING_TASKS = [t for t in RUNNING_TASKS if t['id'] != task_id]
         print(f"Task: {task_name} removed from the active tasks")
@@ -224,7 +224,7 @@ def preprocess_stage2(task_id, task_name, email, dataset, output, lang1, lang2, 
     print(f"Starting task: {task_name}")
 
     try:
-        percent = 0
+        percent = 50
         task_state['percent'] = percent
 
         step_name = "Topic Modeling"
@@ -256,7 +256,7 @@ def preprocess_stage2(task_id, task_name, email, dataset, output, lang1, lang2, 
         task_state['percent'] = -1
 
     finally:
-        time.sleep(3)
+        time.sleep(5)
         with tasks_lock:
             RUNNING_TASKS = [t for t in RUNNING_TASKS if t['id'] != task_id]
         print(f"Task: {task_name} removed from the active tasks")

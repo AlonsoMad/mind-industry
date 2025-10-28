@@ -136,10 +136,10 @@
             <label for="lang1">Lang 1:</label>
             <select id="lang1" class="form-control">
                 <option value="" disabled selected>-- Select lang1 --</option>
-                <option value="en">English (en)</option>
-                <option value="es">Spanish (es)</option>
-                <option value="de">German (de)</option>
-                <option value="it">Italian (it)</option>
+                <option value="EN">English (en)</option>
+                <option value="ES">Spanish (es)</option>
+                <option value="DE">German (de)</option>
+                <option value="IT">Italian (it)</option>
             </select>
         </div>
 
@@ -345,7 +345,19 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const preparer_data = {
-                "output": OutputPath
+                "output": OutputPath,
+                "src_lang": document.getElementById('SourceLanguage').value,
+                "tgt_lang": document.getElementById('TargetLanguage').value,
+                "schema": {
+                    "chunk_id": "id_preproc",
+                    "doc_id": "id",
+                    "text": "text",
+                    "full_doc": "summary",
+                    "lang": "lang",
+                    "title": "title",
+                    "url": "url",
+                    "equivalence": "equivalence"
+                }
             }
 
             const data = {
@@ -376,6 +388,14 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(response => {
                 console.log('Success (' + response.status + '): ' + response.message);
                 updateProgressBar();
+
+                const selectMenu = document.getElementById('optionsDatasets2');
+                const newOption = document.createElement('option');
+
+                newOption.value = OutputPath;
+                newOption.text = OutputPath;
+                
+                selectMenu.appendChild(newOption);
             })
             .catch(error => {
                 console.error("Error in Fetch/AJAX:", error.message);

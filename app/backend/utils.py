@@ -39,8 +39,8 @@ def validate_and_get_dataset(email: str, dataset: str, output: str, phase: str):
             output_dir = f"/data/{email}/1_Preprocess/{dataset}/{phase}/{output}"
         
         elif phase == '3_Preparer':
-            dataset_path = f"/data/{email}/1_Preprocess/{dataset}/2_Translator/{output}/dataset"
-            output_dir = f"/data/{email}/2_TopicModelling/{output}/dataset"
+            dataset_path = f"/data/{email}/1_Preprocess/{dataset}/2_Translator/{output}"
+            output_dir = f"/data/{email}/2_TopicModelling/{output}"
         
         else:
             print('No phase found')
@@ -92,7 +92,7 @@ def validate_and_get_datasetTM(email: str, dataset: str, output: str):
         dataset_path = f"/data/{email}/2_TopicModelling/{dataset}/dataset"
         output_dir = f"/data/{email}/2_TopicModelling/{dataset}/{output}/"
         
-        if os.path.exists(f"{output_dir}/dataset"):
+        if os.path.exists(f"{output_dir}"):
             return jsonify({
                 "status": "error",
                 "message": f"Output already exists at {output_dir}. Please choose another output name."
@@ -119,6 +119,36 @@ def cleanup_output_dir(email: str, dataset: str, output: str):
                 print(f"[CLEANUP] Removed incomplete dataset at: {output_dir}")
         except Exception as e:
             print(f"[CLEANUP ERROR] Could not remove {output_dir}: {e}")
+
+def aggregate_row(email: str, dataset: str, stage: int, output: str):
+    try:
+        parquet_path = "/data/datasets_stage_preprocess.parquet"
+        if not os.path.exists(parquet_path):
+            print('No paths found')
+            return jsonify({
+                "status": "error",
+                "message": f"Parquet file not found at {parquet_path}"
+            }), 404
+
+        df = pd.read_parquet(parquet_path)
+
+        new_row_data = {
+            "Usermail": email,
+            "Dataset": dataset,
+            "Stage": stage,
+            "Path": output
+        }
+        new_row_df = pd.DataFrame([new_row_data])
+        df = pd.concat([df, new_row_df], ignore_index=True)
+
+        df.to_parquet(parquet_path)
+
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 404
     
 def get_download_dataset(email: str, dataset: str):
     try:
