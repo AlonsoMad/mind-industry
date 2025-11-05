@@ -120,30 +120,30 @@ def translator():
             print(f"Translating dataset {dataset}...")
 
             try:
-                # os.system(f'cp /data/{email}/1_Preprocess/{dataset}/1_Segmenter/{translator_data["output"]}/dataset {output_dir}/dataset_{translator_data["tgt_lang"]}2{translator_data["src_lang"]}')
-                # os.system(f'cp /data/{email}/1_Preprocess/{dataset}/dataset {output_dir}/dataset_{translator_data["src_lang"]}2{translator_data["tgt_lang"]}')
+                os.system(f'cp /data/{email}/1_Preprocess/{dataset}/1_Segmenter/{translator_data["output"]}/dataset {output_dir}/dataset_{translator_data["tgt_lang"]}2{translator_data["src_lang"]}')
+                os.system(f'cp /data/{email}/1_Preprocess/{dataset}/dataset {output_dir}/dataset_{translator_data["src_lang"]}2{translator_data["tgt_lang"]}')
                 
                 trans = Translator(config_path="/src/config/config.yaml")
                 
                 # First src -> tgt
-                trans.translate(
-                    path_df=dataset_path,
-                    save_path=f'{output_dir}/dataset_{translator_data["tgt_lang"]}2{translator_data["src_lang"]}',
-                    src_lang=translator_data['src_lang'],
-                    tgt_lang=translator_data['tgt_lang'],
-                    text_col=translator_data['text_col'],
-                    lang_col=translator_data['lang_col'],
-                )
+                # trans.translate(
+                #     path_df=dataset_path,
+                #     save_path=f'{output_dir}/dataset_{translator_data["tgt_lang"]}2{translator_data["src_lang"]}',
+                #     src_lang=translator_data['src_lang'],
+                #     tgt_lang=translator_data['tgt_lang'],
+                #     text_col=translator_data['text_col'],
+                #     lang_col=translator_data['lang_col'],
+                # )
 
-                # Second tgt -> src
-                trans.translate(
-                    path_df=dataset_path,
-                    save_path=f'{output_dir}/dataset_{translator_data["src_lang"]}2{translator_data["tgt_lang"]}',
-                    src_lang=translator_data['tgt_lang'],
-                    tgt_lang=translator_data['src_lang'],
-                    text_col=translator_data['text_col'],
-                    lang_col=translator_data['lang_col'],
-                )
+                # # Second tgt -> src
+                # trans.translate(
+                #     path_df=dataset_path,
+                #     save_path=f'{output_dir}/dataset_{translator_data["src_lang"]}2{translator_data["tgt_lang"]}',
+                #     src_lang=translator_data['tgt_lang'],
+                #     tgt_lang=translator_data['src_lang'],
+                #     text_col=translator_data['text_col'],
+                #     lang_col=translator_data['lang_col'],
+                # )
 
                 print(f'Finalize translating dataset {output_dir}')
             
@@ -194,17 +194,17 @@ def preparer():
                         "title": ""
                     }
 
-                with open("./NLPipe/config.json", 'r', encoding='utf-8') as f:
+                with open("/backend/NLPipe/config.json", 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 
                 data['mind'] = nlpipe_json
 
-                with open(f"temp_{preparer_data['output']}.json", 'w', encoding='utf-8') as f:
+                with open("/backend/NLPipe/config.json", 'w', encoding='utf-8') as f:
                     json.dump(data, f, ensure_ascii=False, indent=4)
 
                 prep = DataPreparer(
                     preproc_script="/backend/NLPipe/src/nlpipe/cli.py",
-                    config_path=f"temp_{preparer_data['output']}.json",
+                    config_path="/backend/NLPipe/config.json",
                     config_logger_path="/src/config/config.yaml",
                     stw_path="/backend/NLPipe/src/nlpipe/stw_lists",
                     spacy_models={
@@ -273,7 +273,7 @@ def topicmodelling():
             try:
                 model = PolylingualTM(
                     lang1=lang1,
-                    lang2=lang2,
+                    lang2=lang1,
                     model_folder=Path(output_dir),
                     num_topics=int(k),
                     mallet_path="/backend/Mallet/bin/mallet",

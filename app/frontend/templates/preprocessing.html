@@ -29,7 +29,7 @@
 
 <div class="modal fade" id="stepModal" tabindex="-1" role="dialog" aria-labelledby="stepModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered" role="document">
-    <div class="modal-content">
+    <div class="modal-content" style="min-width: 550px;">
       <div class="modal-header">
         <h5 class="modal-title" id="stepModalLabel">Step Info</h5>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -38,50 +38,97 @@
       </div>
 
       <!-- Step 1: Preprocess Dataset -->
-      <div class="modal-body" id="modal-body-1">
-        <label for="optionsDatasets1">Select an option: </label>
-        <select id="optionsDatasets1">
-        {% if datasets %}
-            <option value="" disabled selected>-- Choose an avaible dataset --</option>
-            {% for ds, name, stage in zip(datasets, names, stages) %}
-                {% if stage == 1 or stage == '1' %}
-                    <option value="{{ name }}">{{ name }}</option> 
-                {% endif %}
-            {% endfor %}
-        {% else %}
-            <option value="" disabled>No datasets available.</option>
-        {% endif %}
-        </select>
+      <div class="modal-body" id="modal-body-1" style="overflow: hidden; position: relative;">
 
-        <div class="form-group mt-3">
+        <!-- Slide 1: Dataset and Output -->
+        <div class="step-slide active-slide" id="slide-1">
+
+            <div class="details-toggle" data-target="#detailsSlide1">
+                <span>Details</span>
+                <i class="arrow"></i>
+            </div>
+
+            <div class="collapse mt-2" id="detailsSlide1">
+                <div class="card card-body">
+                Select which dataset to preprocess and the output name for the preprocess dataset.
+                </div>
+            </div>
+
+            <hr>
+
+            <label for="optionsDatasets1">Select a dataset:</label>
+            <select id="optionsDatasets1">
+            {% if datasets %}
+                <option value="" disabled selected>-- Choose an available dataset --</option>
+                {% for ds, name, stage in zip(datasets, names, stages) %}
+                    {% if stage == 1 or stage == '1' %}
+                        <option value="{{ name }}">{{ name }}</option>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <option value="" disabled>No datasets available.</option>
+            {% endif %}
+            </select>
+
+            <div class="form-group mt-3">
             <label for="TextColumnOutput-Segmentor">Output Dataset Name:</label>
             <input type="text" id="TextColumnOutput-Segmentor" class="form-control" placeholder="Enter the name for the new dataset">
+            </div>
         </div>
 
-        <hr>
+        <!-- Slide 2: Segmentor -->
+        <div class="step-slide" id="slide-2">
+            <h5>Segmentor</h5>
 
-        <!-- Section: Segmentor -->
-        <h5>Segmentor</h5>
-        <div class="form-group mt-3">
+            <hr>
+
+            <div class="details-toggle" data-target="#detailsSlide2">
+                <span>Details</span>
+                <i class="arrow"></i>
+            </div>
+
+            <div class="collapse mt-2" id="detailsSlide2">
+                <div class="card card-body details-text" id="detailsSlide2-text">
+                    text
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="form-group mt-3">
             <label for="TextColumn-Segmentor">Text Column:</label>
             <input type="text" id="TextColumn-Segmentor" class="form-control" placeholder="Enter text column name">
-        </div>
-
-        <div class="form-group mt-3">
+            </div>
+            <div class="form-group mt-3">
             <label for="MinimumLength-Segmentor">Minimum Length:</label>
             <input type="number" id="MinimumLength-Segmentor" class="form-control" placeholder="100" min="1" value="100">
-        </div>
-
-        <div class="form-group mt-3">
+            </div>
+            <div class="form-group mt-3">
             <label for="Separator-Segmentor">Separator:</label>
             <input type="text" id="Separator-Segmentor" class="form-control" placeholder="\\n" value="\n">
+            </div>
         </div>
 
-        <hr>
+        <!-- Slide 3: Translator -->
+        <div class="step-slide" id="slide-3">
+            <h5>Translator</h5>
 
-        <!-- Translator Section -->
-        <h5>Translator</h5>
-        <div class="form-group mt-3">
+            <hr>
+
+            <div class="details-toggle" data-target="#detailsSlide3">
+                <span>Details</span>
+                <i class="arrow"></i>
+            </div>
+
+            <div class="collapse mt-2" id="detailsSlide3">
+                <div class="card card-body details-text" id="detailsSlide3-text">
+                text
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="form-group mt-3">
             <label for="SourceLanguage">Source Language:</label>
             <select id="SourceLanguage" class="form-control">
                 <option value="" disabled selected>-- Select source language --</option>
@@ -90,9 +137,8 @@
                 <option value="de">German (de)</option>
                 <option value="it">Italian (it)</option>
             </select>
-        </div>
-
-        <div class="form-group mt-3">
+            </div>
+            <div class="form-group mt-3">
             <label for="TargetLanguage">Target Language:</label>
             <select id="TargetLanguage" class="form-control">
                 <option value="" disabled selected>-- Select target language --</option>
@@ -101,16 +147,51 @@
                 <option value="de">German (de)</option>
                 <option value="it">Italian (it)</option>
             </select>
-        </div>
-
-        <div class="form-group mt-3">
+            </div>
+            <div class="form-group mt-3">
             <label for="LanguageColumnTranslator">Language Column:</label>
             <input type="text" id="LanguageColumnTranslator" class="form-control" placeholder="Enter language column name">
+            </div>
         </div>
-      </div>
+
+        <!-- Slide 4: Data Preparer -->
+        <div class="step-slide" id="slide-4">
+            <h5>Data Preparer</h5>
+            
+            <div class="details-toggle" data-target="#detailsSlide4">
+                <span>Details</span>
+                <i class="arrow"></i>
+            </div>
+
+            <div class="collapse mt-2" id="detailsSlide4">
+                <div class="card card-body">
+                The Data Preparer Component allows to build a polylingual dataset.
+                </div>
+            </div>
+
+            <hr>
+
+            <p>All configuration is ready. Click "Accept Dataset to Preprocess" to continue.</p>
+        </div>
+
+        </div>
 
       <!-- Step 2: Topic Modeling -->
       <div class="modal-body" id="modal-body-2">
+
+        <div class="details-toggle" data-target="#details2-TopicModeling">
+            <span>Details</span>
+            <i class="arrow"></i>
+        </div>
+
+        <div class="collapse mt-2" id="details2-TopicModeling">
+            <div class="card card-body details-text" id="details2-TopicModeling-text">
+            text
+            </div>
+        </div>
+
+        <hr>
+
         <label for="optionsDatasets2">Select an option: </label>
         <select id="optionsDatasets2">
         {% if datasets %}
@@ -162,6 +243,19 @@
 
       <!-- Step 3: Download -->
       <div class="modal-body" id="modal-body-3">
+
+        <div class="details-toggle" data-target="#details3-Download">
+            <span>Details</span>
+            <i class="arrow"></i>
+        </div>
+
+        <div class="collapse mt-2" id="details3-Download">
+            <div class="card card-body" id="details3-Download-text">
+                Select an unprocessed or preprocessed dataset to download, or select a topic model.
+            </div>
+        </div>
+
+        <hr>
 
         <label for="stage-download">Stage:</label>
         <select id="stage-download" class="form-control">
@@ -226,8 +320,12 @@
         <!-- Close -->
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
 
+        <!-- Slide Navigation -->
+        <button type="button" class="btn btn-outline-primary" id="prevSlide">Previous</button>
+        <button type="button" class="btn btn-outline-primary" id="nextSlide">Next</button>
+
         <!-- Button Preprocess Dataset -->
-        <button class="btn btn-primary" id="confirmDatasetPreprocess">Accept Dataset to Preprocess</button>
+        <button class="btn btn-primary" id="confirmDatasetPreprocess" style="display: none;">Accept Dataset to Preprocess</button>
 
         <!-- Button Topic Modelling -->
         <button id="confirmTopicModelling" class="btn btn-primary">Confirm Topic Modeling</button>
@@ -265,10 +363,56 @@
         color: #28a745;
     }
 
-    .step-container {
+    .details-toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        user-select: none;
+        border: 1px solid #dee2e6;
+    }
+
+    .details-toggle:hover {
+        background-color: #e9ecef;
+    }
+
+    .details-toggle .arrow {
+        border: solid #333;
+        border-width: 0 2px 2px 0;
+        display: inline-block;
+        padding: 4px;
+        transform: rotate(45deg);
+        transition: transform 0.3s ease;
+        margin-left: 10px;
+    }
+
+    .details-toggle.active .arrow {
+        transform: rotate(-135deg);
+    }
+
+    .details-text {
+        white-space: pre-wrap;
+        tab-size: 4;
+        -moz-tab-size: 4;
+        line-height: 1.5;
+        font-size: inherit;
+        font-family: inherit;
+    }
+
+    #modal-body-1 {
         overflow: hidden;
         position: relative;
-        height: 150px;
+        max-width: 800px;
+        width: 100%;
+        margin: auto;
+        min-height: 250px;
+        transition: height 0.5s ease;
+        box-sizing: border-box;
+        padding: 15px;
     }
 
     .step-slide {
@@ -279,16 +423,23 @@
         transition: transform 0.5s ease-in-out;
         transform: translateX(100%);
         padding: 15px;
+        box-sizing: border-box;
+        overflow: visible;
     }
 
     .step-slide.active-slide {
         transform: translateX(0);
+        z-index: 2;
     }
 
     .step-slide.previous-slide {
         transform: translateX(-100%);
+        z-index: 1;
     }
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
 let db_selected = "";
@@ -313,38 +464,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Step 1
     const datasetPreprocessButton = document.getElementById('confirmDatasetPreprocess');
-
-    function validateInputsTranslator() {
-        const textCol = document.getElementById('TextColumn-Segmentor').value.trim();
-        const langCol = document.getElementById('LanguageColumnTranslator').value.trim();
-        const sourceLang = document.getElementById('SourceLanguage').value;
-        const targetLang = document.getElementById('TargetLanguage').value;
-
-        // Valid combinations
-        const validCombinations = [
-            ["en", "es"],
-            ["es", "en"],
-            ["en", "de"],
-            ["de", "en"],
-            ["en", "it"],
-            ["it", "en"]
-        ];
-
-        if (!textCol || !langCol) {
-            alert("Text Column and Language Column cannot be empty.");
-            return false;
-        }
-
-        const isValidCombo = validCombinations.some(
-            combo => combo[0] === sourceLang && combo[1] === targetLang
-        );
-
-        if (!isValidCombo) {
-            alert("Invalid Source and Target language combination.");
-            return false;
-        }
-        return true;
-    }
     
     function Stage1Selection() {
         const selector = document.getElementById("optionsDatasets1");
@@ -361,8 +480,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (dbSelected !== "" && textColumnInput !== "") {
             db_selected = dbSelected;
             step1Done = true;
-
-            if (!validateInputsTranslator()) return;
 
             const textColumn = textColumnInput.value.trim();
             const OutputPath = OutputPathInput.value.trim();
@@ -473,7 +590,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const stepModalLabel = document.getElementById('stepModalLabel');
         if (stepNumber == 1) {
             stepModalLabel.textContent = 'Step 1: Preprocess info';
-            document.getElementById('confirmDatasetPreprocess').style.display = 'block';
+            document.getElementById('confirmDatasetPreprocess').style.display = 'none';
             document.getElementById('confirmTopicModelling').style.display = 'none';
             document.getElementById('confirmDownload').style.display = 'none';
         }
@@ -628,7 +745,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (selectedValue === '1') {
             labelDataset.style.display = '';
-            options1.style.display = '';
+            options1.style.display = 'none';
             options2.style.display = 'none';
             options3.style.display = 'none';
         } else if (selectedValue === '2') {
@@ -647,6 +764,202 @@ document.addEventListener('DOMContentLoaded', function() {
             options2.style.display = 'none';
             options3.style.display = 'none';
         }
+    });
+});
+</script>
+
+<script>
+let currentSlide = 0;
+
+document.addEventListener('DOMContentLoaded', function() {
+  const slides = document.querySelectorAll('#modal-body-1 .step-slide');
+  const modalBody1 = document.getElementById('modal-body-1');
+  const totalSlides = slides.length;
+
+  const nextBtn = document.getElementById('nextSlide');
+  const prevBtn = document.getElementById('prevSlide');
+  const preprocessBtn = document.getElementById('confirmDatasetPreprocess');
+
+  function adjustHeight(index) {
+    const slide = slides[index];
+    if (slide) {
+      const slideHeight = slide.scrollHeight;
+      modalBody1.style.height = slideHeight + 'px';
+    }
+  }
+
+  function showSlide(index) {
+    slides.forEach((slide, i) => {
+        slide.classList.remove('active-slide', 'previous-slide');
+        if (i < index) slide.classList.add('previous-slide');
+        else if (i === index) slide.classList.add('active-slide');
+    });
+    
+    // Detenemos observadores anteriores
+    activeResizeObserver.disconnect();
+
+    // Observa el slide activo en tiempo real
+    const activeSlide = slides[index];
+    activeResizeObserver.observe(activeSlide);
+
+    currentSlide = index;
+    updateNav();
+    adjustHeight(currentSlide);
+    }
+
+  function updateNav() {
+    prevBtn.style.display = currentSlide > 0 ? '' : 'none';
+    nextBtn.style.display = currentSlide < totalSlides - 1 ? '' : 'none';
+    preprocessBtn.style.display = currentSlide === totalSlides - 1 ? '' : 'none';
+  }
+
+  function validateInputsTranslator() {
+        const textCol = document.getElementById('TextColumn-Segmentor').value.trim();
+        const langCol = document.getElementById('LanguageColumnTranslator').value.trim();
+        const sourceLang = document.getElementById('SourceLanguage').value;
+        const targetLang = document.getElementById('TargetLanguage').value;
+
+        // Valid combinations
+        const validCombinations = [
+            ["en", "es"],
+            ["es", "en"],
+            ["en", "de"],
+            ["de", "en"],
+            ["en", "it"],
+            ["it", "en"]
+        ];
+
+        if (!textCol || !langCol) {
+            alert("Text Column and Language Column cannot be empty.");
+            return false;
+        }
+
+        const isValidCombo = validCombinations.some(
+            combo => combo[0] === sourceLang && combo[1] === targetLang
+        );
+
+        if (!isValidCombo) {
+            alert("Invalid Source and Target language combination.");
+            return false;
+        }
+        return true;
+    }
+
+  function verifyParamsSlide(idx) {
+    if (idx == 0) {
+        const selector = document.getElementById("optionsDatasets1");
+        const dbSelected = selector.value;
+        const OutputPathInput = document.getElementById("TextColumnOutput-Segmentor").value.trim();
+
+        if (dbSelected == "" || OutputPathInput == "") {
+            alert("Select dataset to preprocess and an output name.");
+            return false;
+        }
+        return true;
+    }
+    else if (idx == 1) {
+        const textColumnInput = document.getElementById("TextColumn-Segmentor").value;
+        const minLengthInput = document.getElementById("MinimumLength-Segmentor").value;
+        const separatorInput = document.getElementById("Separator-Segmentor").value;
+
+        if (textColumnInput.value == "") {
+            alert("Indicate the text label to preprocess.");
+            return false;
+        }
+
+        const defaultMinLength = 100;
+        const defaultSeparator = "\n";
+
+        if (!(/^-?\d+$/.test(minLengthInput))) {
+            alert("Minimum Length must be an integer.");
+            return false;
+        }
+        else if (minLengthInput <= 0) alert("Minimum Length should be equal or greater than 1, so it will be used 100 as Minimum Length.");
+
+        if (separatorInput == "") alert("The separator input is empty, so it will be used \\n as separator.");
+
+        return true;
+    }
+    else if (idx == 2) {
+        return validateInputsTranslator();
+    }
+    return false;
+  }
+
+    nextBtn.addEventListener('click', () => {
+        let verified = false;
+
+        verified = verifyParamsSlide(currentSlide);
+
+        if (verified)
+            if (currentSlide < totalSlides - 1)
+                showSlide(currentSlide + 1);
+    });
+
+    prevBtn.addEventListener('click', () => {
+        if (currentSlide > 0) showSlide(currentSlide - 1);
+    });
+
+
+    $('#stepModal').on('hidden.bs.modal', function () {
+        showSlide(0);
+    });
+
+    const activeResizeObserver = new ResizeObserver(() => {
+        adjustHeight(currentSlide);
+    });
+
+    showSlide(0);
+    window.addEventListener('resize', () => adjustHeight(currentSlide));
+
+    // Text for Details
+    document.getElementById('detailsSlide2-text').textContent = 'The Segmenter Component allows to split documents into segments. Options:\n\n' +
+        ' - Text Column\t\t\tName of the text column to segment.\n' +
+        ' - Minimum Length\tMinimum length for a paragraph to be kept.\n' +
+        ' - Separator\t\t\t\tSeparator for splitting paragraphs.';
+
+    document.getElementById('detailsSlide3-text').textContent = 'The Translate Component allows to translate a DataFrame using the Translator class. Options:\n\n' +
+        ' - Source Language\t\tSource language code.\n' +
+        ' - Target Language\t\tTarget language code.\n' +
+        ' - Language Column\t\tName of the language column.';
+
+    document.getElementById('details2-TopicModeling-text').textContent = 'The Topic Modeling Component allows to train a Mallet Polylingual Topic Model using PolylingualTM wrapper. Options:\n\n' +
+        ' - Lang 1\t\t\tFirst language code.\n' +
+        ' - Lang 2\t\t\tSecond language code.\n' +
+        ' - K Topics\t\tNumber of topics to extract.';
+
+    const toggles = document.querySelectorAll('.details-toggle');
+
+    toggles.forEach(toggle => {
+        const targetId = toggle.getAttribute('data-target');
+        const collapseEl = document.querySelector(targetId);
+        if (!collapseEl) return;
+
+        $(collapseEl).off('shown.bs.collapse hidden.bs.collapse');
+
+        $(collapseEl).on('shown.bs.collapse', () => {toggle.classList.add('active');});
+
+        $(collapseEl).on('hidden.bs.collapse', () => {toggle.classList.remove('active');});
+
+        toggle.addEventListener('click', () => {
+            if (window.jQuery) {
+                const isShown = $(collapseEl).hasClass('show');
+
+                if (isShown) $(collapseEl).collapse('hide');
+                else $(collapseEl).collapse('show');
+
+                toggle.classList.toggle('active', !isShown);
+
+                const start = performance.now();
+                const duration = 350;
+                const monitor = setInterval(() => {
+                    showSlide(currentSlide);
+                    if (performance.now() - start > duration) clearInterval(monitor);
+                }, 16);
+
+                return;
+            }
+        });
     });
 });
 </script>

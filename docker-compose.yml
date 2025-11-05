@@ -37,7 +37,6 @@ services:
       - "5001:5001"
     
     volumes:
-      - ./app/backend:/backend
       - ./src/mind:/src/mind
       - backend_data:/data
     
