@@ -202,87 +202,109 @@ def detection():
     status = "idle"
     mind_info = {}
     ds_tuple = ( [], [], [])
+    dataset_detection = {}
 
-    try:
-        data = request.get_json()
-        dataset = data.get('dataset', None) if data else None
-        print(data)
-    except Exception as e:
-        dataset = None
-    try:
-        # Check current MIND status
-        status_resp = requests.get(f"{mind_api_url}/status")
-        status_data = status_resp.json()
-        print(status_data)
-        status = status_data.get("state", "unknown")
-        #force completed
-        # status = "completed"
-        print(status)
-
-        if status in ["idle", "failed"]:
-            # init_resp = requests.post(f"{mind_api_url}/initialize")
-            # flash(init_resp.json().get("message"), "info")
-            ds_tuple = load_datasets(dataset_path)
-            if ds_tuple[0]:
-                flash("Datasets loaded successfully!", "success")
-                flash("MIND is idle, please wait...", "warning")
+    if request.method == 'GET':
+        try:
+            response = requests.get(f"{MIND_WORKER_URL}/datasets_detection", params={"email": user_id})
+            if response.status_code == 200:
+                data = response.json()
+                dataset_detection = data.get("dataset_detection")
+                print(dataset_detection)
 
             else:
-                flash("No datasets found or error loading datasets.", "warning")
+                flash(f"Error loading datasets: {response.text}", "danger")
 
-            if dataset:
-                response = requests.post(f'{mind_api_url}/initialize', json={'dataset': dataset})
+        except requests.exceptions.RequestException:
+            flash("Backend service unavailable.", "danger")
 
-        elif status == "initializing":
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            print(f'Found: {data}')
 
-            flash("MIND is initializing, please wait...", "warning")
-        elif status == "initialized":
-            ds_tuple = load_datasets(dataset_path)
-            flash("MIND already initialized.", "success")
-        elif status == "topic_exploration":
-            try:
-                explore_resp = requests.get(f'{mind_api_url}/explore')
-                if explore_resp.status_code == 200:
-                    mind_info = explore_resp.json().get("topic_information", {})
-                else:
-                    flash("Failed to explore topics.", "warning")
-            except Exception as e:
-                flash(f"Error contacting MIND: {str(e)}", "danger")
-        elif status == "running":
+        except Exception as e:
+            dataset = None
+            print('Found nothing')
 
-            flash("MIND is currently processing.", "info")
-        elif status == "completed":
-            dataset_path = os.getenv("OUTPUT_PATH", "/Data/mind_folder")
-            topic_id = session.get('selected_topic') or 5 #Just for testing
-            n_samples = session.get('n_samples') or 5
-            og_dataset = session.get('dataset') or 'en_2025_06_05_matched'
-            try:
-                response = requests.get(f"{MIND_WORKER_URL}/final_results/{og_dataset}")
-                if response.status_code == 200:
-                    data = response.json()
-                    results = data.get("results", [])
-                else:
-                    flash(f"Error loading final results: {response.text}", "danger")
+        try:
+            # Check current MIND status
+            status_resp = requests.get(f"{mind_api_url}/status")
+            status_data = status_resp.json()
+            print(status_data)
+            status = status_data.get("state", "unknown")
+            #force completed
+            # status = "completed"
+            print(status)
+
+            if status in ["idle", "failed"]:
+                # init_resp = requests.post(f"{mind_api_url}/initialize")
+                # flash(init_resp.json().get("message"), "info")
+                # ds_tuple = load_datasets(dataset_path)
+                # if ds_tuple[0]:
+                #     flash("Datasets loaded successfully!", "success")
+                #     flash("MIND is idle, please wait...", "warning")
+
+                # else:
+                #     flash("No datasets found or error loading datasets.", "warning")
+
+                print('aquí')
+
+                if dataset:
+                    response = requests.post(f'{mind_api_url}/initialize', json={'dataset': dataset})
+
+            elif status == "initializing":
+                flash("MIND is initializing, please wait...", "warning")
+            
+            elif status == "initialized":
+                ds_tuple = load_datasets(dataset_path)
+                flash("MIND already initialized.", "success")
+
+            elif status == "topic_exploration":
+                try:
+                    explore_resp = requests.get(f'{mind_api_url}/explore')
+                    if explore_resp.status_code == 200:
+                        mind_info = explore_resp.json().get("topic_information", {})
+                    else:
+                        flash("Failed to explore topics.", "warning")
+                except Exception as e:
+                    flash(f"Error contacting MIND: {str(e)}", "danger")
+            
+            elif status == "running":
+                flash("MIND is currently processing.", "info")
+            
+            elif status == "completed":
+                dataset_path = os.getenv("OUTPUT_PATH", "/Data/mind_folder")
+                topic_id = session.get('selected_topic') or 5 #Just for testing
+                n_samples = session.get('n_samples') or 5
+                og_dataset = session.get('dataset') or 'en_2025_06_05_matched'
+                try:
+                    response = requests.get(f"{MIND_WORKER_URL}/final_results/{og_dataset}")
+                    if response.status_code == 200:
+                        data = response.json()
+                        results = data.get("results", [])
+                    else:
+                        flash(f"Error loading final results: {response.text}", "danger")
+                        results = []
+                except requests.exceptions.RequestException:
+                    flash("Backend service unavailable.", "danger")
                     results = []
-            except requests.exceptions.RequestException:
-                flash("Backend service unavailable.", "danger")
-                results = []
 
-            print(mind_info)
-            # ds_tuple = (og_ds, [og_dataset], [shapes])
+                print(mind_info)
+                # ds_tuple = (og_ds, [og_dataset], [shapes])
 
-            # full_path = os.path.join(dataset_path,'final_results',f"topic_{topic_id}",f'samples_len_{n_samples}', 'results.parquet')
+                # full_path = os.path.join(dataset_path,'final_results',f"topic_{topic_id}",f'samples_len_{n_samples}', 'results.parquet')
 
-            # ds = pd.read_parquet(full_path)
-            # mind_info = ds.to_dict(orient='records')
+                # ds = pd.read_parquet(full_path)
+                # mind_info = ds.to_dict(orient='records')
 
-        else:
-            flash("Unknown MIND state.", "danger")
+            else:
+                flash("Unknown MIND state.", "danger")
 
-    except requests.RequestException as e:
-        flash(f"Error connecting to MIND: {e}", "danger")
+        except requests.RequestException as e:
+            flash(f"Error connecting to MIND: {e}", "danger")
 
-    return render_template("detection.html", user_id=user_id, status=status, ds_tuple=ds_tuple, mind_info=mind_info)
+    return render_template("detection.html", user_id=user_id, status=status, dataset_detection=dataset_detection, ds_tuple=ds_tuple, mind_info=mind_info)
 
 @views.route('/get_results', methods=['GET','POST'])
 def get_results():

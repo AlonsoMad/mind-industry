@@ -121,7 +121,7 @@ def cleanup_output_dir(email: str, dataset: str, output: str):
         except Exception as e:
             print(f"[CLEANUP ERROR] Could not remove {output_dir}: {e}")
 
-def aggregate_row(email: str, dataset: str, stage: int, output: str):
+def aggregate_row(email: str, dataset: str, og_dataset: str, stage: int, output: str):
     try:
         parquet_path = "/data/datasets_stage_preprocess.parquet"
         if not os.path.exists(parquet_path):
@@ -136,9 +136,18 @@ def aggregate_row(email: str, dataset: str, stage: int, output: str):
         new_row_data = {
             "Usermail": email,
             "Dataset": dataset,
+            "OriginalDataset": og_dataset,
             "Stage": stage,
             "Path": output
         }
+
+        if ((df['Usermail'] == new_row_data['Usermail']) &
+            (df['Dataset'] == new_row_data['Dataset']) & 
+            (df['Stage'] == new_row_data['Stage'])
+            ).any():
+            print('Existing that dataset for that stage for that user')
+            return jsonify({'error': 'Existing that dataset in that stage'}), 450
+    
         new_row_df = pd.DataFrame([new_row_data])
         df = pd.concat([df, new_row_df], ignore_index=True)
 

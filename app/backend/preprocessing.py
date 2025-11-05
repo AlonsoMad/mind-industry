@@ -223,7 +223,7 @@ def preparer():
                 os.remove(f"temp_{preparer_data['output']}.json")
                 os.rmdir(f"{output_dir}/_tmp_preproc")
 
-                aggregate_row(email, preparer_data['output'], 2, f'{output_dir}/dataset')
+                aggregate_row(email, preparer_data['output'], dataset, 2, f'{output_dir}/dataset')
 
                 print(f'Finalize preparing dataset {output_dir}')
             
@@ -273,6 +273,7 @@ def topicmodelling():
             try:
                 model = PolylingualTM(
                     lang1=lang1,
+                    # lang2=lang2,
                     lang2=lang1,
                     model_folder=Path(output_dir),
                     num_topics=int(k),
@@ -282,7 +283,7 @@ def topicmodelling():
 
                 model.train(dataset_path)
 
-                aggregate_row(email, output, 3, output_dir)
+                aggregate_row(email, output, dataset, 3, output_dir)
 
                 print('Finalize train model')
 

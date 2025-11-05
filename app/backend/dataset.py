@@ -99,6 +99,26 @@ def get_datasets():
         "stages": stages
     })
 
+@datasets_bp.route("/datasets_detection", methods=["GET"])
+def get_datasets_detection():
+    email = request.args.get("email")
+    path = "/data/datasets_stage_preprocess.parquet"
+
+    try:
+        df = pd.read_parquet(path, engine='pyarrow')
+    except Exception as e:
+        return jsonify({"error": f"ERROR: {str(e)}"}), 500
+
+    filtered_df = df[
+        (df["Usermail"] == email) & (df["Stage"] == 3)
+    ]
+
+    dataset_detection = filtered_df.groupby('OriginalDataset')['Dataset'].apply(list).to_dict()
+
+    return jsonify({
+        "dataset_detection": dataset_detection
+    })
+
 @datasets_bp.route('/upload_dataset', methods=['POST'])
 def upload_dataset():
     file = request.files.get('file')
@@ -107,14 +127,19 @@ def upload_dataset():
     path = data.get('path')
     email = data.get('email')
     stage = data.get('stage')
+    dataset_name = data.get('dataset_name')
     extension = data.get('extension')
     sep = data.get('sep')
-    dataset_name = data.get('dataset_name')
+
+    if not file or not path or not email or not stage or not dataset_name or not extension or not sep:
+        return jsonify({'error': 'Missing file or arg'}), 400
+    
     output_dir = f"/data/{path}/"
 
     new_data = {
         "Usermail": email,
         "Dataset": dataset_name,
+        "OriginalDataset": None,
         "Stage": int(stage),
         "Path": f'{output_dir}dataset'
     }
@@ -130,9 +155,6 @@ def upload_dataset():
 
 
     print('Creating new dataset...')
-
-    if not file or not path or not email or not stage or not dataset_name:
-        return jsonify({'error': 'Missing file or arg'}), 400
 
     os.makedirs(output_dir, exist_ok=True)
 
