@@ -5,6 +5,7 @@ click==8.2.1
 dotenv==0.9.9
 fastapi==0.115.14
 Flask==3.1.1
+Flask-Session
 flask-cors==3.0.10
 greenlet==3.2.3
 idna==3.10

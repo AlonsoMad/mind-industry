@@ -3,6 +3,7 @@ import os
 from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
+from flask_session import Session
 
 
 load_dotenv()  # Load environment variables from .env file
@@ -11,6 +12,9 @@ load_dotenv()  # Load environment variables from .env file
 def create_app():
     app = Flask(__name__, template_folder="templates", static_folder="../app/static")
     app.config['SECRET_KEY'] = os.getenv("WEB_APP_KEY")
+    app.config['SESSION_TYPE'] = 'filesystem'
+
+    Session(app)
 
     CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
 

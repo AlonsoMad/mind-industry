@@ -4,10 +4,9 @@
 {% block content %}
 <h1>MIND Cultural discrepancy detection</h1>
 <div class="jumbotron" style="min-height: 50vh; max-height: 50vh; overflow-y: auto; padding: 2rem;">
-    {% if status in ['idle', 'initializing'] %}
-        <p class="lead">MIND is currently idle. Start a session by selecting a dataset and a topic model associated:</p>
-        
+    {% if status in ['idle', 'initializing'] %}        
         {% if dataset_detection %}
+            <p class="lead">MIND is currently idle. Start a session by selecting a dataset and a topic model associated:</p>
             <div class="dataset-accordion">
                 {% for dataset, topicmodel_list in dataset_detection.items() %}
                 <div class="dataset-group mb-3 border rounded-2 shadow-sm">
@@ -26,7 +25,7 @@
                         {% for tm in topicmodel_list %}
                         <li class="list-group-item dataset-item hover-text-primary dataset-entry" 
                             style="background-color:#f0f0f0; border:none; border-bottom:1px solid #e0e0e0;"
-                            dataset-tm='{ "dataset_name": {{ dataset }}, "topic_model": {{ tm }} }'>
+                            dataset-tm='{ "dataset_name": "{{ dataset }}", "topic_model": "{{ tm }}" }'>
                             <a class="dataset-link d-block px-2 py-1">
                                 Topic Model: {{ tm }}
                             </a>
@@ -36,6 +35,51 @@
                 </div>
                 {% endfor %}
             </div>
+
+        {% elif topic_keys %}
+            <p class="lead">MIND is currently idle. Select topics from the Topic Model:</p>
+            <div class="topic-accordion">
+                {% set first_lang = topic_keys["lang"][0] %}
+                {% set topic_ids = topic_keys[first_lang].keys() %}
+                {% for topic_id in topic_ids %}
+                <div class="topic-group mb-3 border rounded-2 shadow-sm">
+                    
+                    <div class="dataset-header topic-header list-group-item hover-text-primary fw-bold bg-light d-flex align-items-center justify-content-between"
+                        role="button"
+                        aria-expanded="false"
+                        aria-controls="topic-content-{{ loop.index }}"
+                        style="cursor:pointer; border:none;">
+                        
+                        <div class="d-flex align-items-center"
+                            style="margin-left: 15px;">
+                            <input type="checkbox" class="form-check-input topic-checkbox"
+                                name="topic_select"
+                                value="{{ topic_id }}"
+                                style="cursor:pointer; margin-right:10px; margin-top: 0px; transform:scale(1.1); accent-color:#0d6efd;">
+                            <label class="mb-0"> Topic {{ topic_id }}</label>
+                        </div>
+                        
+                        <div class="d-flex align-items-center">
+                            <span class="chev" aria-hidden="true" style="transition: transform .2s;">▸</span>
+                        </div>
+                    </div>
+
+                    <ul id="topic-content-{{ loop.index }}" class="list-group topic-list"
+                        style="display:none; background-color:#f8f9fa; margin:0; border-top:1px solid #ddd;">
+                        {% for lang in topic_keys["lang"] %}
+                            {% if topic_keys[lang][topic_id] is defined %}
+                            <li class="list-group-item topic-item"
+                                style="background-color:#f0f0f0; border:none; border-bottom:1px solid #e0e0e0;">
+                                {{ lang }}: {{ topic_keys[lang][topic_id] | join(' ') }}
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+
+                </div>
+                {% endfor %}
+            </div>
+
         {% else %}
             <p class="lead">No datasets found or error loading datasets.</p>
         {% endif %}
@@ -646,24 +690,23 @@ class MINDInterface {
 
 
     handleDatasetSelection(datasetName) {
-        console.log("Selected option:", datasetName);
+        console.log("Selected option:\n", datasetName);
 
-        fetch('/detection', {
+        fetch('/detection_topickeys', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': this.getCSRFToken?.() || ''
             },
             body: JSON.stringify(datasetName)
         })
         .then(res => {
             if (!res.ok) throw new Error("Backend error");
             // We are not parsing the response, since it may be HTML
-            return res.text(); // or just do nothing
+            return res.json();
         })
-        .then(html => {
-            document.open();
-            document.write(html);
-            document.close();
+        .then(data => {
+            window.location.href = data.redirect;
         })
         .catch(err => console.error("Dataset selection error:", err));
     }

@@ -1,11 +1,13 @@
 import os
+import json
 import dotenv
 import requests
 
 from enum import Enum
 from tools.tools import *
 from functools import wraps
-from flask import Blueprint, render_template, request, flash, jsonify, session, send_file
+from detection import getTMDatasets, getTMkeys
+from flask import Blueprint, render_template, request, flash, jsonify, session, send_file, url_for
 
 
 class LastInstruction(str, Enum):
@@ -194,64 +196,62 @@ def mode_selection():
 
 @views.route('/detection', methods=['GET', 'POST'])
 @login_required_custom
-def detection():
+def detection_page():
     user_id = session.get('user_id')
     mind_api_url = f"{os.getenv('MIND_API_URL', 'http://mind:93')}"
     dataset_path = os.getenv("DATASET_PATH", "/Data/3_joined_data")
 
     status = "idle"
     mind_info = {}
-    ds_tuple = ( [], [], [])
     dataset_detection = {}
+    topic_keys = {}
 
     if request.method == 'GET':
-        try:
-            response = requests.get(f"{MIND_WORKER_URL}/datasets_detection", params={"email": user_id})
-            if response.status_code == 200:
-                data = response.json()
-                dataset_detection = data.get("dataset_detection")
-                print(dataset_detection)
-
-            else:
-                flash(f"Error loading datasets: {response.text}", "danger")
-
-        except requests.exceptions.RequestException:
-            flash("Backend service unavailable.", "danger")
+        dataset_detection = getTMDatasets(user_id)
 
     elif request.method == 'POST':
         try:
             data = request.get_json()
             print(f'Found: {data}')
+            data = json.loads(data)
 
         except Exception as e:
-            dataset = None
-            print('Found nothing')
+            flash("Couldn't get correctly data or communicate to the backend.", "danger")
+            dataset_detection = getTMDatasets(user_id)
 
-        try:
+        if data:
+            # Get the topic keys from that model
+            topic_keys = getTMkeys(user_id, data)
+
+            if topic_keys == {}:
+                return render_template("detection.html", user_id=user_id, status=status, dataset_detection=dataset_detection, topic_keys=topic_keys, mind_info=mind_info)
+
+            else:
+                return render_template("detection.html", user_id=user_id, status=status, dataset_detection=dataset_detection, topic_keys=topic_keys, mind_info=mind_info)
+            
             # Check current MIND status
-            status_resp = requests.get(f"{mind_api_url}/status")
-            status_data = status_resp.json()
-            print(status_data)
-            status = status_data.get("state", "unknown")
-            #force completed
-            # status = "completed"
-            print(status)
-
+            try:
+                status_resp = requests.get(f"{mind_api_url}/status")
+                status_data = status_resp.json()
+                print(status_data)
+                status = status_data.get("state", "unknown")
+                print(status)
+                #force completed
+                # status = "completed"
+            
+            except requests.RequestException as e:
+                flash(f"Error connecting to MIND: {e}", "danger")
+            
             if status in ["idle", "failed"]:
-                # init_resp = requests.post(f"{mind_api_url}/initialize")
-                # flash(init_resp.json().get("message"), "info")
-                # ds_tuple = load_datasets(dataset_path)
-                # if ds_tuple[0]:
-                #     flash("Datasets loaded successfully!", "success")
-                #     flash("MIND is idle, please wait...", "warning")
+                init_resp = requests.post(f"{mind_api_url}/initialize")
 
-                # else:
-                #     flash("No datasets found or error loading datasets.", "warning")
+                # Wait until ready because you chose ?????
 
-                print('aquí')
+                flash(init_resp.json().get("message"), "info")
 
-                if dataset:
-                    response = requests.post(f'{mind_api_url}/initialize', json={'dataset': dataset})
+                # dataset_detection = getTMDatasets(user_id)
+
+                response = requests.post(f'{mind_api_url}/initialize', json=data)
 
             elif status == "initializing":
                 flash("MIND is initializing, please wait...", "warning")
@@ -301,10 +301,57 @@ def detection():
             else:
                 flash("Unknown MIND state.", "danger")
 
-        except requests.RequestException as e:
-            flash(f"Error connecting to MIND: {e}", "danger")
+    return render_template("detection.html", user_id=user_id, status=status, dataset_detection=dataset_detection, topic_keys=topic_keys, mind_info=mind_info)
 
-    return render_template("detection.html", user_id=user_id, status=status, dataset_detection=dataset_detection, ds_tuple=ds_tuple, mind_info=mind_info)
+@views.route('/detection_topickeys', methods=['POST'])
+@login_required_custom
+def detection_page_topickeys_post():
+    user_id = session.get('user_id')
+    
+    status = "idle"
+    mind_info = {}
+    session['mind_info'] = mind_info
+    dataset_detection = ""
+    session['dataset_detection'] = None
+    topic_keys = {}
+
+    try:
+        data = request.get_json()
+        print(f'Found: {data}')
+        data = json.loads(data)
+
+    except Exception as e:
+        flash("Couldn't get correctly data or communicate to the backend.", "danger")
+        dataset_detection = getTMDatasets(user_id)
+        session['dataset_detection'] = dataset_detection
+
+    if data:
+        # Get the topic keys from that model
+        topic_keys = getTMkeys(user_id, data)
+        session['topic_keys'] = topic_keys
+
+    return jsonify({
+        'redirect': url_for('views.detection_page_topickeys_get',
+                            status=status)
+    })
+
+@views.route('/detection_topickeys', methods=['GET'])
+@login_required_custom
+def detection_page_topickeys_get():
+    user_id = session.get('user_id')
+    status = request.args.get('status')
+    dataset_detection = session.get('dataset_detection')
+    topic_keys = session.get('topic_keys')
+    mind_info = session.get('mind_info')
+
+    return render_template(
+        "detection.html",
+        user_id=user_id,
+        status=status,
+        dataset_detection=dataset_detection,
+        topic_keys=topic_keys,
+        mind_info=mind_info
+    )
 
 @views.route('/get_results', methods=['GET','POST'])
 def get_results():
