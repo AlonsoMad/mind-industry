@@ -1,4 +1,5 @@
 import os
+import glob
 import shutil
 import zipfile
 import pandas as pd
@@ -159,6 +160,49 @@ def aggregate_row(email: str, dataset: str, og_dataset: str, stage: int, output:
                 "status": "error",
                 "message": str(e)
             }), 404
+    
+def get_TM_detection(email: str, TM: str):
+    try:
+        parquet_path = "/data/datasets_stage_preprocess.parquet"
+        if not os.path.exists(parquet_path):
+            print('No paths found')
+            return jsonify({
+                "status": "error",
+                "message": f"Parquet file not found at {parquet_path}"
+            }), 404
+
+        df = pd.read_parquet(parquet_path)
+
+        row = df[
+            (df["Usermail"] == email) &
+            (df["Dataset"] == TM) &
+            (df["Stage"] == 3)
+        ]
+
+        if row.empty:
+            print('No dataset found')
+            return jsonify({
+                "status": "error",
+                "message": f"No dataset found for user '{email}', topic model '{TM}', stage 3."
+            }), 404
+        
+        return row["Path"]
+    
+    except Exception as e:
+        print(f"ERROR: {e}")
+        return jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 404
+    
+def obtain_langs_TM(pathTM: str):
+    corpus_lang = f'{pathTM}/train_data/corpus_*.txt'
+    lang = []
+    for file in glob.glob(corpus_lang):
+        if not os.path.isfile(file):
+            continue
+        lang.append(file.split('corpus_')[-1].replace('.txt', ''))
+    return lang
     
 def get_download_dataset(stage: int, email: str, dataset: str):
     try:

@@ -18,7 +18,7 @@ def create_user_folders():
         return jsonify({"error": "Missing email"}), 400
 
     base_path = f"/data/{email}"
-    folders = ["1_Preprocess", "2_TopicModelling", "3_Download"]
+    folders = ["1_Preprocess", "2_TopicModelling", "3_Download", "4_Contradiction"]
 
     try:
         os.makedirs(base_path, exist_ok=True)
@@ -40,7 +40,7 @@ def update_user_folders():
 
     old_path = f"/data/{old_email}"
     new_path = f"/data/{new_email}"
-    folders = ["1_Preprocess", "2_TopicModelling", "3_Download"]
+    folders = ["1_Preprocess", "2_TopicModelling", "3_Download", "4_Contradiction"]
     parquet_path = "/data/datasets_stage_preprocess.parquet"
 
     try:

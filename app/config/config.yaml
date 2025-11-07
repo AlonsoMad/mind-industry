@@ -21,11 +21,11 @@ mind:
   cannot_answer_dft: I cannot answer the question given the context.
   cannot_answer_personal: I cannot answer the question since the context only contains personal opinions.
   prompts:
-    question_generation: src/mind/pipeline/prompts/question_generation.txt
-    subquery_generation: src/mind/pipeline/prompts/query_generation.txt
-    answer_generation: src/mind/pipeline/prompts/question_answering.txt
-    contradiction_checking: src/mind/pipeline/prompts/discrepancy_detection.txt
-    relevance_checking: src/mind/pipeline/prompts/relevance_checking.txt
+    question_generation: /src/mind/pipeline/prompts/question_generation.txt
+    subquery_generation: /src/mind/pipeline/prompts/query_generation.txt
+    answer_generation: /src/mind/pipeline/prompts/question_answering.txt
+    contradiction_checking: /src/mind/pipeline/prompts/discrepancy_detection.txt
+    relevance_checking: /src/mind/pipeline/prompts/relevance_checking.txt
   embedding_models:
     multilingual: 
       model: BAAI/bge-m3

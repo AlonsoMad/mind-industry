@@ -4,7 +4,9 @@ import shutil
 import numpy as np
 import pandas as pd
 
+from mind.cli import comma_separated_ints
 from flask import Blueprint, jsonify, request
+from utils import get_TM_detection, obtain_langs_TM
 
 
 detection_bp = Blueprint("detection", __name__)
@@ -57,3 +59,60 @@ def getTopicKeys():
     except Exception as e:
         print(str(e))
         return jsonify({"error": f"ERROR: {str(e)}"}), 500
+
+def analyse_contradiction(email: str, TM: str, topics: str):
+    print('analysing...')
+    path = get_TM_detection(email, TM)
+
+    if not isinstance(path, str):
+        raise Exception("Path TM failed")
+    
+    lang = obtain_langs_TM(path)
+
+    from mind.pipeline.pipeline import MIND
+
+    # config part
+
+    source_corpus = {
+        "corpus_path": f'{path}/train_data/corpus_{lang[0]}.txt',
+        "thetas_path": f'{path}/mallet_output/thetas_{lang[0]}.npz',
+        "id_col": 'doc_id',
+        "passage_col": 'text',
+        "full_doc_col": 'full_doc',
+        "language_filter": lang[0],
+        "filter_ids": None,
+        "load_thetas": True # Check
+    }
+
+    target_corpus = {
+        "corpus_path": f'{path}/train_data/corpus_{lang[1]}.txt',
+        "thetas_path": f'{path}/mallet_output/thetas_{lang[1]}.npz',
+        "id_col": 'doc_id',
+        "passage_col": 'text',
+        "full_doc_col": 'full_doc',
+        "language_filter": lang[1],
+        "filter_ids": None,
+        "load_thetas": True # Check
+    }
+
+    cfg = {
+        "llm_model": "qweb:32b",
+        "llm_server": None,
+        "source_corpus": source_corpus,
+        "target_corpus": target_corpus,
+        # "dry_run": False,
+        # "do_check_entailement": False,
+        "config_path": '/src/config/config.yaml'
+    }
+
+    mind = MIND(**cfg)
+
+    # run pipeline
+
+    run_kwargs = {
+        "topics": comma_separated_ints(topics), 
+        "path_save": f'/data/{email}/4_Contradiction/{TM}_contradiction/', # Ver donde
+        "previous_check": None
+    }
+
+    mind.run_pipeline(**run_kwargs)
