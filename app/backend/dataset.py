@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request
 
 
 datasets_bp = Blueprint("datasets", __name__)
+DATASETS_STAGE = os.getenv("DATASETS_STAGE")
 
 
 @datasets_bp.route("/create_user_folders", methods=["POST"])
@@ -41,7 +42,6 @@ def update_user_folders():
     old_path = f"/data/{old_email}"
     new_path = f"/data/{new_email}"
     folders = ["1_Preprocess", "2_TopicModelling", "3_Download", "4_Contradiction"]
-    parquet_path = "/data/datasets_stage_preprocess.parquet"
 
     try:
         os.makedirs(new_path, exist_ok=True)
@@ -55,11 +55,11 @@ def update_user_folders():
         if os.path.exists(old_path) and not os.listdir(old_path):
             os.rmdir(old_path)
 
-        if os.path.exists(parquet_path):
-            df = pd.read_parquet(parquet_path, engine="pyarrow")
+        if os.path.exists(DATASETS_STAGE):
+            df = pd.read_parquet(DATASETS_STAGE, engine="pyarrow")
             print(df.keys())
             df["Usermail"] = df["Usermail"].replace(old_email, new_email)
-            df.to_parquet(parquet_path, index=False)
+            df.to_parquet(DATASETS_STAGE, index=False)
 
     except Exception as e:
         return jsonify({"error": f"Failed to update folders/parquet: {str(e)}"}), 500
@@ -102,10 +102,9 @@ def get_datasets():
 @datasets_bp.route("/datasets_detection", methods=["GET"])
 def get_datasets_detection():
     email = request.args.get("email")
-    path = "/data/datasets_stage_preprocess.parquet"
 
     try:
-        df = pd.read_parquet(path, engine='pyarrow')
+        df = pd.read_parquet(DATASETS_STAGE, engine='pyarrow')
     except Exception as e:
         return jsonify({"error": f"ERROR: {str(e)}"}), 500
 
@@ -144,7 +143,7 @@ def upload_dataset():
         "Path": f'{output_dir}dataset'
     }
 
-    df = pd.read_parquet('/data/datasets_stage_preprocess.parquet')
+    df = pd.read_parquet(DATASETS_STAGE)
 
     if ((df['Usermail'] == new_data['Usermail']) &
         (df['Dataset'] == new_data['Dataset']) & 
@@ -175,7 +174,7 @@ def upload_dataset():
     try:
         df_new_data = pd.DataFrame([new_data])
         df_final = pd.concat([df, df_new_data], ignore_index=True)
-        df_final.to_parquet('/data/datasets_stage_preprocess.parquet')
+        df_final.to_parquet(DATASETS_STAGE)
 
         return jsonify({'message': "File processed and saved"})
     

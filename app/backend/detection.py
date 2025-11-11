@@ -32,6 +32,7 @@ def getTopicKeys():
             return jsonify({"error": f'Not existing Topic Model "{topic_model}"'}), 500
         
         topic_keys = {
+            "TM_name": topic_model,
             "lang": []
         }
 
@@ -102,8 +103,11 @@ def analyse_contradiction():
             "full_doc_col": 'raw_text',
             "language_filter": lang[0],
             "filter_ids": None,
-            "load_thetas": True # Check
+            "load_thetas": True, # Check
+            "index_path": "." # Check not sure
         }
+
+        # Seems not necessary !!!!
 
         # target_corpus = {
         #     "corpus_path": pathCorpus,
@@ -124,14 +128,15 @@ def analyse_contradiction():
             "full_doc_col": 'raw_text',
             "language_filter": lang[1],
             "filter_ids": None,
-            "load_thetas": True # Check
+            "load_thetas": True, # Check
+            "index_path": "." # Check not sure
         }
 
         cfg = {
             "llm_model": "qwen:32b",
             "llm_server": "http://kumo.tsc.uc3m.es:11434",
             "source_corpus": source_corpus,
-            "target_corpus": target_corpus,
+            # "target_corpus": target_corpus,
             # "dry_run": False,
             # "do_check_entailement": False,
             "config_path": '/src/config/config.yaml'
@@ -143,9 +148,11 @@ def analyse_contradiction():
 
         run_kwargs = {
             "topics": comma_separated_ints(topics), 
-            "path_save": f'/data/{email}/4_Contradiction/{TM}_contradiction/', # Ver donde
+            "path_save": f'/data/{email}/4_Contradiction/{TM}_contradiction/mind_results.parquet', # Ver donde
             "previous_check": None
         }
+
+        print('MIND class created. Running pipeline...')
 
         mind.run_pipeline(**run_kwargs)
 
@@ -157,5 +164,5 @@ def analyse_contradiction():
         return jsonify({"message": f"Todo bien"}), 200
     
     except Exception as e:
-        print(str(e))
+        print(e)
         return jsonify({"error": f"ERROR: {str(e)}"}), 500

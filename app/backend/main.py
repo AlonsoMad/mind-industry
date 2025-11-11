@@ -1,8 +1,11 @@
+import dotenv
+
 from flask import Flask
+
 
 app = Flask(__name__)
 PORT = 5001 
-
+dotenv.load_dotenv()
 
 if __name__ == '__main__':
     from dataset import datasets_bp

@@ -6,7 +6,6 @@ COPY ./app/frontend/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ./app/frontend/ .
-COPY ./app/.env .env 
 COPY ./app/Data_mind/ /Data
 
 ENV PYTHONPATH=/frontend

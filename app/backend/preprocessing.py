@@ -225,6 +225,9 @@ def preparer():
 
                 aggregate_row(email, preparer_data['output'], dataset, 2, f'{output_dir}/dataset')
 
+                with open(f'{output_dir}/schema.json', 'w') as f:
+                    json.dump(preparer_data['schema'], indent=4)
+
                 print(f'Finalize preparing dataset {output_dir}')
             
             except Exception as e:

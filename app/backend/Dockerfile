@@ -21,7 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ./app/backend/ /backend/
 COPY ./src/mind /src/mind
 COPY ./app/config /src/config
-COPY ./app/.env /backend/.env
 COPY ./app/data /data
 COPY ./config.json /backend/NLPipe/config.json
 
