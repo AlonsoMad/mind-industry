@@ -6,7 +6,7 @@ import requests
 from enum import Enum
 from tools.tools import *
 from functools import wraps
-from detection import getTMDatasets, getTMkeys, analyseContradiction
+from detection import getTMDatasets, getTMkeys, analyseContradiction, get_result_mind
 from flask import Blueprint, render_template, request, flash, jsonify, session, send_file, url_for
 
 
@@ -167,6 +167,8 @@ def mode_selection():
     mind_api_url = f"{os.getenv('MIND_API_URL', 'http://mind:93')}"
     print("Received mode:", mode)
 
+    user_id = session['user_id']
+
     if not mode:
         flash('No mode provided', 'danger')
         return jsonify({'error': 'No mode provided'}), 400
@@ -182,8 +184,7 @@ def mode_selection():
             topics = data.get('topics')
             
             # Call backend
-            result = analyseContradiction(session.get('user_id'), session.get('TM'), topics)
-
+            result = analyseContradiction(user_id, session.get('TM'), topics)
             return result
             
             # OLD
@@ -197,6 +198,69 @@ def mode_selection():
         flash(f"Select a dataset before exploring!", "warning")
         return jsonify({'error': f'MIND is not initialized.'})
     
+@views.route('/detection_results')
+@login_required_custom
+def detection_results_page():
+    result_mind = None
+    result_columns = None
+    
+    try:
+        user_id = session['user_id']
+        TM = request.args.get('TM')
+        topics = request.args.get('topics')
+
+        # Mandar solictud al backend
+        result = get_result_mind(user_id, TM, topics)
+
+        # Devolver con result mind y columns
+        if result is None:
+            flash('Error in Backend')
+            return result
+        
+        result_mind = result.get('result_mind')
+        result_columns = result.get('result_columns')
+        columns_json = result.get('columns_json')
+        non_orderable_indices = result.get('non_orderable_indices')
+
+        return render_template("detection.html", user_id=user_id, status="completed", result_mind=result_mind, result_columns=result_columns, columns_json=columns_json, non_orderable_indices=non_orderable_indices)
+    
+    except Exception as e:
+        print(e)
+        return render_template("detection.html", user_id=user_id, status="completed", result_mind=result_mind, result_columns=result_columns, columns_json=columns_json, non_orderable_indices=non_orderable_indices)
+
+@views.route('/update_results', methods=['POST'])
+@login_required_custom
+def update_mind_results():
+    try:
+        user_id = session['user_id']
+
+        file = request.files.get('file')
+        if not file:
+            return jsonify({"error": "No file uploaded"}), 400
+
+        TM = request.form.get('TM')
+        topics = request.form.get('topics')
+
+        if not TM or not topics:
+            return jsonify({"message": "Missing fields"}), 400
+
+        files = {"file": (file.filename, file.stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+        data = {
+            "TM": TM,
+            "topics": topics,
+            "email": user_id
+        }
+
+        response = requests.post(f"{MIND_WORKER_URL}/detection/update_results", files=files, data=data)
+
+        if response.status_code != 200:
+            return jsonify({"message": "Error from backend"}), 500
+
+        return jsonify({"message": "All changes has been updated."}), 200
+    
+    except Exception as e:
+        print(e)
+        return jsonify({"error": str(e)}), 500
 
 @views.route('/detection', methods=['GET', 'POST'])
 @login_required_custom

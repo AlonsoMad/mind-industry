@@ -1,5 +1,7 @@
 import os
 import glob
+import json
+import pandas as pd
 
 from mind.cli import comma_separated_ints
 from flask import Blueprint, jsonify, request
@@ -137,27 +139,86 @@ def analyse_contradiction():
             "config_path": '/src/config/config.yaml'
         }
 
-        mind = MIND(**cfg)
+        # mind = MIND(**cfg)
 
         # run pipeline
 
         run_kwargs = {
             "topics": comma_separated_ints(topics), 
-            "path_save": f'/data/{email}/4_Contradiction/{TM}_contradiction/mind_results.parquet', # Ver donde
+            "path_save": f'/data/{email}/4_Contradiction/{TM}_{topics}_contradiction/mind_results.parquet', # Ver donde
             "previous_check": None
         }
 
         print('MIND class created. Running pipeline...')
 
-        mind.run_pipeline(**run_kwargs)
+        # mind.run_pipeline(**run_kwargs)
 
-        # import time
-        # time.sleep(5)
+        import time
+        time.sleep(3)
 
         print('Finish pipeline')
 
         return jsonify({"message": f"Pipeline done correctly"}), 200
     
+    except Exception as e:
+        print(e)
+        return jsonify({"error": f"ERROR: {str(e)}"}), 500
+    
+@detection_bp.route('/detection/result_mind', methods=['GET'])
+def get_results_mind():
+    try:
+        data = request.get_json()
+        print(data)
+        email = data.get("email")
+        TM = data.get("TM")
+        topics = data.get("topics")
+
+        df = pd.read_parquet(f'/data/{email}/4_Contradiction/{TM}_{topics}_contradiction/mind_results.parquet', engine='pyarrow')
+        result_mind = df.to_dict(orient='records')
+        result_columns = df.columns.tolist()
+
+        columns_json = json.dumps([{"name": col} for col in df.columns])
+        non_orderable_indices = json.dumps([i for i, col in enumerate(df.columns) if col in ['label', 'final_label']])
+
+        return jsonify({"message": f"Results from MIND obtained correctly",
+                        "result_mind": result_mind,
+                        "result_columns": result_columns,
+                        "columns_json": columns_json,
+                        "non_orderable_indices": non_orderable_indices}), 200
+
+    except Exception as e:
+        print(e)
+        return jsonify({"error": f"ERROR: {str(e)}"}), 500
+    
+@detection_bp.route('/detection/update_results', methods=['POST'])
+def update_result_mind():
+    try:
+        file = request.files.get("file")
+        if not file:
+            return jsonify({"error": "No file uploaded"}), 400
+        
+        TM = request.form.get("TM")
+        topics = request.form.get("topics")
+        email = request.form.get("email")
+        if not TM or not topics or not email:
+            return jsonify({"error": "Missing parameters"}), 400
+
+        df = pd.read_excel(file, engine='openpyxl')
+        keys = []
+        for key in df.keys():
+            values = key.replace('\n', '').split(' ')
+            if 'label' in values:
+                keys.append('label')
+            elif 'final_label' in values:
+                keys.append('final_label')
+            else:
+                keys.append(values[0])
+
+        df.columns = keys
+        df.to_parquet(f'/data/{email}/4_Contradiction/{TM}_{topics}_contradiction/mind_results.parquet', engine='pyarrow')
+
+        return jsonify({"message": f"Results from MIND saved correctly"}), 200
+
     except Exception as e:
         print(e)
         return jsonify({"error": f"ERROR: {str(e)}"}), 500

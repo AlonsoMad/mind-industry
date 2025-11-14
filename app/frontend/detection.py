@@ -47,10 +47,22 @@ def analyseContradiction(user_id: str, TM: str, topics: str):
         response = requests.post(f"{MIND_WORKER_URL}/detection/analyse_contradiction", json={"email": user_id, "TM": TM, "topics": topics})
         if response.status_code == 200:
             data = response.json()
+            return data
 
-            # logic data or template
-            print(data)
-            
+        else:
+            flash(f"Error loading datasets: {response.text}", "danger")
+            print(response.text)
+            return None
+
+    except requests.exceptions.RequestException:
+        flash("Backend service unavailable.", "danger")
+        return None
+    
+def get_result_mind(user_id: str, TM: str, topics: str):
+    try:
+        response = requests.get(f"{MIND_WORKER_URL}/detection/result_mind", json={"email": user_id, "TM": TM, "topics": topics})
+        if response.status_code == 200:
+            data = response.json()
             return data
 
         else:
