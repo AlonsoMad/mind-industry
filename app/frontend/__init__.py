@@ -10,7 +10,7 @@ load_dotenv()  # Load environment variables from .env file
 
 
 def create_app():
-    app = Flask(__name__, template_folder="templates", static_folder="../app/static")
+    app = Flask(__name__, template_folder="templates", static_folder="static")
     app.config['SECRET_KEY'] = os.getenv("WEB_APP_KEY")
     app.config['SESSION_TYPE'] = 'filesystem'
 

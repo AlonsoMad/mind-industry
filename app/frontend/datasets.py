@@ -24,7 +24,7 @@ def datasets():
             names = data.get("names", [])
             shapes = data.get("shapes", [])
             stages = data.get("stages", [])
-            flash(f"Datasets loaded successfully!", "success")
+            # flash(f"Datasets loaded successfully!", "success")
         else:
             flash(f"Error loading datasets: {response.text}", "danger")
             datasets, names, shapes, stages = [], [], [], []

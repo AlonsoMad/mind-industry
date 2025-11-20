@@ -2,17 +2,17 @@
 {% block title %}Log in{% endblock %}
 
 {% block content %}
-
+<h2 style="margin-top: -5px;">Log In</h2>
+<hr>
 <form method="POST" action="/login">
     <div class="form-group">
         <label for="email">Email</label>
-        <input type="email" class="form-control" id="email" name="email" required>
+        <input type="email" class="form-control" id="email" name="email" autocomplete="email" required>
     </div>
     <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" class="form-control" id="password" name="password" required>
+        <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" required>
     </div>
     <button type="submit" class="btn btn-primary">Log In</button>
 </form>
-
 {% endblock %}

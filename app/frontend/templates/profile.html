@@ -2,21 +2,23 @@
 {% block title %}Profile{% endblock %}
 
 {% block content %}
-<h1 class="mt-5"> {{ username }}'s profile  </h1>
+<h1 class="mt-5" style="margin-top: -5px;"> {{ username }}'s profile  </h1>
+<hr>
 
 <h2 class="mt-3">Labeled data</h2>
-    {% if datasets %}
-        {% for dataset in datasets %}
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h5 class="mb-0">{{ dataset.name }}</h5>
-                </div>
+{% if datasets %}
+    {% for dataset in datasets %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0">{{ dataset.name }}</h5>
             </div>
-        {% endfor %}
-    {% else %}
-        <p class="text-muted">No labeled data available.</p>
+        </div>
+    {% endfor %}
+{% else %}
+    <p class="text-muted">No labeled data available.</p>
 
-    {% endif %}
+{% endif %}
+<hr>
 
 <h2 class="mt-3">My Datasets</h2>
 <p class="text-muted">Upload your dataset files (.parquet, .csv)</p>
@@ -29,14 +31,18 @@
         <p class="mt-2 text-muted" id="file-name"></p>
     </div>
 
-    <div class="mt-3">
-        <label for="action-select">Choose a Stage:</label>
-        <select id="action-select" name="action" class="form-select" required>
-            <option value="" disabled selected>Select an option</option>
-            <option value="1_Preprocess">Raw Data</option>
-            <option value="2_TopicModelling">Preprocessed Data</option>
-            <!-- <option value="3_Download">Download</option> -->
-        </select>
+    <div class="d-flex align-items-center justify-content-between mt-3">
+        <div class="d-flex align-items-center" style="gap: 10px;">
+            <label for="action-select" class="mb-0">Choose a Stage:</label>
+            <select id="action-select" name="action" class="form-select" required style="width: auto;">
+                <option value="" disabled selected>Select an option</option>
+                <option value="1_Preprocess">Raw Data</option>
+                <option value="2_TopicModelling">Preprocessed Data</option>
+                <!-- <option value="3_Download">Download</option> -->
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-success" id="btn-success-files">Upload Dataset</button>
     </div>
 
     <div id="sep-csv" style="display: none;" class="mt-3">
@@ -47,15 +53,12 @@
             <option value=";">;</option>
         </select>
     </div>
-
-    <hr>
-
-    <div class="text-right mt-3">
-        <button type="submit" class="btn btn-success" id="btn-success-files">Upload Dataset</button>
-    </div>
 </form>
 
+<hr>
+
 <h2 class="mt-3">Update information</h2>
+<hr>
 <form method="POST" action="/profile">
     <div class="form-group">
         <label for="username">Username</label>

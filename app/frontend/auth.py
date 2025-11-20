@@ -47,7 +47,7 @@ def login():
             data = response.json()
             session['user_id'] = data.get('user_id')
             session['username'] = data.get('username')
-            flash("Login successful", "success")
+            # flash("Login successful", "success")
             return redirect(url_for('views.home'))
         else:
             flash(response.json().get('error', 'Login failed'), "danger")
@@ -85,7 +85,7 @@ def sign_up():
             return render_template('sign_up.html')
 
         if response.status_code == 201:
-            flash("Account created successfully", "success")
+            # flash("Account created successfully", "success")
             login_response = requests.post(f"{AUTH_API_URL}/login", json={
                 "email": email,
                 "password": password

@@ -130,7 +130,7 @@ class MIND:
     def _init_corpus(
         self,
         corpus: Union[Corpus, dict],
-        is_target: bool = False
+        is_target: bool = False,
     ) -> Corpus:
 
         if isinstance(corpus, Corpus):
@@ -153,7 +153,7 @@ class MIND:
             row_top_k=corpus.get("row_top_k", "top_k"),
             language_filter=corpus.get("language_filter", None),
             logger=self._logger,
-            load_thetas=corpus.get("load_thetas", True),
+            load_thetas=corpus.get("load_thetas", False),
             filter_ids=corpus.get("filter_ids", None)
         )
 
@@ -276,7 +276,6 @@ class MIND:
             if tc.id not in unique_target_chunks:
                 unique_target_chunks[tc.id] = tc
         all_target_chunks = list(unique_target_chunks.values())
-        import pdb; pdb.set_trace()
         self._logger.info(
             f"Retrieved {len_target_chunks} target chunks, {len(all_target_chunks)} unique.")
 
@@ -615,7 +614,6 @@ class MIND:
             elif line.startswith("REASON:"):
                 reason = line.split("REASON:")[1].strip()
 
-        # import pdb; pdb.set_trace()
         if label is None or reason is None:
             try:
                 discrepancy_split = response.split("\n")

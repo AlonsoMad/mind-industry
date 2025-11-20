@@ -94,6 +94,6 @@ llm:
       "Qwen/Qwen3-0.6B",
       "meta-llama/Meta-Llama-3-8B-Instruct"
     }
-    host: http://kumo01.tsc.uc3m.es:6000/v1
+    host: http://kumo02.tsc.uc3m.es:6000/v1
   llama_cpp:
-    host: http://kumo01:11435/v1/chat/completions
+    host: http://kumo02:11435/v1/chat/completions

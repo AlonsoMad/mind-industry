@@ -85,7 +85,7 @@ def get_datasets():
         dataset_list, datasets_name, shapes = load_datasets(dataset_path, folders[i])
 
         # Convert DF into lists for JSON
-        dataset_preview = [df.head(20).to_dict(orient="records") for df in dataset_list]
+        dataset_preview = [df.head(5).to_dict(orient="records") for df in dataset_list]
 
         final_dataset_preview.extend(dataset_preview)
         final_datasets_name.extend(datasets_name)

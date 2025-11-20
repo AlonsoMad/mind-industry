@@ -64,7 +64,6 @@ def build_parser() -> argparse.ArgumentParser:
                            help="Path to a file with IDs to filter out from the target corpus.")
     argparser.add_argument("--load_thetas", action="store_true",
                            help="If set, loads the thetas from file (otherwise, assumes they are already in memory).")
-
     argparser.add_argument("--print_config", action="store_true",
                            help="Print resolved configuration before running.")
 

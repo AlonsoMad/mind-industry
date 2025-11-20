@@ -86,13 +86,13 @@ class Corpus:
         id_col="chunk_id",
         passage_col="chunk_text",
         full_doc_col="full_doc",
-        row_top_k = "row_top_k",
+        row_top_k = "top_k",
         config_path=None,
         logger=None,
         language_filter="EN",
         retriever=None,
         filter_ids=None,
-        load_thetas = True
+        load_thetas = False
     ):
         logger = logger if logger else init_logger(config_path, __name__)
 
@@ -109,9 +109,14 @@ class Corpus:
             logger.info(f"Loading topic distribution from {path_thetas}")
             thetas = sparse.load_npz(path_thetas).toarray()
             df["thetas"] = list(thetas)
-            df["top_k"] = df["thetas"].apply(lambda x: cls.get_doc_top_tpcs(x, topn=10))
+            df[row_top_k] = df["thetas"].apply(lambda x: cls.get_doc_top_tpcs(x, topn=10))
             df["main_topic_thetas"] = df["thetas"].apply(lambda x: int(np.argmax(x)))
         else:
+            if row_top_k not in df.columns:
+                raise ValueError(f"Column {row_top_k} not found in dataframe. If thetas are not precomputed, please set load_thetas=True to compute them from thetas_path.")
+            
+                return
+            
             logger.info("Using precomputed thetas")
             # get "main_topic_thetas" from row_top_k
             """

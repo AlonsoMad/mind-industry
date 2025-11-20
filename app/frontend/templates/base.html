@@ -77,9 +77,9 @@
 </nav>
 
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        <div class="container mt-3">
+<div class="alert-container" style="position: fixed; top: 75px; left: 5%; width: 90%; z-index: 9999;">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
             {% for category, message in messages %}
                 <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                     {{ message }}
@@ -88,9 +88,20 @@
                     </button>
                 </div>
             {% endfor %}
-        </div>
-    {% endif %}
-{% endwith %}
+
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const alerts = document.querySelectorAll('.alert-dismissible');
+                alerts.forEach(function(alert) {
+                    setTimeout(function() {
+                        $(alert).alert('close');
+                    }, 5000);
+                });
+            });
+        </script>
+        {% endif %}
+    {% endwith %}
+</div>
 
 <div id="progress-container-master" class="container-fluid fixed-top" style="z-index: 1030; top: 56px; padding-left: 0; padding-right: 0;">
     <div id="dynamic-progress-bars" class="container"></div>

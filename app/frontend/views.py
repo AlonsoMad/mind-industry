@@ -1,5 +1,6 @@
 import os
 import json
+import queue
 import dotenv
 import requests
 
@@ -7,7 +8,7 @@ from enum import Enum
 from tools.tools import *
 from functools import wraps
 from detection import getTMDatasets, getTMkeys, analyseContradiction, get_result_mind
-from flask import Blueprint, render_template, request, flash, jsonify, session, send_file, url_for
+from flask import Blueprint, Response, render_template, request, flash, jsonify, session, send_file, url_for
 
 
 class LastInstruction(str, Enum):
@@ -20,7 +21,8 @@ dotenv.load_dotenv()
 
 current_instruction = {"instruction": LastInstruction.idle, "last_updated": None}
 MIND_WORKER_URL = os.environ.get('MIND_WORKER_URL')
-AUTH_API_URL = f"{os.environ.get('AUTH_API_URL', 'http://auth:5002/')}/auth"    
+AUTH_API_URL = f"{os.environ.get('AUTH_API_URL', 'http://auth:5002/')}/auth"
+log_queue = queue.Queue() 
 
 
 def login_required_custom(f):
@@ -184,12 +186,8 @@ def mode_selection():
             topics = data.get('topics')
             
             # Call backend
-            result = analyseContradiction(user_id, session.get('TM'), topics)
+            result = analyseContradiction(user_id, session.get('TM'), topics, data.get('sample_size'))
             return result
-            
-            # OLD
-            # response = requests.get(f'{mind_api_url}/explore')
-            # return jsonify(response.json())
         
         else:
             flash('Invalid mode selected', 'danger')
@@ -197,6 +195,26 @@ def mode_selection():
     else:
         flash(f"Select a dataset before exploring!", "warning")
         return jsonify({'error': f'MIND is not initialized.'})
+    
+@views.route("/log_detection", methods=["POST"])
+def receive_log():
+    data = request.get_json()
+    log_line = data.get("log")
+    if log_line:
+        log_queue.put(log_line)
+    return {"status": "ok"}
+
+@views.route("/stream_detection")
+@login_required_custom
+def stream():
+    def event_stream():
+        while True:
+            try:
+                line = log_queue.get(timeout=1)
+                yield f"data: {json.dumps({'log': line})}\n\n"
+            except queue.Empty:
+                continue
+    return Response(event_stream(), mimetype="text/event-stream")
     
 @views.route('/detection_results')
 @login_required_custom
@@ -209,12 +227,9 @@ def detection_results_page():
         TM = request.args.get('TM')
         topics = request.args.get('topics')
 
-        # Mandar solictud al backend
         result = get_result_mind(user_id, TM, topics)
-
-        # Devolver con result mind y columns
         if result is None:
-            flash('Error in Backend')
+            flash('Error in Backend', 'warning')
             return result
         
         result_mind = result.get('result_mind')
@@ -266,7 +281,6 @@ def update_mind_results():
 @login_required_custom
 def detection_page():
     user_id = session.get('user_id')
-    mind_api_url = f"{os.getenv('MIND_API_URL', 'http://mind:93')}"
     dataset_path = os.getenv("DATASET_PATH", "/Data/3_joined_data")
 
     status = "idle"

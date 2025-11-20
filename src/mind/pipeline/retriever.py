@@ -74,18 +74,40 @@ class IndexRetriever:
         smoothing_window=5
     ):
         '''
-        Computes the threshold dynamically to obtain significant
-        topics in the indexing phase.
+        Computes the threshold on the document-topic distribution dynamically.
         '''
         thrs = []
         for k in range(len(mat_.T)):
             allvalues = np.sort(mat_[:, k].flatten())
             step = int(np.round(len(allvalues) / 1000))
+            step = max(1, step)  # Ensure step is at least 1
+            
             x_values = allvalues[::step]
             y_values = (100 / len(allvalues)) * np.arange(0, len(allvalues))[::step]
+            
+            # Check if we have enough points for smoothing
+            if len(y_values) < smoothing_window:
+                # Fallback: use 75th percentile
+                threshold = np.percentile(mat_[:, k], 75)
+                thrs.append(threshold)
+                continue
+            
             y_values_smooth = uniform_filter1d(y_values, size=smoothing_window)
-            kneedle = KneeLocator(x_values, y_values_smooth, curve='concave', direction='increasing', interp_method='polynomial', polynomial_degree=poly_degree)
-            thrs.append(kneedle.elbow)
+            
+            try:
+                kneedle = KneeLocator(x_values, y_values_smooth, curve='concave', direction='increasing', interp_method='polynomial', polynomial_degree=poly_degree)
+                
+                if kneedle.elbow is not None:
+                    thrs.append(kneedle.elbow)
+                else:
+                    # Fallback: use 75th percentile if no elbow found
+                    threshold = np.percentile(mat_[:, k], 75)
+                    thrs.append(threshold)
+            except Exception:
+                # Fallback: use 75th percentile if knee detection fails
+                threshold = np.percentile(mat_[:, k], 75)
+                thrs.append(threshold)
+                
         return thrs
     
     def load_indices(self, method: str, source_path: str, thetas_path: str, save_path_parent: str):
@@ -136,9 +158,11 @@ class IndexRetriever:
         thetas_path:str=None,
         col_to_index:str="chunk_text",
         col_id:str="chunk_id",
+        row_top_k = "top_k",
         lang:str=None, # if lang is given, it will be used to filter the dataframe
         thr_assignment: Union[float, str] = "var",
-        method:str = "TB-ENN"
+        method:str = "TB-ENN",
+        load_thetas: bool = False,
     ):  
         save_path = (
             Path(save_path_parent)
@@ -188,21 +212,29 @@ class IndexRetriever:
             
 
         elif method in ["TB-ENN", "TB-ANN"]:
-        
-            thetas = sparse.load_npz(Path(thetas_path))
             
-            # check if thetas is a sparse matrix, if so convert to dense
-            if sparse.issparse(thetas):
-                thetas = thetas.toarray()
-            df["thetas"] = list(thetas)
-            df["top_k"] = df["thetas"].apply(lambda x: get_doc_top_tpcs(x, topn=self.top_k))
+            if load_thetas:
+                thetas = sparse.load_npz(Path(thetas_path))
             
+                # check if thetas is a sparse matrix, if so convert to dense
+                if sparse.issparse(thetas):
+                    thetas = thetas.toarray()
+                df["thetas"] = list(thetas)
+                df[row_top_k] = df["thetas"].apply(lambda x: get_doc_top_tpcs(x, topn=self.top_k))
+            
+            else:
+                if row_top_k not in df.columns:
+                    raise ValueError(f"Column {row_top_k} not found in dataframe. If thetas are not precomputed, please set load_thetas=True to compute them from thetas_path.")
+                    
+                    return 
+                            
             # determine threshold for topic assignment
             if thr_assignment == "var":
+                thetas = np.array(list(df["thetas"]))
                 thrs = self.dynamic_thresholds(thetas)
             else:
                 thrs = thr_assignment * np.ones(thetas.shape[1])
-            self.thrs = thrs  # <-- persist thresholds for retrieval
+            self.thrs = thrs  # persist thresholds for retrieval
             
             topic_indices = {}
             for topic in tqdm(range(thetas.shape[1]), desc="Creating index"):   
@@ -217,7 +249,7 @@ class IndexRetriever:
                 topic_embeddings = []
                 doc_ids = []
 
-                for i, top_k in enumerate(df["top_k"]):
+                for i, top_k in enumerate(df[row_top_k]):
                     for t, weight in top_k:
                         if t == topic and weight > this_tpc_thr:
                             topic_embeddings.append(corpus_embeddings[i])
