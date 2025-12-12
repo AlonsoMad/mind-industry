@@ -263,49 +263,52 @@ class PolylingualTM(object):
             - 0 if the operation failed.
         """
 
-        # Create the input files for Mallet
-        self._create_mallet_input_corpus(df_path)
-
-        # Prepare the input files for Mallet
-        self._prepare_mallet_input()
-
-        # Create folder for saving Mallet output
-        self._mallet_out_folder = self._model_folder / "mallet_output"
-        self._mallet_out_folder.mkdir(exist_ok=True)
-
-        # Actual training of the model
-        mallet_input_files = [self._mallet_input_folder /
-                              f"corpus_{lang}.mallet" for lang in [self._lang1, self._lang2]]
-        language_inputs = ' '.join(
-            [file.resolve().as_posix() for file in mallet_input_files])
-        cmd = self._mallet_path.as_posix() + \
-            ' run cc.mallet.topics.PolylingualTopicModel  ' + \
-            '--language-inputs %s --num-topics %s --alpha %s ' + \
-            '--output-state %s '\
-            '--output-doc-topics %s '\
-            '--output-topic-keys %s '\
-            '--inferencer-filename %s '
-        cmd = cmd % \
-            (language_inputs, self._num_topics, self._alpha,
-             (self._mallet_out_folder / "output-state.gz").resolve().as_posix(),
-             (self._mallet_out_folder / "doc-topics.txt").resolve().as_posix(),
-             (self._mallet_out_folder / "topickeys.txt").resolve().as_posix(),
-             (self._mallet_out_folder / "inferencer.mallet").resolve().as_posix(),
-             )
-
         try:
-            self._logger.info(
-                f'-- -- Training Mallet PolylingualTopicModel. Command is {cmd}')
-            check_output(args=cmd, shell=True)
+            # Create the input files for Mallet
+            self._create_mallet_input_corpus(df_path)
+
+            # Prepare the input files for Mallet
+            self._prepare_mallet_input()
+
+            # Create folder for saving Mallet output
+            self._mallet_out_folder = self._model_folder / "mallet_output"
+            self._mallet_out_folder.mkdir(exist_ok=True)
+
+            # Actual training of the model
+            mallet_input_files = [self._mallet_input_folder /
+                                f"corpus_{lang}.mallet" for lang in [self._lang1, self._lang2]]
+            language_inputs = ' '.join(
+                [file.resolve().as_posix() for file in mallet_input_files])
+            cmd = self._mallet_path.as_posix() + \
+                ' run cc.mallet.topics.PolylingualTopicModel  ' + \
+                '--language-inputs %s --num-topics %s --alpha %s ' + \
+                '--output-state %s '\
+                '--output-doc-topics %s '\
+                '--output-topic-keys %s '\
+                '--inferencer-filename %s '
+            cmd = cmd % \
+                (language_inputs, self._num_topics, self._alpha,
+                (self._mallet_out_folder / "output-state.gz").resolve().as_posix(),
+                (self._mallet_out_folder / "doc-topics.txt").resolve().as_posix(),
+                (self._mallet_out_folder / "topickeys.txt").resolve().as_posix(),
+                (self._mallet_out_folder / "inferencer.mallet").resolve().as_posix(),
+                )
+
+            try:
+                self._logger.info(
+                    f'-- -- Training Mallet PolylingualTopicModel. Command is {cmd}')
+                check_output(args=cmd, shell=True)
+            except:
+                self._logger.error('-- -- Model training failed. Revise command')
+                return 1
+
+            self._logger.info(f"-- -- Saving model information...")
+            self.save_model_info()
+            self._logger.info(f"-- -- Model information saved successfully.")
+
+            return 2
         except:
-            self._logger.error('-- -- Model training failed. Revise command')
-            return
-
-        self._logger.info(f"-- -- Saving model information...")
-        self.save_model_info()
-        self._logger.info(f"-- -- Model information saved successfully.")
-
-        return
+            return 0
 
     def save_model_info(self):
 

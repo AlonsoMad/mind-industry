@@ -224,9 +224,7 @@ class IndexRetriever:
             
             else:
                 if row_top_k not in df.columns:
-                    raise ValueError(f"Column {row_top_k} not found in dataframe. If thetas are not precomputed, please set load_thetas=True to compute them from thetas_path.")
-                    
-                    return 
+                    raise ValueError(f"Column {row_top_k} not found in dataframe. If thetas are not precomputed, please set load_thetas=True to compute them from thetas_path.")         
                             
             # determine threshold for topic assignment
             if thr_assignment == "var":

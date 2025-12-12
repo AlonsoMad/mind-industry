@@ -1,5 +1,6 @@
 import numpy as np
 import re
+import pandas as pd
 
 def get_doc_top_tpcs(doc_distr, topn=10):
     sorted_tpc_indices = np.argsort(doc_distr)[::-1]
@@ -8,11 +9,19 @@ def get_doc_top_tpcs(doc_distr, topn=10):
 
 
 def extend_to_full_sentence(
-    text: str,
+    texts: str,
     num_words: int
 ) -> str:
     """Truncate text to a certain number of words and extend to the end of the sentence so it's not cut off.
     """
+    # Convert Series or list to a single string
+    if isinstance(texts, pd.Series):
+        text = " ".join(texts.astype(str))
+    elif isinstance(texts, list):
+        text = " ".join([str(t) for t in texts])
+    else:
+        text = str(texts)
+
     text_in_words = text.split()
     truncated_text = " ".join(text_in_words[:num_words])
     

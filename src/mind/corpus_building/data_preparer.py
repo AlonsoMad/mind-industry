@@ -171,7 +171,7 @@ class DataPreparer:
         work = pd.DataFrame({
             "id_preproc": df["chunk_id"].astype(str),
             "text":  df["text"],
-            "lang":  df["lang"].astype(str),
+            "lang": df["lang"].astype(str).str.lower(),
         })
         tmp_parq = tmp_dir / f"{tag}_{lang_upper}.parquet"
         work.to_parquet(tmp_parq, compression="gzip")

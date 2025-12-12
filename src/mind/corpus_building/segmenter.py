@@ -19,6 +19,7 @@ class Segmenter():
         path_df: Path,
         path_save: Path,
         text_col: str = "text",
+        id_col: str = "id_preproc",
         min_length: int = 100,
         sep: str = "\n"
     ):
@@ -57,7 +58,7 @@ class Segmenter():
                 entry[text_col] = p  # replace with paragraph
                 entry['full_doc'] = full_doc_text  # add full document text
                 entry['id'] = None  # will set below
-                entry['id_preproc'] = f"{row.get('id_preproc', '')}_{idx}"
+                entry['id_preproc'] = f"{row.get(id_col, '')}_{idx}"
                 new_rows.append(entry)
         elapsed = time.time() - start_time
         self._logger.info(f"Segmentation took {elapsed:.2f} seconds.")

@@ -182,6 +182,7 @@ class MIND:
                 col_to_index=corpus["passage_col"],
                 col_id=corpus["id_col"],
                 lang=corpus.get("language_filter", None),
+                load_thetas=corpus.get("load_thetas", False)
             )
             corpus_obj.retriever = retriever
 
