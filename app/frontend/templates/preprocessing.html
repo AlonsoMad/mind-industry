@@ -100,6 +100,10 @@
             <input type="text" id="TextColumn-Segmentor" class="form-control" placeholder="Enter text column name">
             </div>
             <div class="form-group mt-3">
+            <label for="IdColumn-Segmentor">ID Column:</label>
+            <input type="text" id="IdColumn-Segmentor" class="form-control" placeholder="Enter id column name">
+            </div>
+            <div class="form-group mt-3">
             <label for="MinimumLength-Segmentor">Minimum Length:</label>
             <input type="number" id="MinimumLength-Segmentor" class="form-control" placeholder="100" min="1" value="100">
             </div>
@@ -237,8 +241,81 @@
 
         <div class="form-group mt-3">
             <label for="kTopics">K Topics:</label>
-            <input type="number" id="kTopics" class="form-control" value="5" min="1">
+            <input type="number" id="kTopics" class="form-control" value="5" min="1" max="500">
         </div>
+
+        <hr>
+
+        <!-- Label Topic Option -->
+        <div class="form-group mb-3 align-items-center">
+            <input type="checkbox" id="enableLabelTopic">
+            <label for="enableLabelTopic">Label Topic</label>
+        </div>
+
+        <!-- LLM options (hidden by default) -->
+        <div id="labelTopicOptions" class="mt-3" style="display: none;">
+
+            <div class="form-group mb-3 d-flex align-items-center">
+                <label for="llmSelect_type" class="me-2" style="width: 200px;">Type of LLM:</label>
+                <select id="llmSelect_type" class="form-control flex-grow-1">
+                    <option value="ollama" selected>ollama</option>
+                    <option value="GPT">GPT</option>
+                </select>
+            </div>
+
+            <div id="llmSelect_ollama" class="form-group mb-3 d-flex align-items-center">
+                <label for="llmSelect_ollama_input" class="me-2" style="width: 200px;">Ollama LLM:</label>
+                <select id="llmSelect_ollama_input" class="form-control flex-grow-1">
+                    {% for model in models %}
+                        <option value="{{ model }}">{{ model }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div id="server_ollama" class="form-group mb-3 d-flex align-items-center">
+                <label for="server_ollama_input" class="me-2" style="width: 200px;">Ollama LLM:</label>
+                <select id="server_ollama_input" class="form-control flex-grow-1">
+                    <option value="kumo02" selected>kumo02</option>
+                </select>
+            </div>
+
+            <div id="llmSelect_gpt" class="form-group mb-3 d-flex align-items-center" style="display: none;">
+                <label for="llmSelect_gpt_input" class="me-2" style="width: 200px;">GPT LLM:</label>
+                <select id="llmSelect_gpt_input" class="form-control flex-grow-1">
+                    <option value="gpt-4o-2024-08-06">gpt-4o-2024-08-06</option>
+                    <option value="gpt-4o-mini-2024-07-18">gpt-4o-mini-2024-07-18</option>
+                    <option value="chatgpt-4o-latest">chatgpt-4o-latest</option>
+                    <option value="gpt-4-turbo">gpt-4-turbo</option>
+                    <option value="gpt-4-turbo-2024-04-09">gpt-4-turbo-2024-04-09</option>
+                    <option value="gpt-4"selected>gpt-4</option>
+                    <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+                    <option value="gpt-4o-mini">gpt-4o-mini</option>
+                    <option value="gpt-4o">gpt-4o</option>
+                    <option value="gpt-4-32k">gpt-4-32k</option>
+                    <option value="gpt-4-0125-preview">gpt-4-0125-preview</option>
+                    <option value="gpt-4-1106-preview">gpt-4-1106-preview</option>
+                    <option value="gpt-4-vision-preview">gpt-4-vision-preview</option>
+                    <option value="gpt-3.5-turbo-0125">gpt-3.5-turbo-0125</option>
+                    <option value="gpt-3.5-turbo-instruct">gpt-3.5-turbo-instruct</option>
+                    <option value="gpt-3.5-turbo-1106">gpt-3.5-turbo-1106</option>
+                    <option value="gpt-3.5-turbo-0613">gpt-3.5-turbo-0613</option>
+                    <option value="gpt-3.5-turbo-16k-0613">gpt-3.5-turbo-16k-0613</option>
+                    <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+                </select>
+            </div>
+
+            <div id="gptApiKey" class="form-group mb-3 d-flex align-items-center" style="display: none;">
+                <label for="llmSelect_gpt" class="me-2" style="width: 200px;">GPT API Key:</label>
+                <input id="gptApiKeyInput" class="form-control flex-grow-1" value="" type="password" autocomplete="new-password" placeholder="sk-*******-*******-******"></input>
+            </div>
+        </div>
+
+        <script>
+            document.getElementById("enableLabelTopic").addEventListener("change", function() {
+                const block = document.getElementById("labelTopicOptions");
+                block.style.display = this.checked ? "block" : "none";
+            });
+        </script>
       </div>
 
       <!-- Step 3: Download -->
@@ -269,7 +346,7 @@
 
         <label id="optionsDatasets3" for="optionsDatasets3" style="display: none;">Select an option: </label>
         
-        <select id="optionsDatasets3-1" style="display: none;">
+        <select id="optionsDatasets3-1" class="form-control" style="display: none;">
         {% if datasets %}
             <option value="" disabled selected>-- Choose an avaible dataset --</option>
             {% for ds, name, stage in zip(datasets, names, stages) %}
@@ -282,7 +359,7 @@
         {% endif %}
         </select>
 
-        <select id="optionsDatasets3-2" style="display: none;">
+        <select id="optionsDatasets3-2" class="form-control" style="display: none;">
         {% if datasets %}
             <option value="" disabled selected>-- Choose an avaible dataset --</option>
             {% for ds, name, stage in zip(datasets, names, stages) %}
@@ -296,14 +373,14 @@
         </select>
 
         <label id="optionsFormatFile3" for="formatFile3" style="display: none;">Select an extension: </label>
-        <select id="formatFile3" style="display: none;">
+        <select id="formatFile3" class="form-control" style="display: none;">
             <option value="" disabled selected>-- Choose an extension --</option>
 
             <option value="xlsx">Excel</option> 
             <option value="parquet">Parquet</option> 
         </select>
 
-        <select id="optionsDatasets3-3" style="display: none;">
+        <select id="optionsDatasets3-3" class="form-control" style="display: none;">
         {% if datasets %}
             <option value="" disabled selected>-- Choose an avaible model output --</option>
             {% for ds, name, stage in zip(datasets, names, stages) %}
@@ -339,7 +416,7 @@
         <button id="confirmTopicModelling" class="btn btn-primary">Confirm Topic Modeling</button>
 
         <!-- Button Download -->
-        <button id="confirmDownload" class="btn btn-primary">Download Dataset</button>
+        <button id="confirmDownload" class="btn btn-primary">Download Dataset/TM</button>
       </div>
 
     </div>
@@ -450,6 +527,63 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+document.addEventListener("DOMContentLoaded", function () {
+    const selectType = document.getElementById("llmSelect_type");
+    const ollamaDiv = document.getElementById("llmSelect_ollama");
+    const ollamaServer = document.getElementById("server_ollama");
+    const gptDiv = document.getElementById("llmSelect_gpt");
+    const gptApiKey = document.getElementById("gptApiKey");
+
+    function updateVisibility() {
+        const value = selectType.value;
+
+        if (value === "GPT") {
+            ollamaDiv.classList.remove("d-flex");
+            ollamaDiv.classList.add("d-none");
+
+            ollamaServer.classList.remove("d-flex");
+            ollamaServer.classList.add("d-none");
+
+            gptDiv.classList.add("d-flex");
+            gptDiv.classList.remove("d-none");
+
+            gptApiKey.classList.add("d-flex");
+            gptApiKey.classList.remove("d-none");
+        }
+        else if (value === "ollama") {
+            ollamaDiv.classList.add("d-flex");
+            ollamaDiv.classList.remove("d-none");
+
+            ollamaServer.classList.add("d-flex");
+            ollamaServer.classList.remove("d-none");
+
+            gptDiv.classList.remove("d-flex");
+            gptDiv.classList.add("d-none");
+            
+            gptApiKey.classList.remove("d-flex");
+            gptApiKey.classList.add("d-none");
+        }
+        else {
+            ollamaDiv.classList.remove("d-flex");
+            ollamaDiv.classList.add("d-none");
+
+            ollamaServer.classList.remove("d-flex");
+            ollamaServer.classList.add("d-none");
+
+            gptDiv.classList.remove("d-flex");
+            gptDiv.classList.add("d-none");
+            
+            gptApiKey.classList.remove("d-flex");
+            gptApiKey.classList.add("d-none");
+        }
+    }
+
+    updateVisibility();
+    selectType.addEventListener("change", updateVisibility);
+});
+</script>
+
+<script>
 let db_selected = "";
 let step1Done = false, step2Done = false, step3Done = false;
 
@@ -478,6 +612,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const dbSelected = selector.value;
 
         const textColumnInput = document.getElementById("TextColumn-Segmentor");
+        const idColumnInput = document.getElementById("IdColumn-Segmentor");
         const OutputPathInput = document.getElementById("TextColumnOutput-Segmentor");
         const minLengthInput = document.getElementById("MinimumLength-Segmentor");
         const separatorInput = document.getElementById("Separator-Segmentor");
@@ -485,11 +620,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const defaultMinLength = 100;
         const defaultSeparator = "\n";
 
-        if (dbSelected !== "" && textColumnInput !== "") {
+        if (dbSelected !== "" && textColumnInput !== "" && idColumnInput !== "") {
             db_selected = dbSelected;
             step1Done = true;
 
             const textColumn = textColumnInput.value.trim();
+            const idColumn = idColumnInput.value.trim();
             const OutputPath = OutputPathInput.value.trim();
             const minLength = minLengthInput.value ? parseInt(minLengthInput.value) : defaultMinLength;
             const separator = separatorInput.value;
@@ -497,6 +633,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const segmentor_data = {
                 "output": OutputPath,
                 "text_col": textColumn,
+                "id_col": idColumn,
                 "min_length": minLength,
                 "sep": separator
             }
@@ -519,9 +656,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     "text": textColumn,
                     "full_doc": "full_doc",
                     "lang": "lang",
-                    // "title": "title",
-                    // "url": "url",
-                    // "equivalence": "equivalence"
                 }
             }
 
@@ -566,6 +700,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(error => {
                 console.error("Error in Fetch/AJAX:", error.message);
+                alert(`Couldn\'t start new Preprocess process because ${error.message}`);
             });
 
         } else {
@@ -624,9 +759,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (stepNumber == 1) {
             stepModalLabel.textContent = 'Step 1: Preprocess info';
 
-            // document.getElementById('nextSlide').style.display = 'block';
-            // document.getElementById('prevSlide').style.display = 'none';
-
             document.getElementById('confirmDatasetPreprocess').style.display = 'none';
             document.getElementById('confirmTopicModelling').style.display = 'none';
             document.getElementById('confirmDownload').style.display = 'none';
@@ -634,18 +766,12 @@ document.addEventListener('DOMContentLoaded', function () {
         else if (stepNumber == 2) {
             stepModalLabel.textContent = 'Step 2: Topic Modeling info';
 
-            // document.getElementById('nextSlide').style.display = 'block';
-            // document.getElementById('prevSlide').style.display = 'block';
-
             document.getElementById('confirmDatasetPreprocess').style.display = 'none';
             document.getElementById('confirmTopicModelling').style.display = 'block';
             document.getElementById('confirmDownload').style.display = 'none';
         }
         else if (stepNumber == 3) {
             stepModalLabel.textContent = 'Step 3: Download info';
-
-            // document.getElementById('nextSlide').style.display = 'none';
-            // document.getElementById('prevSlide').style.display = 'block';
 
             document.getElementById('confirmDatasetPreprocess').style.display = 'none';
             document.getElementById('confirmTopicModelling').style.display = 'none';
@@ -677,12 +803,50 @@ document.getElementById("confirmTopicModelling").addEventListener("click", funct
         return;
     }
 
+    let labelTopic = {};
+    if (document.getElementById("enableLabelTopic").checked) {
+        const llm_type = document.getElementById('llmSelect_type').value;
+        let llm_model = "";
+        let gpt_api = "";
+        let ollama_server = "";
+        if (llm_type == "ollama") {
+            llm_model = document.getElementById("llmSelect_ollama_input").value;
+            ollama_server = document.getElementById('server_ollama_input').value;
+
+            if (!llm_model || !ollama_server) {
+                alert('Select an ollama LLM and kumo server.');
+                return;
+            }
+        }
+        else if (llm_type == "GPT") {
+            llm_model = document.getElementById("llmSelect_gpt_input").value;
+            gpt_api = document.getElementById("gptApiKeyInput").value;
+
+            if (!gpt_api || !llm_model) {
+                alert('Select a GPT LLM and indicate your API Key.');
+                return;
+            }
+        }
+        else {
+            alert('Select GPT or ollama.');
+            return;
+        }
+
+        labelTopic = {
+            "llm_type": llm_type,
+            "llm": llm_model,
+            "gpt_api": gpt_api,
+            "ollama_server": ollama_server,
+        };
+    }
+
     const data = {
         "dataset": dataset,
         "output": outputPath,
-        "lang1": lang1,
-        "lang2": lang2,
-        "k": kTopics
+        "lang1": lang1.toUpperCase(),
+        "lang2": lang2.toUpperCase(),
+        "k": kTopics,
+        "labelTopic": labelTopic,
     }
 
     console.log(data);
@@ -709,16 +873,22 @@ document.getElementById("confirmTopicModelling").addEventListener("click", funct
     })
     .catch(error => {
         console.error("Error in Fetch/AJAX:", error.message);
+        alert(`Couldn\'t start new TopicModel process because ${error.message}`);
     });
 });
 </script>
 
 <script>
+document.getElementById("stage-download").addEventListener("change", function() {
+    if (this.value == 3) document.getElementById('confirmDownload').textContent = 'Download Topic Model';
+    else document.getElementById('confirmDownload').textContent = 'Download Dataset';
+})
+
 document.getElementById("confirmDownload").addEventListener("click", function() {
     const stage = document.getElementById("stage-download").value;
 
     if (!stage) {
-        alert("Please fill in all fields before continuing.");
+        alert("Please fill the Stage option.");
         return;
     }
     
@@ -726,9 +896,17 @@ document.getElementById("confirmDownload").addEventListener("click", function() 
     const outputPath = document.getElementById("outputPath3").value.trim();
     const formatFile = document.getElementById("formatFile3").value;
 
-    if (!dataset || !outputPath || !formatFile) {
-        alert("Please fill in all fields before continuing.");
-        return;
+    if (stage == 3) {
+        if (!dataset || !outputPath) {
+            alert("Please fill in all fields before continuing.");
+            return;
+        }
+    }
+    else {
+        if (!dataset || !outputPath || !formatFile) {
+            alert("Please fill in all fields before continuing.");
+            return;
+        }
     }
 
     let output = "";
@@ -747,6 +925,16 @@ document.getElementById("confirmDownload").addEventListener("click", function() 
     }
 
     console.log(data);
+
+    this.style.pointerEvents = 'none';
+    this.style.opacity = '0.6';
+    this.classList.add('disabled');
+
+    const originalHTML = this.innerHTML;
+    this.innerHTML = `
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+        Waiting...
+    `;
 
     fetch("/preprocess/download", {
         method: "POST", 
@@ -771,9 +959,17 @@ document.getElementById("confirmDownload").addEventListener("click", function() 
         a.remove();
         window.URL.revokeObjectURL(url);
         console.log("Descarga iniciada.");
+        this.style.pointerEvents = 'auto';
+        this.style.opacity = '1';
+        this.classList.remove('disabled');
+        this.innerHTML = originalHTML;
         updateProgressBar();
     })
     .catch(error => {
+        this.style.pointerEvents = 'auto';
+        this.style.opacity = '1';
+        this.classList.remove('disabled');
+        this.innerHTML = originalHTML;
         console.error("Error in Fetch/AJAX:", error.message);
     });
 });
@@ -852,10 +1048,8 @@ document.addEventListener('DOMContentLoaded', function() {
         else if (i === index) slide.classList.add('active-slide');
     });
     
-    // Detenemos observadores anteriores
     activeResizeObserver.disconnect();
 
-    // Observa el slide activo en tiempo real
     const activeSlide = slides[index];
     activeResizeObserver.observe(activeSlide);
 
@@ -916,11 +1110,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     else if (idx == 1) {
         const textColumnInput = document.getElementById("TextColumn-Segmentor").value;
+        const idColumnInput = document.getElementById("IdColumn-Segmentor").value;
         const minLengthInput = document.getElementById("MinimumLength-Segmentor").value;
         const separatorInput = document.getElementById("Separator-Segmentor").value;
 
         if (textColumnInput.value == "") {
             alert("Indicate the text label to preprocess.");
+            return false;
+        }
+
+        if (idColumnInput.value == "") {
+            alert("Indicate the id label to preprocess.");
             return false;
         }
 
@@ -972,6 +1172,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Text for Details
     document.getElementById('detailsSlide2-text').textContent = 'The Segmenter Component allows to split documents into segments. Options:\n\n' +
         ' - Text Column\t\t\tName of the text column to segment.\n' +
+        ' - Id Column\t\t\tName of the id column to identify.\n' +
         ' - Minimum Length\tMinimum length for a paragraph to be kept.\n' +
         ' - Separator\t\t\t\tSeparator for splitting paragraphs.';
 

@@ -1,4 +1,5 @@
 import os
+import dotenv
 import requests
 
 from database import db
@@ -7,6 +8,7 @@ from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
+dotenv.load_dotenv()
 auth_bp = Blueprint("auth", __name__)
 MIND_WORKER_URL = os.getenv("MIND_WORKER_URL")
 
@@ -32,7 +34,7 @@ def register():
         db.session.commit()
     except Exception as e:
         print(str(e))
-        return jsonify({"error": f"Failed to insert user: User already exists"}), 500        
+        return jsonify({"error": "Failed to insert user: User already exists"}), 500        
 
     try:
         response = requests.post(

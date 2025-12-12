@@ -4,8 +4,8 @@ import queue
 import dotenv
 import requests
 
+from detection import *
 from functools import wraps
-from detection import getTMDatasets, getTMkeys, analyseContradiction, get_result_mind
 from flask import Blueprint, Response, render_template, request, flash, jsonify, session, url_for
 
 
@@ -13,7 +13,7 @@ views = Blueprint('views', __name__)
 dotenv.load_dotenv()
 
 MIND_WORKER_URL = os.environ.get('MIND_WORKER_URL')
-AUTH_API_URL = f"{os.environ.get('AUTH_API_URL', 'http://auth:5002/')}/auth"
+AUTH_API_URL = f"{os.environ.get('AUTH_API_URL')}/auth"
 log_queue = queue.Queue() 
 
 
@@ -91,6 +91,9 @@ def mode_selection():
             
             # Call backend
             result = analyseContradiction(user_id, session.get('TM'), topics, data.get('sample_size'), config)
+            
+            if result is None:
+                return jsonify({'error': 'LLM in use'}), 400
             return result
         
         else:
@@ -98,7 +101,7 @@ def mode_selection():
             return jsonify({'error': 'Invalid mode selected'}), 400
     else:
         flash(f"Select a dataset before exploring!", "warning")
-        return jsonify({'error': f'MIND is not initialized.'})
+        return jsonify({'error': f'MIND is not initialized.'}), 400
     
 @views.route("/log_detection", methods=["POST"])
 def receive_log():
@@ -119,6 +122,21 @@ def stream():
             except queue.Empty:
                 continue
     return Response(event_stream(), mimetype="text/event-stream")
+
+@views.route('/pipeline_status', methods=['GET'])
+def pipeline_status():
+    email = session['user_id']
+    TM = request.args.get("TM")
+    topics = request.args.get("topics")
+
+    try:
+        response = requests.get(f"{MIND_WORKER_URL}/detection/pipeline_status", json={"email": email, "TM": TM, "topics": topics})
+        data = response.json()
+        return data
+
+    except requests.exceptions.RequestException:
+        flash("Backend service unavailable.", "danger")
+        return {}
     
 @views.route('/detection_results')
 @login_required_custom
@@ -130,8 +148,9 @@ def detection_results_page():
         user_id = session['user_id']
         TM = request.args.get('TM')
         topics = request.args.get('topics')
+        start = 0
 
-        result = get_result_mind(user_id, TM, topics)
+        result = get_result_mind(user_id, TM, topics, start)
         if result is None:
             flash('Error in Backend', 'warning')
             return result
@@ -140,13 +159,50 @@ def detection_results_page():
         result_columns = result.get('result_columns')
         columns_json = result.get('columns_json')
         non_orderable_indices = result.get('non_orderable_indices')
+        ranges = result.get('ranges')
 
-        return render_template("detection.html", user_id=user_id, status="completed", result_mind=result_mind, result_columns=result_columns, columns_json=columns_json, non_orderable_indices=non_orderable_indices)
+        return render_template("detection.html", user_id=user_id, status="completed", result_mind=result_mind, result_columns=result_columns, columns_json=columns_json, non_orderable_indices=non_orderable_indices, ranges=ranges)
     
     except Exception as e:
         print(e)
-        return render_template("detection.html", user_id=user_id, status="completed", result_mind=result_mind, result_columns=result_columns, columns_json=columns_json, non_orderable_indices=non_orderable_indices)
+        return render_template("detection.html", user_id=user_id, status="completed", result_mind=result_mind, result_columns=result_columns, columns_json=columns_json, non_orderable_indices=non_orderable_indices, ranges=ranges)
 
+@views.route('/results_chunk', methods=['GET'])
+@login_required_custom
+def results_chunk():
+    result_mind = None
+    result_columns = None
+    
+    try:
+        user_id = session['user_id']
+        TM = request.args.get('TM')
+        topics = request.args.get('topics')
+        start = int(request.args.get('start', 0))
+
+        result = get_result_mind(user_id, TM, topics, start)
+        if result is None:
+            flash('Error in Backend', 'warning')
+            return result
+        
+        result_mind = result.get('result_mind')
+        result_columns = result.get('result_columns')
+
+        columns = [
+            {"name": col, "data": col} for col in result_columns
+        ]
+
+        return {
+            "rows": result_mind,
+            "columns": columns
+        }
+    
+    except Exception as e:
+        print(e)
+        return {
+            "rows": None,
+            "columns": None
+        }
+    
 @views.route('/update_results', methods=['POST'])
 @login_required_custom
 def update_mind_results():
@@ -159,23 +215,33 @@ def update_mind_results():
 
         TM = request.form.get('TM')
         topics = request.form.get('topics')
+        start = request.form.get('start')
 
-        if not TM or not topics:
+        if not TM or not topics or not start:
             return jsonify({"message": "Missing fields"}), 400
 
         files = {"file": (file.filename, file.stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
         data = {
             "TM": TM,
             "topics": topics,
+            "start": start,
             "email": user_id
         }
 
-        response = requests.post(f"{MIND_WORKER_URL}/detection/update_results", files=files, data=data)
+        response = requests.post(f"{MIND_WORKER_URL}/detection/update_results", files=files, data=data, timeout=300)
 
         if response.status_code != 200:
+            print(response.text)
             return jsonify({"message": "Error from backend"}), 500
 
-        return jsonify({"message": "All changes has been updated."}), 200
+        return Response(
+            response.iter_content(chunk_size=1024),
+            status=response.status_code,
+            mimetype=response.headers['Content-Type'],
+            headers={
+                "Content-Disposition": response.headers.get('Content-Disposition')
+            }
+        )
     
     except Exception as e:
         print(e)
@@ -190,6 +256,8 @@ def detection_page():
     mind_info = {}
     dataset_detection = {}
     topic_keys = {}
+    avaible_models = []
+    doc_proportion = []
 
     if request.method == 'GET':
         dataset_detection = getTMDatasets(user_id)
@@ -208,8 +276,10 @@ def detection_page():
         if data:
             # Get the topic keys from that model
             topic_keys = getTMkeys(user_id, data)
+            avaible_models = getModels()
+            doc_proportion = getDocProportion(user_id, session["TM"])
 
-    return render_template("detection.html", user_id=user_id, status=status, dataset_detection=dataset_detection, topic_keys=topic_keys, mind_info=mind_info)
+    return render_template("detection.html", user_id=user_id, status=status, dataset_detection=dataset_detection, topic_keys=topic_keys, mind_info=mind_info, avaible_models=avaible_models, docs_data=doc_proportion)
 
 @views.route('/detection_topickeys', methods=['POST'])
 @login_required_custom
@@ -237,7 +307,11 @@ def detection_page_topickeys_post():
     if data:
         # Get the topic keys from that model
         topic_keys = getTMkeys(user_id, data)
+        avaible_models = getModels()
+        doc_proportion = getDocProportion(user_id, session["TM"])
         session['topic_keys'] = topic_keys
+        session['avaible_models'] = avaible_models
+        session['doc_proportion'] = doc_proportion
 
     return jsonify({
         'redirect': url_for('views.detection_page_topickeys_get',
@@ -251,6 +325,8 @@ def detection_page_topickeys_get():
     status = request.args.get('status')
     dataset_detection = session.get('dataset_detection')
     topic_keys = session.get('topic_keys')
+    avaible_models = session.get('avaible_models')
+    doc_proportion = session.get('doc_proportion')
     mind_info = session.get('mind_info')
 
     return render_template(
@@ -259,5 +335,7 @@ def detection_page_topickeys_get():
         status=status,
         dataset_detection=dataset_detection,
         topic_keys=topic_keys,
+        avaible_models=avaible_models,
+        docs_data=doc_proportion,
         mind_info=mind_info
     )

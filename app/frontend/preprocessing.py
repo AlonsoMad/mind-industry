@@ -6,6 +6,8 @@ import requests
 import threading
 
 from io import BytesIO
+from detection import getModels
+from collections import defaultdict
 from views import login_required_custom
 from flask import Blueprint, render_template, request, flash, jsonify, session, send_file
 
@@ -14,8 +16,9 @@ preprocess = Blueprint('preprocess', __name__)
 dotenv.load_dotenv()
 MIND_WORKER_URL = os.environ.get('MIND_WORKER_URL')
 
-MAX_CONCURRENT_TASKS = 4
-RUNNING_TASKS = []
+MAX_CONCURRENT_TASKS = int(os.getenv('MAX_CONCURRENT_TASKS', '20')) - 1
+MAX_CONCURRENT_TASKS_PER_USER = int(os.getenv('MAX_CONCURRENT_TASKS_PER_USER', '4'))
+RUNNING_TASKS = defaultdict(list)
 TASK_COUNTER = 0
 
 tasks_lock = threading.Lock()
@@ -24,10 +27,11 @@ tasks_lock = threading.Lock()
 @preprocess.route('/api/preprocess_status', methods=['GET'])
 def get_preprocess_status():
     global RUNNING_TASKS, tasks_lock
+    user_id = session.get('user_id')
 
     with tasks_lock:
         tasks_list = []
-        for task in RUNNING_TASKS:
+        for task in RUNNING_TASKS[user_id]:
             percent = task.get('percent', 0)
             message = task.get('message', '')
             name = task.get('name', 'Unknown')
@@ -42,7 +46,7 @@ def get_preprocess_status():
     return jsonify({
         'tasks': tasks_list,
         'running_count': len(tasks_list),
-        'max_limit': MAX_CONCURRENT_TASKS
+        'max_limit': MAX_CONCURRENT_TASKS_PER_USER
     })
 
 @preprocess.route('/preprocessing', methods=['GET'])
@@ -50,6 +54,7 @@ def get_preprocess_status():
 def preprocessing():
     user_id = session.get('user_id')
 
+    models = getModels()
     try:
         response = requests.get(f"{MIND_WORKER_URL}/datasets", params={"email": user_id})
         if response.status_code == 200:
@@ -64,7 +69,7 @@ def preprocessing():
         flash("Backend service unavailable.", "danger")
         datasets, names = [], []
 
-    return render_template('preprocessing.html', user_id=user_id, datasets=datasets, names=names, stages=stages, zip=zip)
+    return render_template('preprocessing.html', user_id=user_id, datasets=datasets, names=names, stages=stages, zip=zip, models=models)
 
 def wait_for_step_completion(step_id, step_name, timeout=600000, interval=5):
     start = time.time()
@@ -94,7 +99,7 @@ def preprocess_stage1(task_id, task_name, email, dataset, segmenter_data, transl
     global RUNNING_TASKS
 
     with tasks_lock:
-        task_state = next((t for t in RUNNING_TASKS if t['id'] == task_id), None)
+        task_state = next((t for t in RUNNING_TASKS[email] if t['id'] == task_id), None)
 
     if not task_state:
         print(f"ERROR: Task {task_id} not found or was deleted")
@@ -168,7 +173,7 @@ def preprocess_stage1(task_id, task_name, email, dataset, segmenter_data, transl
                 if step_id:
                     wait_for_step_completion(step_id, step_name)
 
-        task_state['message'] = f"¡{task_name} completed! Results saved."
+        task_state['message'] = f"{task_name} completed! Results saved."
         task_state['percent'] = 100
         print(f"Completed task: {task_name}")
 
@@ -179,7 +184,7 @@ def preprocess_stage1(task_id, task_name, email, dataset, segmenter_data, transl
     finally:
         time.sleep(5)
         with tasks_lock:
-            RUNNING_TASKS = [t for t in RUNNING_TASKS if t['id'] != task_id]
+            RUNNING_TASKS[email] = [t for t in RUNNING_TASKS[email] if t['id'] != task_id]
         print(f"Task: {task_name} removed from the active tasks")
 
 
@@ -192,12 +197,20 @@ def start_preprocess():
     segmentor_data = data.get('segmentor_data')
     translator_data = data.get('translator_data')
     preparer_data = data.get('preparer_data')
+    user_id = session.get('user_id')
 
     with tasks_lock:
-        if len(RUNNING_TASKS) >= MAX_CONCURRENT_TASKS:
+        total_tasks = sum(len(user_processes) for user_processes in RUNNING_TASKS.values())
+        if total_tasks > MAX_CONCURRENT_TASKS:
             return jsonify({
                 'success': False,
-                'message': f'Límite de {MAX_CONCURRENT_TASKS} procesos concurrentes alcanzado.'
+                'message': f'Limit {MAX_CONCURRENT_TASKS} of global processes achieved.'
+            }), 409
+        
+        if len(RUNNING_TASKS[user_id]) >= MAX_CONCURRENT_TASKS_PER_USER:
+            return jsonify({
+                'success': False,
+                'message': f'Limit {MAX_CONCURRENT_TASKS_PER_USER} of processes per user achieved.'
             }), 409
 
         TASK_COUNTER += 1
@@ -211,7 +224,7 @@ def start_preprocess():
             'message': "Preprocessing data...",
             'thread': None
         }
-        RUNNING_TASKS.append(new_task_state)
+        RUNNING_TASKS[user_id].append(new_task_state)
 
     thread = threading.Thread(
         target=preprocess_stage1, 
@@ -225,11 +238,11 @@ def start_preprocess():
         'task_id': new_task_id
     }), 202
 
-def preprocess_stage2(task_id, task_name, email, dataset, output, lang1, lang2, k):
+def preprocess_stage2(task_id, task_name, email, dataset, output, lang1, lang2, k, labelTopic):
     global RUNNING_TASKS
 
     with tasks_lock:
-        task_state = next((t for t in RUNNING_TASKS if t['id'] == task_id), None)
+        task_state = next((t for t in RUNNING_TASKS[email] if t['id'] == task_id), None)
 
     if not task_state:
         print(f"ERROR: Task {task_id} not found or was deleted")
@@ -237,31 +250,59 @@ def preprocess_stage2(task_id, task_name, email, dataset, output, lang1, lang2, 
 
     print(f"Starting task: {task_name}")
 
+    TOTAL_STEPS = 1
+    if labelTopic != {}: TOTAL_STEPS = 2
+
     try:
-        percent = 50
-        task_state['percent'] = percent
+        for step in range(TOTAL_STEPS):
+            if step == 0:
+                percent = 50
+                task_state['percent'] = percent
 
-        step_name = "Topic Modeling"
-        task_state['message'] = f"Topic Modeling {dataset}..."
-        response = requests.post(
-            f"{MIND_WORKER_URL}/topicmodeling",
-            json={
-                "email": email,
-                "dataset": dataset,
-                "output": output,
-                "lang1": lang1,
-                "lang2": lang2,
-                "k": k
-            }
-        )
-        response.raise_for_status()
-        data = response.json()
-        print(data.get("message"))
-        step_id = data.get("step_id")
-        if step_id:
-            wait_for_step_completion(step_id, step_name)
+                step_name = "Topic Modeling"
+                task_state['message'] = f"Topic Modeling {dataset}..."
+                response = requests.post(
+                    f"{MIND_WORKER_URL}/topicmodeling",
+                    json={
+                        "email": email,
+                        "dataset": dataset,
+                        "output": output,
+                        "lang1": lang1,
+                        "lang2": lang2,
+                        "k": k
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
+                step_id = data.get("step_id")
+                if step_id:
+                    wait_for_step_completion(step_id, step_name)
+            
+            elif step == 1:
+                percent = 80
+                task_state['percent'] = percent
 
-        task_state['message'] = f"¡{task_name} completed! Results saved."
+                step_name = "Labeling Topics"
+                task_state['message'] = f"Labeling Topics {output}..."
+                response = requests.post(
+                    f"{MIND_WORKER_URL}/labeltopic",
+                    json={
+                        "email": email,
+                        "output": output,
+                        "lang1": lang1,
+                        "lang2": lang2,
+                        "k": k,
+                        "labelTopic": labelTopic,
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
+                step_id = data.get("step_id")
+                if step_id:
+                    wait_for_step_completion(step_id, step_name)
+
+        
+        task_state['message'] = f"{task_name} completed! Results saved."
         task_state['percent'] = 100
         print(f"Completed task: {task_name}")
 
@@ -272,7 +313,7 @@ def preprocess_stage2(task_id, task_name, email, dataset, output, lang1, lang2, 
     finally:
         time.sleep(5)
         with tasks_lock:
-            RUNNING_TASKS = [t for t in RUNNING_TASKS if t['id'] != task_id]
+            RUNNING_TASKS[email] = [t for t in RUNNING_TASKS[email] if t['id'] != task_id]
         print(f"Task: {task_name} removed from the active tasks")
 
 
@@ -286,12 +327,21 @@ def start_topicModelling():
     lang1 = data.get('lang1')
     lang2 = data.get('lang2')
     k = data.get('k')
+    labelTopic = data.get('labelTopic')
+    user_id = session.get('user_id')
 
     with tasks_lock:
-        if len(RUNNING_TASKS) >= MAX_CONCURRENT_TASKS:
+        total_tasks = sum(len(user_processes) for user_processes in RUNNING_TASKS.values())
+        if total_tasks > MAX_CONCURRENT_TASKS:
             return jsonify({
                 'success': False,
-                'message': f'Límite de {MAX_CONCURRENT_TASKS} procesos concurrentes alcanzado.'
+                'message': f'Limit {MAX_CONCURRENT_TASKS} of global processes achieved.'
+            }), 409
+        
+        if len(RUNNING_TASKS[user_id]) >= MAX_CONCURRENT_TASKS_PER_USER:
+            return jsonify({
+                'success': False,
+                'message': f'Limit {MAX_CONCURRENT_TASKS_PER_USER} of processes per user achieved.'
             }), 409
 
         TASK_COUNTER += 1
@@ -305,17 +355,17 @@ def start_topicModelling():
             'message': "Training Topic Model...",
             'thread': None
         }
-        RUNNING_TASKS.append(new_task_state)
+        RUNNING_TASKS[user_id].append(new_task_state)
 
     thread = threading.Thread(
         target=preprocess_stage2, 
-        args=(new_task_id, new_task_name, session['user_id'], dataset, output, lang1, lang2, k)
+        args=(new_task_id, new_task_name, session['user_id'], dataset, output, lang1, lang2, k, labelTopic)
     )
     thread.start()
     
     return jsonify({
         'success': True, 
-        'message': f"Process preprocessing dataset '{dataset}' iniciado correctamente.",
+        'message': f"Process Topic Modelling dataset '{dataset}' started.",
         'task_id': new_task_id
     }), 202
 

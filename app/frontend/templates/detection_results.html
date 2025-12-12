@@ -34,11 +34,13 @@
                      aria-labelledby="heading-{{ unique_id_base }}"
                      data-parent="#accordion-stage-{{ group.grouper }}">
                     <div class="card-body">
+                        {% if shape_tuple %}
                         {% for topics in shape_tuple %}
                             <hr>
                             <a id="a-{{ name }}-{{ topics }}" href="/detection_results?TM={{ name.replace('_contradiction', '') }}&topics={{ topics }}" style="white-space: pre-wrap;"></a>
                             <script>document.getElementById('a-{{ name }}-{{ topics }}').innerHTML = '  -> Discrepancy for <strong>{{ topics }} topics.</strong>'</script>
                         {% endfor %}
+                        {% endif %}
                         <hr>
                     </div>
                 </div>

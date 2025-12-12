@@ -1,6 +1,9 @@
 import os
 import json
 import uuid
+import shutil
+import logging
+import pandas as pd
 
 from pathlib import Path
 from utils import cleanup_output_dir, aggregate_row
@@ -8,6 +11,10 @@ from flask import Blueprint, request, jsonify, current_app, send_file, after_thi
 
 
 preprocessing_bp = Blueprint('preprocessing', __name__, url_prefix='/preprocessing')
+
+OLLAMA_SERVER = {
+    "kumo02": "http://kumo02.tsc.uc3m.es:11434"
+}
 
 TASKS = {}
 
@@ -34,11 +41,17 @@ def run_step(step_name, func, app, *args, **kwargs):
 
 @preprocessing_bp.route('/status/<step_id>', methods=['GET'])
 def status(step_id):
-    task = TASKS.get(step_id)
-    if not task:
-        return jsonify({"status": "not_found", "message": "Step ID not found"}), 404
-    return jsonify(task), 200
-
+    log = logging.getLogger('werkzeug')
+    original_level = log.level
+    log.setLevel(logging.ERROR)
+    
+    try:
+        task = TASKS.get(step_id)
+        if not task:
+            return jsonify({"status": "not_found", "message": "Step ID not found"}), 404
+        return jsonify(task), 200
+    finally:
+        log.setLevel(original_level)
 
 @preprocessing_bp.route('/segmenter', methods=['POST'])
 def segmenter():
@@ -71,6 +84,7 @@ def segmenter():
                     path_df=dataset_path,
                     path_save=f'{output_dir}/dataset',
                     text_col=segmenter_data['text_col'],
+                    id_col=segmenter_data['id_col'],
                     min_length=segmenter_data['min_length'],
                     sep=segmenter_data['sep']
                 )
@@ -112,22 +126,22 @@ def translator():
                 dataset_path, output_dir = validation
             else:
                 raise Exception("Validation failed")
-            
-            # To operate correctly
-            # translator_data['text_col'] = "full_doc"
+
+            # Creating new ID
+            df = pd.read_parquet(dataset_path, engine='pyarrow')
+            df['lang'] = df['lang'].str.lower()
+            df["id_preproc"] = translator_data['src_lang'] + df["id_preproc"].astype(str)
+            df.to_parquet(f'{dataset_path}_temp', engine='pyarrow')
 
             # Translator
             print(f"Translating dataset {dataset}...")
 
             try:
-                # os.system(f'cp /data/{email}/1_RawData/{dataset}/1_Segmenter/{translator_data["output"]}/dataset {output_dir}/dataset_{translator_data["tgt_lang"]}2{translator_data["src_lang"]}')
-                # os.system(f'cp /data/{email}/1_RawData/{dataset}/dataset {output_dir}/dataset_{translator_data["src_lang"]}2{translator_data["tgt_lang"]}')
-                
                 trans = Translator(config_path="/src/config/config.yaml")
                 
                 # src -> tgt
                 trans.translate(
-                    path_df=dataset_path,
+                    path_df=f'{dataset_path}_temp',
                     save_path=f'{output_dir}/dataset_{translator_data["tgt_lang"]}2{translator_data["src_lang"]}',
                     src_lang=translator_data['src_lang'],
                     tgt_lang=translator_data['tgt_lang'],
@@ -139,7 +153,7 @@ def translator():
             
             except Exception as e:
                 print(str(e))
-                # cleanup_output_dir(email, dataset, translator_data['output'])
+                cleanup_output_dir(email, dataset, translator_data['output'])
                 raise e
 
         step_id = run_step("Translating", do_translate, app=current_app._get_current_object())
@@ -147,7 +161,7 @@ def translator():
 
     except Exception as e:
         print(str(e))
-        # cleanup_output_dir(email, dataset, translator_data['output'])
+        cleanup_output_dir(email, dataset, translator_data['output'])
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -180,7 +194,6 @@ def preparer():
             try:
                 nlpipe_json = {
                         "id": "id_preproc",
-                        # "raw_text": f"{preparer_data["schema"]["text"]}",
                         "raw_text": "text",
                         "title": ""
                     }
@@ -205,15 +218,17 @@ def preparer():
                     schema=preparer_data['schema'],
                 )
 
-                prep.format_dataframes(
+                res = prep.format_dataframes(
                     anchor_path=f'{dataset_path}/dataset_{preparer_data["src_lang"]}2{preparer_data["tgt_lang"]}',
                     comparison_path=f'{dataset_path}/dataset_{preparer_data["tgt_lang"]}2{preparer_data["src_lang"]}',
                     path_save=f'{output_dir}/dataset'
                 )
 
-                # os.rmdir(f"{output_dir}/_tmp_preproc")
+                if res is None: return jsonify({"status": "error", "message": "Data Preparer result is None"}), 400
 
-                aggregate_row(email, preparer_data['output'], dataset, 2, f'{output_dir}/dataset')
+                os.rmdir(f"{output_dir}/_tmp_preproc")
+
+                aggregate_row(email, preparer_data['output'], dataset, 2, f'{output_dir}/dataset', preparer_data["schema"]["text"])
 
                 with open(f'{output_dir}/schema.json', 'w') as f:
                     json.dump(preparer_data['schema'], f, ensure_ascii=False, indent=4)
@@ -222,8 +237,8 @@ def preparer():
             
             except Exception as e:
                 print(str(e))
-                # cleanup_output_dir(email, dataset, preparer_data['output'])
-                # os.rmdir(f"{output_dir}/_tmp_preproc")
+                cleanup_output_dir(email, dataset, preparer_data['output'])
+                os.rmdir(f"{output_dir}/_tmp_preproc")
                 raise e
 
         step_id = run_step("Data Preparer", do_preparer, app=current_app._get_current_object())
@@ -231,7 +246,7 @@ def preparer():
 
     except Exception as e:
         print(str(e))
-        # cleanup_output_dir(email, dataset, preparer_data['output'])
+        cleanup_output_dir(email, dataset, preparer_data['output'])
         return jsonify({"status": "error", "message": str(e)}), 500
     
 @preprocessing_bp.route('/topicmodeling', methods=['POST'])
@@ -265,26 +280,97 @@ def topicmodelling():
                 model = PolylingualTM(
                     lang1=lang1,
                     lang2=lang2,
-                    # lang2=lang1,
                     model_folder=Path(output_dir),
                     num_topics=int(k),
                     mallet_path="/backend/Mallet/bin/mallet",
-                    add_stops_path="/src/mind/topic_modeling/stops"
+                    add_stops_path="/src/mind/topic_modeling/stops",
+                    is_second_level=False
                 )
 
                 res = model.train(dataset_path)
 
-                if res == 2: aggregate_row(email, output, dataset, 3, output_dir)
-                else: raise Exception("Model couldn't be trained.")
-
+                if res != 2:
+                    shutil.rmtree(output_dir)
+                    os.rmdir(output_dir)
+                    shutil.rmtree(f'{output_dir}_old')
+                    os.rmdir(f'{output_dir}_old')
+                    raise Exception("Model couldn't be trained.")
+                
+                try:
+                    shutil.rmtree(f'{output_dir}_old')
+                    os.rmdir(f'{output_dir}_old')
+                except:
+                    pass
+                
+                aggregate_row(email, output, dataset, 3, output_dir)
                 print('Finalize train model')
 
             except Exception as e:
                 print(str(e))
+                os.rmdir(output_dir)
                 raise e
 
         step_id = run_step("TopicModeling", train_topicmodel, app=current_app._get_current_object())
         return jsonify({"step_id": step_id, "message": "Training Topic Model task started"}), 200
+
+    except Exception as e:
+        print(str(e))
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+@preprocessing_bp.route('/labeltopic', methods=['POST'])
+def labeltopic():
+    try:
+        data = request.get_json()
+        email = data.get("email")
+        output = data.get('output')
+        lang1 = data.get('lang1')
+        lang2 = data.get('lang2')
+        k = data.get('k')
+        labelTopic = data.get('labelTopic')
+
+        def labeling_topic():
+            from mind.topic_modeling.topic_label import TopicLabel
+            
+            output_dir = f'/data/{email}/3_TopicModel/{output}'
+
+            print(f'Labeling Topic model (k = {k}) {output}...')
+
+            try:
+                if labelTopic['llm_type'] == 'GPT':
+                    llm_server = ''
+                    with open(f'/data/{email}/.env', 'w') as f:
+                        f.write(f'OPEN_API_KEY={labelTopic['gpt_api']}')
+                
+                else:
+                    llm_server = OLLAMA_SERVER[labelTopic['ollama_server']]
+
+                tl = TopicLabel(
+                    lang1=lang1,
+                    lang2=lang2,
+                    model_folder=Path(output_dir),
+                    llm_model=labelTopic['llm'],
+                    llm_server=llm_server,
+                    config_path='/src/config/config.yaml',
+                    env_path=f'/data/{email}/.env' if labelTopic["llm_type"] == 'GPT' else None
+                )
+
+                tl.label_topic()
+
+                if os.path.exists(f'/data/{email}/.env'):
+                    os.remove(f'/data/{email}/.env')
+                
+                print('Finalize label TM')
+
+            except Exception as e:
+                print(str(e))
+                
+                if os.path.exists(f'/data/{email}/.env'):
+                    os.remove(f'/data/{email}/.env')
+
+                raise e
+
+        step_id = run_step("TopicModeling", labeling_topic, app=current_app._get_current_object())
+        return jsonify({"step_id": step_id, "message": "Labeling Topic Model task started"}), 200
 
     except Exception as e:
         print(str(e))

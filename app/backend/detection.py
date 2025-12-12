@@ -1,3 +1,4 @@
+import io
 import os
 import re
 import sys
@@ -11,18 +12,27 @@ import numpy as np
 import pandas as pd
 
 from sklearn.manifold import MDS
+from collections import defaultdict
 from mind.cli import comma_separated_ints
-from multiprocessing import Event, Process
-from flask import Blueprint, jsonify, request
-from utils import get_TM_detection, obtain_langs_TM
+from multiprocessing import Event, Process, Queue
+from flask import Blueprint, jsonify, request, send_file
+from utils import get_TM_detection, obtain_langs_TM, obtainTextColumn, process_mind_results
 
 
 detection_bp = Blueprint("detection", __name__)
 MIND_FRONTEND_URL = os.getenv('MIND_FRONTEND_URL', 'http://frontend:5000')
 
+OLLAMA_SERVER = {
+    "kumo02": "http://kumo02.tsc.uc3m.es:11434"
+}
+ACTIVE_OLLAMA_SERVERS = []
+
 active_processes = {}
-MAX_USERS = 2
+MAX_USERS = int(os.getenv('MAX_USERS', '2'))
 lock = threading.Lock()
+OUTPUT_QUEUE = Queue()
+
+ROWS_PER_PAGE = 15000
 
 class StreamForwarder:
     """
@@ -140,9 +150,19 @@ def getTopicKeys():
                 proportion = float(parts[i - 1])
                 topic_matrix[doc_idx, topic_id] = proportion
 
-        mds = MDS(n_components=2, random_state=42)
+        mds = MDS(n_components=2, random_state=1234)
+        topic_matrix = np.nan_to_num(topic_matrix)
         coords = mds.fit_transform(topic_matrix.T)
         topic_sizes = topic_matrix.mean(axis=0)
+
+        # Read data labels lang
+        labels = {}
+        try:
+            for lang in topic_keys["lang"]:
+                with open(f"{path}/mallet_output/labels_{lang}.txt", 'r', encoding='utf-8') as f:
+                    labels[lang] = f.readlines()
+        except:
+            labels = None
 
         topics_data = []
         for topic_id in range(num_topics):
@@ -154,8 +174,16 @@ def getTopicKeys():
                 "TM_name": topic_model
             }
 
+            label = []
             for lang in topic_keys["lang"]:
                 entry[f"keywords_{lang}"] = all_keywords.get(lang, {}).get(topic_id, [])
+            
+                # Get Topic label
+                if labels: label.append(f'{lang}: {labels[lang][topic_id].strip()}')
+
+            if labels: entry["label"] = f'({" || ".join(label)})'
+            else: entry["label"] = ''
+            
             topics_data.append(entry)
 
         return jsonify({"topics": topics_data}), 200
@@ -163,16 +191,150 @@ def getTopicKeys():
     except Exception as e:
         print(str(e))
         return jsonify({"error": f"ERROR: {str(e)}"}), 500
+    
+@detection_bp.route('detection/models', methods=['GET'])
+def getModels():
+    try:
+        models_detection = ["qwen2.5:72b", "llama3.2", "llama3.1:8b-instruct-q8_0", "qwen:32b", "llama3.3:70b", "qwen2.5:7b-instruct", "qwen3:32b", "llama3.3:70b-instruct-q5_K_M", "llama3:8b"]
+        avaible_models = []
+
+        response = requests.get("http://kumo02.tsc.uc3m.es:11434/v1/models")
+        if response.status_code == 200:
+            data = response.json()
+            models_kumo02 = [m['id'] for m in data['data']]  
+            
+            for model in models_detection:
+                if model in models_kumo02:
+                    avaible_models.append(model)
+
+            return jsonify({"models": avaible_models}), 200
+        
+        else:
+            return jsonify({"error": "No models avaible"}), 400
+    
+    except Exception as e:
+        print(str(e))
+        return jsonify({"error": f"ERROR: {str(e)}"}), 500
+    
+@detection_bp.route('/detection/doc_representation', methods=['GET'])
+def doc_representation():
+    try:
+        data = request.get_json()
+        print(data)
+        email = data.get("email")
+        TM = data.get("TM")
+
+        paths = get_TM_detection(email, TM)
+
+        if isinstance(paths, tuple):
+            pathTM, pathCorpus = paths[0], paths[1]
+        else:
+            raise Exception("Path TM failed")
+        
+        lang = obtain_langs_TM(pathTM)
+        textCol = obtainTextColumn(email, pathCorpus.replace('/dataset', '').split('/')[-1])
+
+        df = pd.read_parquet(pathCorpus, engine='pyarrow')
+        ids = df['id_preproc'].astype(str).tolist()
+        texts = [
+            " ".join(text.split()[:80]) + "..." if len(text.split()) > 10 else text
+            for text in df[textCol].astype(str)
+        ]
+        
+        topic_docs = defaultdict(list)
+
+        with open(f'/data/{email}/3_TopicModel/{TM}/mallet_output/doc-topics.txt', 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('#') or not line:
+                    continue
+                parts = line.split()
+                doc_id = int(parts[0])
+                topic_props = parts[1:]
+                for i in range(0, len(topic_props), 2):
+                    topic = int(topic_props[i])
+                    prop = float(topic_props[i+1])
+                    topic_docs[topic].append([doc_id, prop, str(topic)])
+
+        if os.path.exists(f'/data/{email}/3_TopicModel/{TM}/mallet_output/labels_{lang[0]}.txt'):
+            with open(f'/data/{email}/3_TopicModel/{TM}/mallet_output/labels_{lang[0]}.txt', 'r', encoding='utf-8') as f:
+                labels1 = f.readlines()
+
+            with open(f'/data/{email}/3_TopicModel/{TM}/mallet_output/labels_{lang[1]}.txt', 'r', encoding='utf-8') as f:
+                labels2 = f.readlines()
+
+            for k in range(len(topic_docs)):
+                for doc in range(len(topic_docs[k])):
+                    topic_docs[k][doc][2] += f' ({lang[0].upper()}: {labels1[k].strip()} || {lang[1].upper()}: {labels2[k].strip()})'
+
+        num_docs = len(ids)
+        docs_data = [
+            {
+                "id": ids[i],
+                "text": texts[i],
+                "topics": {}
+            }
+            for i in range(num_docs)
+        ]
+
+        for k, doc_list in topic_docs.items():
+            for doc_id, prop, topic_name in doc_list:
+                docs_data[doc_id]["topics"][topic_name] = prop
+
+        return jsonify({"docs_data": docs_data}), 200
+    
+    except Exception as e:
+        print(str(e))
+        return jsonify({"error": f"ERROR: {str(e)}"}), 500
+    
+@detection_bp.route('/detection/pipeline_status', methods=['GET'])
+def pipeline_status():
+    try:
+        data = request.get_json()
+        if data['email'] in active_processes:
+            return jsonify({"status": "running"}), 200
+        else:
+            if os.path.exists(f'/data/{data['email']}/4_Detection/{data['TM']}_contradiction/{data['topics']}/mind_results.parquet'):
+                return jsonify({"status": "finished"}), 200
+            return jsonify({"status": "error"}), 500
+            
+    except Exception as e:
+        print(e)
+        return jsonify({"error": str(e)}), 500
 
 def run_pipeline_process(cfg, run_kwargs, log_file):
     from mind.pipeline.pipeline import MIND
+    global OUTPUT_QUEUE
     try:
         with StreamForwarder(f'{MIND_FRONTEND_URL}/log_detection', log_file):
             mind = MIND(**cfg)
+            if cfg["env_path"] != None: os.remove(cfg["env_path"])
+
             print("MIND class created. Running pipeline...", file=sys.__stdout__)
             mind.run_pipeline(**run_kwargs)
+
+            print('MIND Pipeline Finish. Preparing results...')
+            global ACTIVE_OLLAMA_SERVERS
+            try:
+                ACTIVE_OLLAMA_SERVERS.remove(cfg['llm_model'])
+            except:
+                pass
+            process_mind_results(run_kwargs['topics'], run_kwargs['path_save'])
+        
+        OUTPUT_QUEUE.put(0)
     except Exception as e:
-        print(f"[PIPELINE ERROR] {e}", file=sys.__stdout__)
+        if cfg["env_path"] != None:
+            if os.path.exists(cfg["env_path"]):
+                os.remove(cfg["env_path"])
+        
+        try:
+                ACTIVE_OLLAMA_SERVERS.remove(cfg['llm_model'])
+        except:
+            pass
+        
+        with StreamForwarder(f'{MIND_FRONTEND_URL}/log_detection', log_file):
+            print(f"[PIPELINE ERROR] {e}")
+        OUTPUT_QUEUE.put(-1)
 
 @detection_bp.route('/detection/analyse_contradiction', methods=['POST'])
 def analyse_contradiction():
@@ -186,10 +348,10 @@ def analyse_contradiction():
         config = data.get("config")
 
         # First check if was analyse before
-        path_results = f'/data/{email}/4_Detection/{TM}_contradiction/{topics}/mind_results.parquet'
+        path_results = f'/data/{email}/4_Detection/{TM}_contradiction/{topics}/'
         if os.path.exists(path_results):
             print('Results were done before.')
-            return jsonify({"message": f"Pipeline done correctly"}), 200
+            return jsonify({"message": "Pipeline done correctly"}), 200
         
         print('Analysing...')
         paths = get_TM_detection(email, TM)
@@ -200,51 +362,42 @@ def analyse_contradiction():
             raise Exception("Path TM failed")
         
         lang = obtain_langs_TM(pathTM)
+        textCol = obtainTextColumn(email, pathCorpus.replace('/dataset', '').split('/')[-1])
+
+        if config['llm_type'] == 'GPT':
+            llm_server = ''
+            with open(f'/data/{email}/.env', 'w') as f:
+                f.write(f'OPEN_API_KEY={config['gpt_api']}')
+        
+        else:
+            llm_server = OLLAMA_SERVER[config['ollama_server']]
+            global ACTIVE_OLLAMA_SERVERS
+            if config['llm'] in ACTIVE_OLLAMA_SERVERS:
+                return jsonify({"error": f"{config['llm']} is in use. Please, choose another ollama LLM."}), 500
+            else: ACTIVE_OLLAMA_SERVERS.append(config['llm'])
         
         # =========================
         # =      CONFIG PART      =
         # =========================
 
-        # source_corpus = {
-        #     "corpus_path": pathCorpus,
-        #     "thetas_path": f'{pathTM}/mallet_output/thetas_{lang[0]}.npz',
-        #     "id_col": 'doc_id',
-        #     "passage_col": 'text',
-        #     "full_doc_col": 'full_doc',
-        #     "language_filter": lang[0],
-        #     "filter_ids": None,
-        #     "load_thetas": True # Check
-        # }
-
         source_corpus = {
             "corpus_path": pathCorpus,
             "thetas_path": f'{pathTM}/mallet_output/thetas_{lang[0]}.npz',
-            "id_col": 'doc_id',
-            "passage_col": 'lemmas',
-            "full_doc_col": 'raw_text',
+            "id_col": 'id_preproc',
+            "passage_col": textCol,
+            "full_doc_col": 'full_doc',
             "language_filter": lang[0],
-            "filter_ids": None, # 
+            "filter_ids": None,
             "load_thetas": True,
             "method": config['method'],
         }
 
-        # target_corpus = {
-        #     "corpus_path": pathCorpus,
-        #     "thetas_path": f'{pathTM}/mallet_output/thetas_{lang[1]}.npz',
-        #     "id_col": 'doc_id',
-        #     "passage_col": 'text',
-        #     "full_doc_col": 'full_doc',
-        #     "language_filter": lang[1],
-        #     "filter_ids": None,
-        #     "load_thetas": True # Check
-        # }
-
         target_corpus = {
             "corpus_path": pathCorpus,
             "thetas_path": f'{pathTM}/mallet_output/thetas_{lang[1]}.npz',
-            "id_col": 'doc_id',
-            "passage_col": 'lemmas',
-            "full_doc_col": 'raw_text',
+            "id_col": 'id_preproc',
+            "passage_col": textCol,
+            "full_doc_col": 'full_doc',
             "language_filter": lang[1],
             "filter_ids": None,
             "load_thetas": True,
@@ -254,27 +407,29 @@ def analyse_contradiction():
 
         cfg = {
             "llm_model": config['llm'],
-            "llm_server": "http://kumo02.tsc.uc3m.es:11434",
+            "llm_server": llm_server,
             "source_corpus": source_corpus,
             "target_corpus": target_corpus,
             "retrieval_method": config['method'],
             # "dry_run": False,
             # "do_check_entailement": True,
-            "config_path": '/src/config/config.yaml'
+            "config_path": '/src/config/config.yaml',
+            "env_path": f'/data/{email}/.env' if config["llm_type"] == 'GPT' else None
         }
 
         run_kwargs = {
-            "topics": comma_separated_ints(topics),
-            "sample_size": sample_size,
-            "path_save": path_results,
-            "previous_check": None
+            "topics": [x - 1 for x in comma_separated_ints(topics)],
+            "sample_size": int(sample_size),
+            "path_save": path_results
         }
 
         log_file = f'/data/{email}/pipeline-mind.log'
         global lock, active_processes
+        cancel_event = Event()
         with lock:
             if email not in active_processes and len(active_processes) >= MAX_USERS:
-                return jsonify({"error": "Máximo de usuarios activos alcanzado"}), 429
+                if cfg["env_path"] == None: ACTIVE_OLLAMA_SERVERS.remove(cfg['llm_model'])
+                return jsonify({"error": "Max users reached"}), 429
 
             # Cancel on the other session
             if email in active_processes:
@@ -282,20 +437,16 @@ def analyse_contradiction():
                 if prev_proc.is_alive():
                     print(f"Cancelling previous pipeline for {email}", file=sys.__stdout__)
                     prev_proc.terminate()
-                    prev_proc.join()
+                    # prev_proc.join()
+                if cfg["env_path"] == None: ACTIVE_OLLAMA_SERVERS.remove(cfg['llm_model'])
+                del active_processes[email]
 
-            cancel_event = Event()
             p = Process(target=run_pipeline_process, args=(cfg, run_kwargs, log_file))
             p.start()
 
             active_processes[email] = {"process": p, "cancel_event": cancel_event}
 
-        active_processes[email]["process"].join()
-
-        with lock:
-            del active_processes[email]
-
-        return jsonify({"message": "Pipeline completed"}), 200
+        return jsonify({"message": "Started"}), 200
     
     except Exception as e:
         print(e)
@@ -309,19 +460,28 @@ def get_results_mind():
         email = data.get("email")
         TM = data.get("TM")
         topics = data.get("topics")
+        start = int(data.get("start", 0))
+        end = start + ROWS_PER_PAGE
 
         df = pd.read_parquet(f'/data/{email}/4_Detection/{TM}_contradiction/{topics}/mind_results.parquet', engine='pyarrow')
-        result_mind = df.to_dict(orient='records')
+        df_rows = df.iloc[start:end]
+        result_mind = df_rows.to_dict(orient='records')
         result_columns = df.columns.tolist()
 
         columns_json = json.dumps([{"name": col} for col in df.columns])
         non_orderable_indices = json.dumps([i for i, col in enumerate(df.columns) if col in ['label', 'final_label']])
 
+        pagination_ranges = [
+            [i, min(i + ROWS_PER_PAGE, len(df))] 
+            for i in range(0, len(df), ROWS_PER_PAGE)
+        ]
+
         return jsonify({"message": f"Results from MIND obtained correctly",
                         "result_mind": result_mind,
                         "result_columns": result_columns,
                         "columns_json": columns_json,
-                        "non_orderable_indices": non_orderable_indices}), 200
+                        "non_orderable_indices": non_orderable_indices,
+                        "ranges": pagination_ranges}), 200
 
     except Exception as e:
         print(e)
@@ -337,12 +497,16 @@ def update_result_mind():
         TM = request.form.get("TM")
         topics = request.form.get("topics")
         email = request.form.get("email")
+        start = int(request.form.get("start"))
+
         if not TM or not topics or not email:
             return jsonify({"error": "Missing parameters"}), 400
+        
+        end = start + ROWS_PER_PAGE
 
-        df = pd.read_excel(file, engine='openpyxl')
+        df_xlsx = pd.read_excel(file, engine='openpyxl')
         keys = []
-        for key in df.keys():
+        for key in df_xlsx.keys():
             values = key.replace('\n', '').split(' ')
             if 'label' in values:
                 keys.append('label')
@@ -351,10 +515,25 @@ def update_result_mind():
             else:
                 keys.append(values[0])
 
-        df.columns = keys
+        df_xlsx.columns = keys
+
+        df = pd.read_parquet(f'/data/{email}/4_Detection/{TM}_contradiction/{topics}/mind_results.parquet', engine='pyarrow')
+        df = df.astype(str)
+        df_xlsx = df_xlsx.astype(str)
+        df.iloc[start:end, :] = df_xlsx.values
         df.to_parquet(f'/data/{email}/4_Detection/{TM}_contradiction/{topics}/mind_results.parquet', engine='pyarrow')
 
-        return jsonify({"message": f"Results from MIND saved correctly"}), 200
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False)
+        output.seek(0)
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name='mind_results_updated.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
 
     except Exception as e:
         print(e)

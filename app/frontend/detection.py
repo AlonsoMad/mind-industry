@@ -13,7 +13,6 @@ def getTMDatasets(user_id: str):
         if response.status_code == 200:
             data = response.json()
             dataset_detection = data.get("dataset_detection")
-            print(dataset_detection)
             return dataset_detection
 
         else:
@@ -31,11 +30,40 @@ def getTMkeys(user_id: str, data_tm: dict):
         response = requests.get(f"{MIND_WORKER_URL}/detection/topickeys", json=data_tm)
         if response.status_code == 200:
             data = response.json()
-            print(data)
             return data
 
         else:
             flash(f"Error loading topic keys: {response.json().get('error')}", "danger")
+            return {}
+
+    except requests.exceptions.RequestException:
+        flash("Backend service unavailable.", "danger")
+        return {}
+    
+def getModels():    
+    try:
+        response = requests.get(f"{MIND_WORKER_URL}/detection/models")
+        if response.status_code == 200:
+            data = response.json()
+            return data["models"]
+
+        else:
+            flash(f"Error loading models: {response.json().get('error')}", "danger")
+            return []
+
+    except requests.exceptions.RequestException:
+        flash("Backend service unavailable.", "danger")
+        return []
+    
+def getDocProportion(user_id: str, TM: str):
+    try:
+        response = requests.get(f"{MIND_WORKER_URL}/detection/doc_representation", json={"email": user_id, "TM": TM})
+        if response.status_code == 200:
+            data = response.json()
+            return data["docs_data"]
+
+        else:
+            flash(f"Error loading doc proportion: {response.json().get('error')}", "danger")
             return {}
 
     except requests.exceptions.RequestException:
@@ -58,9 +86,9 @@ def analyseContradiction(user_id: str, TM: str, topics: str, sample_size: int, c
         flash("Backend service unavailable.", "danger")
         return None
     
-def get_result_mind(user_id: str, TM: str, topics: str):
+def get_result_mind(user_id: str, TM: str, topics: str, start: int):
     try:
-        response = requests.get(f"{MIND_WORKER_URL}/detection/result_mind", json={"email": user_id, "TM": TM, "topics": topics})
+        response = requests.get(f"{MIND_WORKER_URL}/detection/result_mind", json={"email": user_id, "TM": TM, "topics": topics, "start": start})
         if response.status_code == 200:
             data = response.json()
             return data

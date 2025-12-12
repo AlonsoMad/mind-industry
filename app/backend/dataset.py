@@ -1,5 +1,6 @@
 import os
 import shutil
+import numpy as np
 import pandas as pd
 
 from flask import Blueprint, jsonify, request
@@ -17,16 +18,33 @@ def create_user_folders():
         return jsonify({"error": "Missing email"}), 400
 
     base_path = f"/data/{email}"
-    folders = ["1_RawData", "2_PreprocessData", "3_TopicModel", "4_Detection"]
+    source_base = "/data/all"
 
     try:
-        os.makedirs(base_path, exist_ok=True)
-        for folder in folders:
-            os.makedirs(os.path.join(base_path, folder), exist_ok=True)
-    except Exception as e:
-        return jsonify({"error": f"Failed to create folders: {str(e)}"}), 500
+        if not os.path.exists(source_base):
+            return jsonify({"error": f"Source path {source_base} does not exist"}), 500
 
-    return jsonify({"message": "Folders created successfully"}), 200
+        os.makedirs(base_path, exist_ok=True)
+
+        for folder_name in os.listdir(source_base):
+            src_folder = os.path.join(source_base, folder_name)
+            dst_folder = os.path.join(base_path, folder_name)
+            if os.path.isdir(src_folder):
+                shutil.copytree(src_folder, dst_folder, dirs_exist_ok=True)
+
+        df = pd.read_parquet(f'{source_base}/datasets_stage_preprocess.parquet', engine='pyarrow')
+        df['Usermail'] = email
+        df['Path'] = df['Path'].str.replace("/all/", f"/{email}/", regex=False)
+        
+        df_data = pd.read_parquet('/data/datasets_stage_preprocess.parquet', engine='pyarrow')
+        df_data = pd.concat([df_data, df], ignore_index=True)
+        df_data.to_parquet('/data/datasets_stage_preprocess.parquet', engine='pyarrow', index=False)
+
+    except Exception as e:
+        print(str(e))
+        return jsonify({"error": f"Failed to create user folders: {str(e)}"}), 500
+
+    return jsonify({"message": "User folders created and parquet updated successfully"}), 200
 
 @datasets_bp.route("/update_user_folders", methods=["POST"])
 def update_user_folders():
@@ -39,7 +57,7 @@ def update_user_folders():
 
     old_path = f"/data/{old_email}"
     new_path = f"/data/{new_email}"
-    folders = ["1_RawData", "2_PreprocessData", "3_TopicModel", "4_Contradiction"]
+    folders = ["1_RawData", "2_PreprocessData", "3_TopicModel", "4_Detection"]
 
     try:
         os.makedirs(new_path, exist_ok=True)
@@ -184,25 +202,35 @@ def upload_dataset():
         shutil.rmtree(output_dir)
         return jsonify({'error': 'Couldn\'t save file'}), 400
 
+def clean(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, (list, tuple)):
+        return [clean(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: clean(v) for k, v in obj.items()}
+    return obj
+
 def load_datasets(dataset_path: str, folder: str):
     dataset_list = []
     datasets_name = os.listdir(dataset_path)
     shapes = []
 
     for _, d in enumerate(datasets_name):
-        ds_path = os.path.join(dataset_path, d, 'dataset')
         try:
+            ds_path = os.path.join(dataset_path, d, 'dataset')
             ds = pd.read_parquet(ds_path)
             shapes.append(list(ds.shape))
             if 'index' in ds.columns:
                 ds = ds.drop(columns=['index'])
             dataset_list.append(ds)
         except Exception as e:
-            print(f"Error loading dataset {d}: {e}")
             dataset_list.append(pd.DataFrame())
             if folder == '4_Detection':
+                k_list = []
                 for k in os.listdir(os.path.join(dataset_path, d)):
-                    shapes.append(k.replace(',', ', '))
+                    k_list.append(k)
+                shapes.append(k_list)
             else:
                 shapes.append([0, 0])
 

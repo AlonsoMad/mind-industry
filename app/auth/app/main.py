@@ -1,3 +1,5 @@
+import dotenv
+
 from flask import Flask
 from routes import auth_bp
 from database import init_db, db
@@ -16,5 +18,6 @@ def create_app():
     return app
 
 if __name__ == "__main__":
+    dotenv.load_dotenv()
     app = create_app()
     app.run(host="0.0.0.0", port=5002)

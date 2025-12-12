@@ -15,9 +15,25 @@
         <div class="btn-group" role="group" aria-label="Visual/Text toggle">
             <button type="button" class="btn btn-primary active" id="btn-visual" data-no-warning>Visual</button>
             <button type="button" class="btn btn-outline-primary" id="btn-text" data-no-warning>Text</button>
+            {% if docs_data %}
+            <button type="button" class="btn btn-outline-primary" id="btn-docs" data-no-warning>Docs</button>
+            {% endif %}
         </div>
     </div>
     {% endif %}
+{% elif result_mind %}
+<div class="form-group row align-items-center mb-3">
+    <label class="col-auto"><strong>Records from:</strong></label>
+    <div style="margin-left: 0px; margin-bottom: 5px;">
+        <select id="rangeSelector" class="form-control">
+            {% for start, end in ranges %}
+                <option value="{{ start }}">
+                    {{ start }} - {{ end - 1 }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
 {% endif %}
 
 <div class="jumbotron" id='jumbotron-detection' style="height: 60vh; overflow-y: auto; padding: 2rem;">
@@ -25,6 +41,37 @@
         {% if dataset_detection %}
             <p class="lead">Start a session by selecting a dataset and a topic model associated:</p>
             <div class="dataset-accordion">
+                <!-- Loading overlay -->
+                <div id="loadingOverlay" style="
+                    position: fixed;
+                    top:0; left:0;
+                    width:100%; height:100%;
+                    background: rgba(255,255,255,0.9);
+                    z-index: 9999;
+                    display: none;
+                    justify-content: center;
+                    align-items: center;
+                    font-size: 1.5rem;
+                    color: #333;
+                ">
+                    <div>
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                        <div style="margin-top:10px;">Loading, please wait...</div>
+                    </div>
+                </div>
+
+                <script>
+                function showOverlay() {
+                    document.getElementById("loadingOverlay").style.display = "flex";
+                }
+
+                function hideOverlay() {
+                    document.getElementById("loadingOverlay").style.display = "none";
+                }
+                </script>
+
                 {% for dataset, topicmodel_list in dataset_detection.items() %}
                 <div class="dataset-group mb-3 border rounded-2 shadow-sm">
 
@@ -59,6 +106,163 @@
         <!-- Option 1: Visual -->
         <div id="topicVis" style="display: block; width: 100%; height: 100%; overflow: hidden;"></div>
 
+        <!-- Option 3: Docs -->
+        {% if docs_data %}
+        <div id="topicDocs" style="display: none; width: 100%; height: 100%; overflow-y: auto; overflow-x: hidden;"></div>
+
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+        const docsData = {{ docs_data | tojson | safe }};
+        const accordionContainer = document.getElementById('topicDocs');
+
+        function generateColors(n) {
+            const colors = [];
+            for (let i = 0; i < n; i++) {
+                const hue = i * 360 / n;
+                colors.push(`hsl(${hue}, 70%, 50%)`);
+            }
+            return colors;
+        }
+
+        docsData.forEach((doc, index) => {
+
+            const docGroup = document.createElement('div');
+            docGroup.className = 'doc-group mb-3 border rounded-2 shadow-sm';
+
+            // Header
+            const header = document.createElement('div');
+            header.className = 'dataset-header doc-header list-group-item hover-text-primary fw-bold bg-light d-flex align-items-center justify-content-between';
+            header.setAttribute('role', 'button');
+            header.setAttribute('aria-expanded', 'false');
+            const contentId = `doc-content-${index}`;
+            header.setAttribute('aria-controls', contentId);
+            header.style.cursor = 'pointer';
+            header.style.padding = '10px';
+
+            header.innerHTML = `
+                <div class="d-flex align-items-center" style="margin-left: 15px;">
+                    <label class="mb-0">Document ${doc.id}</label>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="chev" aria-hidden="true" style="transition: transform .2s;">▸</span>
+                </div>
+            `;
+
+            docGroup.appendChild(header);
+
+            // Contenedor del contenido
+            const contentDiv = document.createElement('div');
+            contentDiv.id = contentId;
+            contentDiv.className = 'list-group doc-content';
+            contentDiv.style.display = 'none';
+            docGroup.appendChild(contentDiv);
+            accordionContainer.appendChild(docGroup);
+
+            header.addEventListener('click', function() {
+                const chev = this.querySelector('.chev');
+
+                if (contentDiv.style.display === 'none' || contentDiv.style.display === '') {
+                    contentDiv.style.display = 'block';
+                    chev.style.transform = 'rotate(90deg)';
+
+                    if (!contentDiv.hasChildNodes()) {
+
+                        const flexDiv = document.createElement('div');
+                        flexDiv.style.display = 'flex';
+                        flexDiv.style.gap = '1px';
+                        flexDiv.style.alignItems = 'stretch';
+                        flexDiv.style.maxHeight = '350px'; 
+
+                        // Izquierda: texto
+                        const leftDiv = document.createElement('div');
+                        leftDiv.style.flex = '1';
+                        leftDiv.style.minWidth = '200px';
+                        leftDiv.style.backgroundColor = 'white';
+                        leftDiv.style.padding = '10px';
+                        leftDiv.style.borderRight = '1px solid #ccc';
+
+                        const leftHeader = document.createElement('h5');
+                        leftHeader.innerText = 'Text';
+                        leftHeader.style.marginBottom = '10px';
+                        leftHeader.style.textAlign = 'center';
+                        leftDiv.appendChild(leftHeader);
+                        leftDiv.appendChild(document.createElement('hr'));
+
+                        const p = document.createElement('p');
+                        p.innerText = doc.text;
+                        p.style.margin = '0';
+                        leftDiv.appendChild(p);
+
+                        // Derecha: chart
+                        const rightDiv = document.createElement('div');
+                        rightDiv.style.flex = '1';
+                        rightDiv.style.minWidth = '200px';
+                        rightDiv.style.backgroundColor = 'white';
+                        rightDiv.style.padding = '10px';
+                        rightDiv.style.textAlign = 'center';
+
+                        const rightHeader = document.createElement('h5');
+                        rightHeader.innerText = 'Chart';
+                        rightHeader.style.marginBottom = '10px';
+                        rightDiv.appendChild(rightHeader);
+                        rightDiv.appendChild(document.createElement('hr'));
+
+                        const canvas = document.createElement('canvas');
+                        canvas.id = `chart-doc-${index}`;
+                        canvas.style.width = '200px';
+                        canvas.style.height = '200px';
+                        canvas.style.display = 'block';
+                        canvas.style.margin = '0 auto';
+                        rightDiv.appendChild(canvas);
+
+                        flexDiv.appendChild(leftDiv);
+                        flexDiv.appendChild(rightDiv);
+                        contentDiv.appendChild(flexDiv);
+
+                        const topicKeys = Object.keys(doc.topics);
+                        const topicValues = Object.values(doc.topics);
+                        const colors = generateColors(topicKeys.length);
+
+                        // Crear chart
+                        new Chart(canvas.getContext('2d'), {
+                            type: 'pie',
+                            data: {
+                                labels: topicKeys.map(t => "Topic " + t),
+                                datasets: [{
+                                    data: topicValues,
+                                    backgroundColor: colors,
+                                }]
+                            },
+                            options: {
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(ctx) {
+                                                let percent = (ctx.parsed * 100).toFixed(1);
+                                                return ctx.label + ": " + percent + "%";
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+
+                        flexDiv.appendChild(leftDiv);
+                        flexDiv.appendChild(rightDiv);
+                        contentDiv.appendChild(flexDiv);
+                    }
+
+                } else {
+                    contentDiv.style.display = 'none';
+                    chev.style.transform = 'rotate(0deg)';
+                }
+            });
+
+        });
+        </script>
+        {% endif %}
+
         <!-- Option 2: Keywords only -->
         <div class="topic-accordion" style="display: none; overflow-y: auto; overflow-x: hidden;">
 
@@ -78,7 +282,7 @@
                             name="topic_select"
                             value="{{ topic.id }}"
                             style="cursor: pointer; margin-right: 10px; margin-top: 0; transform: scale(1.1); accent-color: #0d6efd;">
-                        <label class="mb-0">Topic {{ topic.id }}</label>
+                        <label class="mb-0">Topic {{ topic.id }} {{ topic.label }}</label>
                     </div>
 
                     <div class="d-flex align-items-center">
@@ -92,7 +296,7 @@
                     class="list-group topic-list"
                     style="display: none; background-color: #f8f9fa; margin: 0; border-top: 1px solid #ddd;">
 
-                    {% for lang in ['EN', 'ES'] %}
+                    {% for lang in ['EN', 'ES', 'DE', 'IT'] %}
                         {% if topic['keywords_' + lang] is defined %}
                         <li class="list-group-item topic-item"
                             style="background-color: #f0f0f0; border: none; border-bottom: 1px solid #e0e0e0;">
@@ -116,7 +320,9 @@
 
             const btnVisual = document.getElementById("btn-visual");
             const btnText = document.getElementById("btn-text");
+            const btnDocs = document.getElementById("btn-docs");
             const topicVis = document.getElementById("topicVis");
+            const topicDocs = document.getElementById("topicDocs");
             const topicAccordion = document.querySelector(".topic-accordion");
 
             function drawTopicVis(topicsData) {
@@ -191,13 +397,18 @@
                     .attr("transform", d => `translate(${xScale(d.x)},${yScale(d.y)})`)
                     .style("cursor", "pointer")
                     .on("mousemove", function(event, d) {
+                        let html_node = `<strong>Topic ${d.id} ${d.label}</strong><br>`;
+                        const possibleLangs = ["EN", "ES", "IT", "DE"];
+                        possibleLangs.forEach(lang => {
+                            const key = `keywords_${lang}`;
+                            if (d[key]?.length) {
+                                html_node += `<b>${lang}:</b> ${d[key].join(", ")}<br>`;
+                            }
+                        });
+
                         tooltip
                             .style("opacity", 1)
-                            .html(`
-                                <strong>Topic ${d.id}</strong><br>
-                                <b>EN:</b> ${d.keywords_EN?.join(", ") || "-"}<br>
-                                <b>ES:</b> ${d.keywords_ES?.join(", ") || "-"}
-                            `)
+                            .html(html_node)
                             .style("left", (event.pageX + 15) + "px")
                             .style("top", (event.pageY + 15) + "px");
                     })
@@ -261,12 +472,15 @@
             btnVisual.addEventListener("click", () => {
                 window.currentView = "visual";
                 topicVis.style.display = "block";
+                topicDocs.style.display = "none";
                 topicAccordion.style.display = "none";
 
                 btnVisual.classList.add("active", "btn-primary");
                 btnVisual.classList.remove("btn-outline-primary");
                 btnText.classList.remove("active", "btn-primary");
                 btnText.classList.add("btn-outline-primary");
+                btnDocs.classList.remove("active", "btn-primary");
+                btnDocs.classList.add("btn-outline-primary");
 
                 drawTopicVis(topics.topics);
             });
@@ -274,12 +488,29 @@
             btnText.addEventListener("click", () => {
                 window.currentView = "text";
                 topicVis.style.display = "none";
+                topicDocs.style.display = "none";
                 topicAccordion.style.display = "block";
 
                 btnText.classList.add("active", "btn-primary");
                 btnText.classList.remove("btn-outline-primary");
                 btnVisual.classList.remove("active", "btn-primary");
                 btnVisual.classList.add("btn-outline-primary");
+                btnDocs.classList.remove("active", "btn-primary");
+                btnDocs.classList.add("btn-outline-primary");
+            });
+
+            btnDocs.addEventListener("click", () => {
+                window.currentView = "docs";
+                topicVis.style.display = "none";
+                topicDocs.style.display = "block";
+                topicAccordion.style.display = "none";
+
+                btnDocs.classList.add("active", "btn-primary");
+                btnDocs.classList.remove("btn-outline-primary");
+                btnVisual.classList.remove("active", "btn-primary");
+                btnVisual.classList.add("btn-outline-primary");
+                btnText.classList.remove("active", "btn-primary");
+                btnText.classList.add("btn-outline-primary");
             });
 
             window.addEventListener("resize", () => {
@@ -289,6 +520,7 @@
             });
         });
         </script>
+
         {% else %}
             <p class="lead">No datasets found or error loading datasets.</p>
         {% endif %}
@@ -317,13 +549,19 @@
             </div>
 
             <script>
-            window.onload = function() {
-                var overlay = document.getElementById('loadingOverlay');
-                setTimeout(function() {
-                    overlay.style.display = 'none';
-                }, 1000);
-            };
+            function showOverlay() {
+                document.getElementById("loadingOverlay").style.display = "flex";
+            }
+
+            function hideOverlay() {
+                document.getElementById("loadingOverlay").style.display = "none";
+            }
+
+            window.addEventListener("load", () => {
+                hideOverlay();
+            });
             </script>
+
 
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
             <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap4.min.css">
@@ -364,43 +602,8 @@
                         {% endfor %}
                     </tr>
                 </thead>
-                <tbody>
-                {% for row in result_mind %}
-                <tr>
-                    {% for col in result_columns %}
-                        {% if col == 'final_label' %}
-                        <td>
-                            <div class="custom-select-container">
-                                <select class="final-label-select">
-                                    {% set options = ['CONTRADICTION','CULTURAL_DISCREPANCY','NOT_ENOUGH_INFO','NO_DISCREPANCY'] %}
-                                    {% for opt in options %}
-                                        <option value="{{ opt }}" {% if row['final_label'] == opt %}selected{% endif %}>{{ opt }}</option>
-                                    {% endfor %}
-                                </select>
-                                <span class="custom-arrow">▼</span>
-                            </div>
-                        </td>
-                        {% elif col == 'label' %}
-                        <td>
-                            <span class="badge-label" data-label-value="{{ row[col] }}">{{ row[col] }}</span>
-                        </td>
-                        {% else %}
-                        <td class="truncated">
-                            {% if row[col] != None %}
-                                {% set words = row[col].split() %}
-                                {% if words|length > 50 %}
-                                    {{ words[:50]|join(' ') }}...
-                                {% else %}
-                                    {{ row[col] }}
-                                {% endif %}
-                            {% else %}
-                                {{ row[col] }}
-                            {% endif %}
-                        </td>
-                        {% endif %}
-                    {% endfor %}
-                </tr>
-                {% endfor %}
+                <tbody id="resultsBody">
+                
                 </tbody>
             </table>
         {% else %}
@@ -546,6 +749,37 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <script>
+function updateColors() {
+    // final_label
+    $('.final-label-select').each(function() {
+        var value = $(this).val();
+        var bgColor, textColor;
+        switch(value) {
+            case 'CONTRADICTION': bgColor = '#dc3545'; textColor = '#fff'; break;
+            case 'CULTURAL_DISCREPANCY': bgColor = '#ffc107'; textColor = '#212529'; break;
+            case 'NOT_ENOUGH_INFO': bgColor = '#17a2b8'; textColor = '#fff'; break;
+            case 'NO_DISCREPANCY': bgColor = '#28a745'; textColor = '#fff'; break;
+            default: bgColor = '#6c757d'; textColor = '#fff';
+        }
+        $(this).css({ 'background-color': bgColor, 'color': textColor });
+        $(this).siblings('.custom-arrow').css('color', textColor);
+    });
+
+    // label
+    $('.badge-label').each(function() {
+        var value = $(this).data('label-value');
+        var bgColor, textColor;
+        switch(value) {
+            case 'CONTRADICTION': bgColor = '#dc3545'; textColor = '#fff'; break;
+            case 'CULTURAL_DISCREPANCY': bgColor = '#ffc107'; textColor = '#212529'; break;
+            case 'NOT_ENOUGH_INFO': bgColor = '#17a2b8'; textColor = '#fff'; break;
+            case 'NO_DISCREPANCY': bgColor = '#28a745'; textColor = '#fff'; break;
+            default: bgColor = '#6c757d'; textColor = '#fff';
+        }
+        $(this).css({ 'background-color': bgColor, 'color': textColor });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     var defaultVisibleCols = ['question','anchor_passage','comparison_passage','anchor_answer','comparison_answer','label','final_label','reason'];
     var columns = {{ columns_json|safe }};
@@ -562,18 +796,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     var table = $('#resultsTable').DataTable({
-        pageLength: 10,
+        data: [],
         columns: columns,
-        orderCellsTop: true,
-        autoWidth: false,
         columnDefs: [
+            {
+                targets: "_all",
+                createdCell: function(td, cellData, rowData, row, col) {
+                    td.classList.add('truncated');
+                }
+            },
             { orderable: false, targets: nonOrderable },
         ],
+        pageLength: 10,
+        orderCellsTop: true,
+        autoWidth: false,
         language: {
-            "zeroRecords": "No records were found",
-            "info": "Showing _START_ to _END_ from _TOTAL_ records",
-            "infoEmpty": "Showing 0 records",
-            "infoFiltered": ""
+            zeroRecords: "No records were found",
+            info: "Showing _START_ to _END_ from _TOTAL_ records",
+            infoEmpty: "Showing 0 records",
+            infoFiltered: ""
         }
     });
 
@@ -636,36 +877,6 @@ document.addEventListener('DOMContentLoaded', function() {
         applyVisibleColumns(visibleColumns);
     });
     
-    function updateColors() {
-        // final_label
-        $('.final-label-select').each(function() {
-            var value = $(this).val();
-            var bgColor, textColor;
-            switch(value) {
-                case 'CONTRADICTION': bgColor = '#dc3545'; textColor = '#fff'; break;
-                case 'CULTURAL_DISCREPANCY': bgColor = '#ffc107'; textColor = '#212529'; break;
-                case 'NOT_ENOUGH_INFO': bgColor = '#17a2b8'; textColor = '#fff'; break;
-                case 'NO_DISCREPANCY': bgColor = '#28a745'; textColor = '#fff'; break;
-                default: bgColor = '#6c757d'; textColor = '#fff';
-            }
-            $(this).css({ 'background-color': bgColor, 'color': textColor });
-            $(this).siblings('.custom-arrow').css('color', textColor);
-        });
-
-        // label
-        $('.badge-label').each(function() {
-            var value = $(this).data('label-value');
-            var bgColor, textColor;
-            switch(value) {
-                case 'CONTRADICTION': bgColor = '#dc3545'; textColor = '#fff'; break;
-                case 'CULTURAL_DISCREPANCY': bgColor = '#ffc107'; textColor = '#212529'; break;
-                case 'NOT_ENOUGH_INFO': bgColor = '#17a2b8'; textColor = '#fff'; break;
-                case 'NO_DISCREPANCY': bgColor = '#28a745'; textColor = '#fff'; break;
-                default: bgColor = '#6c757d'; textColor = '#fff';
-            }
-            $(this).css({ 'background-color': bgColor, 'color': textColor });
-        });
-    }
 
     // Colors span label final_label
     updateColors();
@@ -783,6 +994,105 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <script>
+async function loadChunk(start) {
+    showOverlay();
+    const urlParams = new URLSearchParams(window.location.search);
+    const res = await fetch(`/results_chunk?start=${start}&TM=${urlParams.get('TM')}&topics=${urlParams.get('topics')}`);
+    const data = await res.json();
+
+    const rows = data.rows;
+    const columns = data.columns;
+    let str = []
+    for (var i = 0; i<columns.length; i++) {
+        str.push(columns[i]['name'])
+    }
+    console.log(str);
+
+    const table = $('#resultsTable').DataTable();
+
+    table.clear();
+
+    const formattedRows = rows.map(row => {
+        return columns.map(col => {
+            const colName = col.name;
+
+            // final_label
+            if (colName === "final_label") {
+                return `<div class="custom-select-container">
+                            <select class="final-label-select">
+                                ${["CONTRADICTION","CULTURAL_DISCREPANCY","NOT_ENOUGH_INFO","NO_DISCREPANCY"]
+                                    .map(opt => `<option value="${opt}" ${row[colName] === opt ? "selected" : ""}>${opt}</option>`)
+                                    .join("")}
+                            </select>
+                            <span class="custom-arrow">▼</span>
+                        </div>`;
+            }
+
+            // label
+            if (colName === "label") {
+                return `<span class="badge-label" data-label-value="${row[colName] ?? ''}">
+                            ${row[colName] ?? ''}
+                        </span>`;
+            }
+
+            // text
+            let text = row[colName] ?? '';
+            if (typeof text === "string") {
+                const words = text.split(" ");
+                if (words.length > 50) text = words.slice(0,50).join(" ") + "...";
+            }
+
+            return text;
+        });
+    });
+
+    table.rows.add(formattedRows).draw();
+
+    var possibleValues = {
+        'label': ['CONTRADICTION','CULTURAL_DISCREPANCY','NOT_ENOUGH_INFO','NO_DISCREPANCY'],
+        'final_label': ['CONTRADICTION','CULTURAL_DISCREPANCY','NOT_ENOUGH_INFO','NO_DISCREPANCY']
+    };
+
+    var activeFilters = {
+        'label': possibleValues['label'].slice(),
+        'final_label': possibleValues['final_label'].slice()
+    };
+
+    $('body').on('change', '.final-label-select', function() {
+        var row = $(this).closest('tr');
+        var value = $(this).val();
+        
+        var table = $('#resultsTable').DataTable();
+        table.row(row).invalidate().draw(false);
+
+        activeFilters['final_label'] = table.rows().nodes().to$().find('.final-label-select').map(function() {
+            return $(this).val();
+        }).get();
+    });
+
+    $('body').off('change', '.final-label-select');
+    $('body').on('change', '.final-label-select', function() {
+        updateColors();
+    });
+    hideOverlay();
+}
+</script>
+
+<script>
+document.getElementById("rangeSelector").addEventListener("change", function() {
+    loadChunk(this.value);
+});
+</script>
+
+<script>
+window.addEventListener("load", function() {
+    hideOverlay();
+    const first = document.getElementById("rangeSelector").value;
+    loadChunk(first);
+});
+</script>
+
+<script>
 document.addEventListener('DOMContentLoaded', function () {
 
     var lengthDiv = $('#resultsTable_length');
@@ -834,72 +1144,117 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function exportTableToXLSX(filename = 'results_mind.xlsx') {
-        var ws_data = [];
+        const selector = document.getElementById('exportXlsxBtn');
+        if (!selector) {
+            console.error("Selector not found!");
+            return;
+        }
 
-        var headers = {{ result_columns | tojson }};
-        ws_data.push(headers);
+        selector.style.pointerEvents = 'none';
+        selector.style.opacity = '0.6';
+        selector.classList.add('disabled');
 
-        var columnVisibility = [];
-        table.columns().every(function(idx) {
-            columnVisibility[idx] = this.visible();
-        });
+        const originalHTML = selector.innerHTML;
+        selector.innerHTML = `
+            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            Waiting...
+        `;
+        try {
+            var ws_data = [];
 
-        table.columns().visible(true, false);
+            var headers = {{ result_columns | tojson }};
+            ws_data.push(headers);
 
-        table.rows().nodes().each(function(tr) {
-            var row_data = [];
-            var $tr = $(tr);
-
-            headers.forEach(function(colName) {
-                var colIdx = table.column(colName + ":name").index();
-                var $td = $tr.find('td').eq(colIdx);
-                var cell;
-
-                if ($td.find('select.final-label-select').length) {
-                    cell = $td.find('select.final-label-select').val() || '';
-                } else if ($td.find('.badge-label').length) {
-                    cell = $td.find('.badge-label').data('label-value') || '';
-                } else {
-                    var cellHtml = $td.html() || '';
-                    cell = cellHtml
-                        .replace(/<br\s*\/?>/gi, '\n')
-                        .replace(/<[^>]+>/g, '')
-                        .replace(/\s+/g, ' ')
-                        .trim();
-                }
-
-                row_data.push(cell);
+            var columnVisibility = [];
+            table.columns().every(function(idx) {
+                columnVisibility[idx] = this.visible();
             });
 
-            ws_data.push(row_data);
-        });
+            table.columns().visible(true, false);
 
-        table.columns().every(function(idx) {
-            this.visible(columnVisibility[idx], false);
-        });
-        table.draw(false);
+            table.rows().nodes().each(function(tr) {
+                var row_data = [];
+                var $tr = $(tr);
 
-        var wb = XLSX.utils.book_new();
-        var ws = XLSX.utils.aoa_to_sheet(ws_data);
-        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+                headers.forEach(function(colName) {
+                    var colIdx = table.column(colName + ":name").index();
+                    var $td = $tr.find('td').eq(colIdx);
+                    var cell;
 
-        var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-        var blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+                    if ($td.find('select.final-label-select').length) {
+                        cell = $td.find('select.final-label-select').val() || '';
+                    } else if ($td.find('.badge-label').length) {
+                        cell = $td.find('.badge-label').data('label-value') || '';
+                    } else {
+                        var cellHtml = $td.html() || '';
+                        cell = cellHtml
+                            .replace(/<br\s*\/?>/gi, '\n')
+                            .replace(/<[^>]+>/g, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    }
 
-        var formData = new FormData(); formData.append('file', blob, filename);
-        const urlParams = new URLSearchParams(window.location.search);
-        formData.append('TM', urlParams.get('TM') || '');
-        formData.append('topics', urlParams.get('topics') || '');
+                    row_data.push(cell);
+                });
 
-        fetch('/update_results', {
-            method: 'POST',
-            body: formData
-        })
-        .then(r => r.json())
-        .then(data => console.log(data))
-        .catch(err => console.error("Error in XLSX:", err));
+                ws_data.push(row_data);
+            });
 
-        XLSX.writeFile(wb, filename);
+            table.columns().every(function(idx) {
+                this.visible(columnVisibility[idx], false);
+            });
+            table.draw(false);
+
+            var wb = XLSX.utils.book_new();
+            var ws = XLSX.utils.aoa_to_sheet(ws_data);
+            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+
+            var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            var blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+
+            var formData = new FormData(); formData.append('file', blob, filename);
+            const urlParams = new URLSearchParams(window.location.search);
+            formData.append('TM', urlParams.get('TM') || '');
+            formData.append('topics', urlParams.get('topics') || '');
+            formData.append('start', document.getElementById("rangeSelector").value);
+
+            fetch('/update_results', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) return response.blob(); 
+                return response.json().then(err => { throw new Error(err.message || 'Error in backend') });
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);            
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                
+                a.download = 'mind_results_updated.xlsx';             
+                document.body.appendChild(a);
+                a.click();
+                
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);            
+            })
+            .catch(err => {
+                console.error("Error downloading XLSX:", err);
+            })
+            .finally(() => {
+                selector.style.pointerEvents = 'auto';
+                selector.style.opacity = '1';
+                selector.classList.remove('disabled');
+                selector.innerHTML = originalHTML;
+            });
+        }
+        catch (e) {
+            selector.style.pointerEvents = 'auto';
+            selector.style.opacity = '1';
+            selector.classList.remove('disabled');
+            selector.innerHTML = originalHTML;
+        }
     }
 });
 </script>
@@ -938,23 +1293,66 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="modal-body">
                 <p class="mb-3">Configure the following values to analyze discrepancies:</p>
 
+                <hr>
+
                 <div class="form-group mb-3 d-flex align-items-center">
-                    <label for="llmSelect" class="me-2" style="width: 100px;">LLM:</label>
-                    <select id="llmSelect" class="form-control flex-grow-1">
-                        <option value="qwen2.5:72b">qwen2.5:72b</option>
-                        <option value="llama3.2">llama3.2</option>
-                        <option value="llama3.1:8b-instruct-q8_0">llama3.1:8b-instruct-q8_0</option>
-                        <option value="qwen:32b">qwen:32b</option>
-                        <option value="llama3.3:70b">llama3.3:70b</option>
-                        <option value="qwen2.5:7b-instruct">qwen2.5:7b-instruct</option>
-                        <option value="qwen3:32b">qwen3:32b</option>
-                        <option value="llama3.3:70b-instruct-q5_K_M">llama3.3:70b-instruct-q5_K_M</option>
-                        <option value="llama3:8b" selected>llama3:8b</option>
+                    <label for="llmSelect_type" class="me-2" style="width: 200px;">Type of LLM:</label>
+                    <select id="llmSelect_type" class="form-control flex-grow-1">
+                        <option value="ollama" selected>ollama</option>
+                        <option value="GPT">GPT</option>
                     </select>
                 </div>
 
+                <div id="llmSelect_ollama" class="form-group mb-3 d-flex align-items-center">
+                    <label for="llmSelect_ollama_input" class="me-2" style="width: 200px;">Ollama LLM:</label>
+                    <select id="llmSelect_ollama_input" class="form-control flex-grow-1">
+                        {% for model in avaible_models %}
+                            <option value="{{ model }}">{{ model }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div id="server_ollama" class="form-group mb-3 d-flex align-items-center">
+                    <label for="server_ollama_input" class="me-2" style="width: 200px;">Ollama LLM:</label>
+                    <select id="server_ollama_input" class="form-control flex-grow-1">
+                        <option value="kumo02" selected>kumo02</option>
+                    </select>
+                </div>
+
+                <div id="llmSelect_gpt" class="form-group mb-3 d-flex align-items-center" style="display: none;">
+                    <label for="llmSelect_gpt_input" class="me-2" style="width: 200px;">GPT LLM:</label>
+                    <select id="llmSelect_gpt_input" class="form-control flex-grow-1">
+                        <option value="gpt-4o-2024-08-06">gpt-4o-2024-08-06</option>
+                        <option value="gpt-4o-mini-2024-07-18">gpt-4o-mini-2024-07-18</option>
+                        <option value="chatgpt-4o-latest">chatgpt-4o-latest</option>
+                        <option value="gpt-4-turbo">gpt-4-turbo</option>
+                        <option value="gpt-4-turbo-2024-04-09">gpt-4-turbo-2024-04-09</option>
+                        <option value="gpt-4"selected>gpt-4</option>
+                        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+                        <option value="gpt-4o-mini">gpt-4o-mini</option>
+                        <option value="gpt-4o">gpt-4o</option>
+                        <option value="gpt-4-32k">gpt-4-32k</option>
+                        <option value="gpt-4-0125-preview">gpt-4-0125-preview</option>
+                        <option value="gpt-4-1106-preview">gpt-4-1106-preview</option>
+                        <option value="gpt-4-vision-preview">gpt-4-vision-preview</option>
+                        <option value="gpt-3.5-turbo-0125">gpt-3.5-turbo-0125</option>
+                        <option value="gpt-3.5-turbo-instruct">gpt-3.5-turbo-instruct</option>
+                        <option value="gpt-3.5-turbo-1106">gpt-3.5-turbo-1106</option>
+                        <option value="gpt-3.5-turbo-0613">gpt-3.5-turbo-0613</option>
+                        <option value="gpt-3.5-turbo-16k-0613">gpt-3.5-turbo-16k-0613</option>
+                        <option value="gpt-3.5-turbo-0301">gpt-3.5-turbo-0301</option>
+                    </select>
+                </div>
+
+                <div id="gptApiKey" class="form-group mb-3 d-flex align-items-center" style="display: none;">
+                    <label for="llmSelect_gpt" class="me-2" style="width: 200px;">GPT API Key:</label>
+                    <input id="gptApiKeyInput" class="form-control flex-grow-1" value="" type="password" autocomplete="new-password" placeholder="sk-*******-*******-******"></input>
+                </div>
+
+                <hr>
+
                 <div class="form-group mb-3 d-flex align-items-center">
-                    <label for="methodSelect" class="me-2" style="width: 100px;">Method:</label>
+                    <label for="methodSelect" class="me-2" style="width: 200px;">Method:</label>
                     <select id="methodSelect" class="form-control flex-grow-1">
                         <option value="ENN">ENN</option>
                         <option value="ANN">ANN</option>
@@ -966,6 +1364,64 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const selectType = document.getElementById("llmSelect_type");
+    const ollamaDiv = document.getElementById("llmSelect_ollama");
+    const ollamaServer = document.getElementById("server_ollama");
+    const gptDiv = document.getElementById("llmSelect_gpt");
+    const gptApiKey = document.getElementById("gptApiKey");
+
+    function updateVisibility() {
+        const value = selectType.value;
+
+        if (value === "GPT") {
+            ollamaDiv.classList.remove("d-flex");
+            ollamaDiv.classList.add("d-none");
+
+            ollamaServer.classList.remove("d-flex");
+            ollamaServer.classList.add("d-none");
+
+            gptDiv.classList.add("d-flex");
+            gptDiv.classList.remove("d-none");
+
+            gptApiKey.classList.add("d-flex");
+            gptApiKey.classList.remove("d-none");
+        }
+        else if (value === "ollama") {
+            ollamaDiv.classList.add("d-flex");
+            ollamaDiv.classList.remove("d-none");
+
+            ollamaServer.classList.add("d-flex");
+            ollamaServer.classList.remove("d-none");
+
+            gptDiv.classList.remove("d-flex");
+            gptDiv.classList.add("d-none");
+            
+            gptApiKey.classList.remove("d-flex");
+            gptApiKey.classList.add("d-none");
+        }
+        else {
+            ollamaDiv.classList.remove("d-flex");
+            ollamaDiv.classList.add("d-none");
+
+            ollamaServer.classList.remove("d-flex");
+            ollamaServer.classList.add("d-none");
+
+            gptDiv.classList.remove("d-flex");
+            gptDiv.classList.add("d-none");
+            
+            gptApiKey.classList.remove("d-flex");
+            gptApiKey.classList.add("d-none");
+        }
+    }
+
+    updateVisibility();
+    selectType.addEventListener("change", updateVisibility);
+});
+</script>
+
 
 <!-- Status Pipeline MIND -->
 <div class="modal fade" id="logModal" tabindex="-1" role="dialog" aria-labelledby="logModalLabel" aria-hidden="true">
@@ -1126,6 +1582,14 @@ $(document).ready(function() {
         word-wrap: break-word;
     }
 
+    #resultsTable td {
+        width: 250px !important;
+        max-height: 120px !important;
+        overflow: hidden !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+    }
+
     #logTerminal {
         background-color: #1e1e1e;
         color: #00ff00;
@@ -1266,6 +1730,32 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <script>
+function startPipelinePolling(TM, topics) {
+    const interval = setInterval(() => {
+        fetch(`/pipeline_status?TM=${encodeURIComponent(TM)}&topics=${encodeURIComponent(topics)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'finished') {
+                    clearInterval(interval);
+
+                    window.location.href = `/detection_results?TM=${encodeURIComponent(TM)}&topics=${encodeURIComponent(topics)}`;
+                } else if (data.status === 'error') {
+                    clearInterval(interval);
+
+                    selector.style.pointerEvents = 'auto';
+                    selector.style.opacity = '1';
+                    selector.classList.remove('disabled');
+                    selector.innerHTML = originalHTML;
+                    shouldWarn = false;
+                    console.error("Error en el backend");
+                }
+            })
+            .catch(err => {
+                console.error("Error checking pipeline status:", err);
+            });
+    }, 2000);
+}
+
 class MINDInterface {
     constructor() {
         this.datasetItems = document.querySelectorAll('.dataset-item');
@@ -1318,6 +1808,10 @@ class MINDInterface {
                         .filter(cb => cb.checked)
                         .map(cb => cb.value);
                 }
+                else {
+                    alert("Choose Topics in Option Visual or Text.");
+                    return;
+                }
 
                 if (selected.length < 1) {
                     alert('Select at least 1 topic.');
@@ -1333,8 +1827,39 @@ class MINDInterface {
                 
                 const topics = selected.join(',');
                 const TM = document.getElementById('TopicModel-h3').getAttribute("TM-name");
+                
+                const llm_type = document.getElementById('llmSelect_type').value;
+                let llm_model = "";
+                let gpt_api = "";
+                let ollama_server = "";
+                if (llm_type == "ollama") {
+                    llm_model = document.getElementById("llmSelect_ollama_input").value;
+                    ollama_server = document.getElementById('server_ollama_input').value;
+
+                    if (!llm_model || !ollama_server) {
+                        alert('Select an ollama LLM and kumo server.');
+                        return;
+                    }
+                }
+                else if (llm_type == "GPT") {
+                    llm_model = document.getElementById("llmSelect_gpt_input").value;
+                    gpt_api = document.getElementById("gptApiKeyInput").value;
+
+                    if (!gpt_api || !llm_model) {
+                        alert('Select a GPT LLM and indicate your API Key.');
+                        return;
+                    }
+                }
+                else {
+                    alert('Select GPT or ollama.');
+                    return;
+                }
+
                 const config = {
-                    "llm": document.getElementById("llmSelect").value,
+                    "llm_type": llm_type,
+                    "llm": llm_model,
+                    "gpt_api": gpt_api,
+                    "ollama_server": ollama_server,
                     "method": document.getElementById("methodSelect").value
                 };
                 this.handleInstruction(instruction, topics, TM, sampleSizeInput, config)
@@ -1352,6 +1877,7 @@ class MINDInterface {
 
     handleDatasetSelection(datasetName) {
         console.log("Selected option:\n", datasetName);
+        showOverlay();
 
         fetch('/detection_topickeys', {
             method: 'POST',
@@ -1362,13 +1888,19 @@ class MINDInterface {
             body: JSON.stringify(datasetName)
         })
         .then(res => {
-            if (!res.ok) throw new Error("Backend error");
+            if (!res.ok) {
+                hideOverlay();
+                throw new Error("Backend error");
+            }
             return res.json();
         })
         .then(data => {
             window.location.href = data.redirect;
         })
-        .catch(err => console.error("Dataset selection error:", err));
+        .catch(err => {
+            hideOverlay();
+            console.error("Dataset selection error:", err);
+        });
     }
 
     handleInstruction(instruction, topics, TM, sample_size, config) {
@@ -1405,23 +1937,23 @@ class MINDInterface {
         })
         .then(res => {
             if (res.ok) {
-                shouldWarn = false;
-                window.location.href = `/detection_results?TM=${encodeURIComponent(TM)}&topics=${encodeURIComponent(topics)}`;
+                startPipelinePolling(TM, topics);
             } else {
                 shouldWarn = false;
                 console.error("Error al recibir respuesta del backend");
+                selector.style.pointerEvents = 'auto';
+                selector.style.opacity = '1';
+                selector.classList.remove('disabled');
+                selector.innerHTML = originalHTML;
             }
         })
         .catch(err => {
             console.error("Dataset selection error:", err);
             shouldWarn = false;
-        })
-        .finally(() => {
             selector.style.pointerEvents = 'auto';
             selector.style.opacity = '1';
             selector.classList.remove('disabled');
             selector.innerHTML = originalHTML;
-            shouldWarn = false;
         });
     }
 }
