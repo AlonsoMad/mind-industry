@@ -1,12 +1,14 @@
 # MIND: Multilingual Inconsistent Notion Detection
 
-This repository contains the code and data for reproducing experiments from our paper Discrepancy Detection at the Data Level: Toward Consistent Multilingual Question Answering.
+This repository contains the code and data for reproducing experiments from our paper **Discrepancy Detection at the Data Level: Toward Consistent Multilingual Question Answering**.
 
 <p align="center">
   <img src="figures_tables/Raupi5.png" alt="MIND pipeline" width="100%">
 </p>
 
 - [MIND: Multilingual Inconsistent Notion Detection](#mind-multilingual-inconsistent-notion-detection)
+  - [About MIND](#about-mind)
+  - [Documentation](#documentation)
   - [**Installation**](#installation)
     - [Steps for deployment with uv](#steps-for-deployment-with-uv)
     - [Steps for deployment with docker](#steps-for-deployment-with-docker)
@@ -18,17 +20,42 @@ This repository contains the code and data for reproducing experiments from our 
     - [Discrepancies](#discrepancies)
   - [**Use cases**](#use-cases)
     - [**Wikipedia**](#wikipedia)
-      - [1. Retrieve bilingual Wikipedia data](#1-retrieve-bilingual-wikipedia-data)
-      - [2. Train models and run the MIND pipeline](#2-train-models-and-run-the-mind-pipeline)
-  - [ **Data**](#data)
+  - [**Data**](#data)
+  - [Contributing](#contributing)
+  - [License](#license)
+
+## About MIND
+
+MIND (Multilingual Inconsistent Notion Detection) detects semantic discrepancies in multilingual content using a novel combination of polylingual topic modeling, hybrid retrieval, and large language models. The system is designed to work with loosely aligned multilingual corpora—documents that discuss similar topics but are not direct translations.
+
+**Key capabilities:**
+- Multi-LLM support (OpenAI, Ollama, vLLM, llama.cpp)
+- Hybrid retrieval combining topic-based and embedding-based methods
+- Web application for interactive analysis
+- Achieves 92% F1 score on controlled benchmark (FEVER-DPLACE-Q)
+- Topic-Based Exact Nearest Neighbor (TB-ENN) retrieval achieves 85% Recall@10
+
+**Applications** include Wikipedia consistency analysis, multilingual fact-checking, health information verification, and cultural bias detection.
+
+## Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+
+- **[Technical Documentation](docs/technical-documentation.md)** (1,129 lines): Complete technology stack, architecture, module implementation details, configuration management, and deployment instructions. Intended for developers and software architects.
+
+- **[Functional Documentation](docs/functional-documentation.md)** (679 lines): Project purpose, research methodology, use cases, ablation studies, and academic contributions. Intended for researchers and stakeholders.
+
+- **[Architecture Diagrams](docs/architecture-diagrams.md)** (30+ Mermaid diagrams): Visual representations of system architecture, data pipelines, module dependencies, and deployment structure.
+
+---
 
 ## **Installation**
 
 We recommend **uv** for installing the necessary dependencies.
 
-### Steps for deployment with uv
+### Option 1: Development Setup (with uv)
 
-1. Clone the repository (include submodules):
+1. **Clone the repository** (include submodules):
 
     ```bash
     git clone --recurse-submodules https://github.com/lcalvobartolome/mind.git
@@ -41,37 +68,44 @@ We recommend **uv** for installing the necessary dependencies.
     git submodule update --init --recursive
     ```
 
-2. Install uv by following the [official guide](https://docs.astral.sh/uv/getting-started/installation/).
+2. **Install uv** by following the [official guide](https://docs.astral.sh/uv/getting-started/installation/).
 
-3. Create a local environment (it will use the python version specified in pyproject.toml)
+3. **Create a local environment** (uses Python version from `pyproject.toml`):
 
     ```bash
     uv venv .venv
     ```
 
-4. Activate the environment:
+4. **Activate the environment**:
 
     ```bash
     source .venv/bin/activate   # On Linux/macOS
     .venv\Scripts\activate      # On Windows
     ```
 
-5. Install dependencies:
+5. **Install dependencies**:
 
     ```bash
     uv pip install -e .
     ```
 
-6. Verify the installation:
+6. **Verify the installation**:
 
     ```bash
     python -c "import mind; print(mind.__version__)"
     ```
 
-### Steps for deployment with docker
-MIND web application provides an intuitive and efficient interface for MIND's tools, enabling users to perform data preprocessing, topic modeling, and discrepancy analysis easily and effectively. It can be deploy the web application using the code from this repository to customize the web interface, or access the application online via a hosted URL (https://mind.uc3m.es), allowing full flexibility for personal use.
+---
 
-1. Clone the repository (include submodules):
+### Option 2: Web Application Deployment (with Docker)
+
+The MIND web application provides an intuitive interface for data preprocessing, topic modeling, and discrepancy analysis.
+
+**Access Options**:
+- **Hosted**: [https://mind.uc3m.es](https://mind.uc3m.es)
+- **Local Deployment**: Follow steps below
+
+1. **Clone the repository** (include submodules):
 
     ```bash
     git clone --recurse-submodules https://github.com/lcalvobartolome/mind.git
@@ -84,104 +118,129 @@ MIND web application provides an intuitive and efficient interface for MIND's to
     git submodule update --init --recursive
     ```
 
-2. Navigate to the project root (where [`docker-compose.yml`](/docker-compose.yml) is located) and build the containers:
+2. **Build the containers**:
 
     ```bash
     docker compose build
     ```
 
-3. Start the services in detached mode:
+3. **Start the services** in detached mode:
 
     ```bash
     docker compose up -d
     ```
 
-4. Once started, the application will be accessible at the following ports:
+4. **Access the application**:
 
-- **frontend**: http://localhost:5050
-- **auth service**: http://localhost:5002
-- **backend**: http://localhost:5001
-- **database (PostgreSQL)**: port 5444 mapped to 5432 in container.
+    - **Frontend**: http://localhost:5050
+    - **Auth Service**: http://localhost:5002
+    - **Backend**: http://localhost:5001
+    - **Database (PostgreSQL)**: port 5444 (mapped to 5432 in container)
+
+For detailed deployment instructions, see [`app/README.md`](app/README.md) or the [Technical Documentation](docs/technical-documentation.md).
 
 ## Run MIND pipeline
 
-To run the MIND pipeline, you need a collection of *loosely aligned* documents (e.g., corresponding Wikipedia articles in different languages). These do not need to be perfect translations—just share similar topics.
+To run the MIND pipeline, you need a collection of **loosely aligned** documents (e.g., corresponding Wikipedia articles in different languages). These do not need to be perfect translations—just share similar topics.
 
-**Steps for running the pipeline:**
+### Pipeline Steps
 
-1. **Preprocess corpora:** The `mind.corpus_building` module provides scripts for segmenting documents, creating loose alignments (translation), NLP preprocessing, and assembling the final dataset for the PLTM wrapper.
+#### 1. Preprocess Corpora
 
-    You can run these scripts directly from the command line with flexible arguments:
+The `mind.corpus_building` module provides scripts for segmenting documents, creating loose alignments (translation), NLP preprocessing, and assembling the final dataset for the PLTM wrapper.
 
-    ```bash
-    # Segment documents into passages
-    python3 src/mind/corpus_building/segmenter.py --input INPUT_PATH --output OUTPUT_PATH --text_col TEXT_COLUMN --id_col ID_COLUMN
+```bash
+# Segment documents into passages
+python3 src/mind/corpus_building/segmenter.py \
+  --input INPUT_PATH \
+  --output OUTPUT_PATH \
+  --text_col TEXT_COLUMN \
+  --id_col ID_COLUMN
 
-    # Translate passages from anchor to comparison language (and vice versa)
-    python3 src/mind/corpus_building/translator.py --input INPUT_PATH --output OUTPUT_PATH --src_lang SRC_LANG --tgt_lang TGT_LANG --text_col TEXT_COLUMN --lang_col LANG_COLUMN
+# Translate passages from anchor to comparison language (and vice versa)
+python3 src/mind/corpus_building/translator.py \
+  --input INPUT_PATH \
+  --output OUTPUT_PATH \
+  --src_lang SRC_LANG \
+  --tgt_lang TGT_LANG \
+  --text_col TEXT_COLUMN \
+  --lang_col LANG_COLUMN
 
-    # Preprocess and prepare the final DataFrame for the pipeline
-    python3 src/mind/corpus_building/data_preparer.py --anchor ANCHOR_PATH --comparison COMPARISON_PATH --output OUTPUT_PATH --schema SCHEMA_JSON_OR_PATH
-    ```
+# Preprocess and prepare the final DataFrame for the pipeline
+python3 src/mind/corpus_building/data_preparer.py \
+  --anchor ANCHOR_PATH \
+  --comparison COMPARISON_PATH \
+  --output OUTPUT_PATH \
+  --schema SCHEMA_JSON_OR_PATH
+```
 
-    - Replace `INPUT_PATH`, `OUTPUT_PATH`, `TEXT_COLUMN`, `MIN_LENGTH`, `SEPARATOR`, `SRC_LANG`, `TGT_LANG`, `LANG_COLUMN`, `ANCHOR_PATH`, `COMPARISON_PATH`, and `SCHEMA_JSON_OR_PATH` with your actual file paths and column names.
-    - For `segmenter.py`: `MIN_LENGTH` is the minimum paragraph length (default: 100), `SEPARATOR` is the split character (default: "\n")
-    - The `--schema` argument for `data_preparer.py` can be a JSON string or a path to a JSON file mapping required columns.
+**Programmatic Usage**: See the [Wikipedia use case](use_cases/wikipedia/generate_dtset.py) for a complete workflow example.
 
-    Alternatively, you can import and use these modules programmatically. See the [Wikipedia use case](use_cases/wikipedia/generate_dtset.py) for a complete example of how to use all these scripts in a workflow.
-  
-2. **Train a PLTM model:** Train a Polylingual Topic Model on the prepared dataset.
+---
 
-    ```bash
-    python3 src/mind/topic_modeling/polylingual_tm.py \
-      --input PREPARED_DATASET_PATH \
-      --lang1 LANG1 \
-      --lang2 LANG2 \
-      --model_folder MODEL_OUTPUT_DIR \
-      --num_topics NUM_TOPICS \
-      [+ additional optional params]
-    ```
+#### 2. Train a PLTM Model
 
-    - Replace each argument (e.g., `PREPARED_DATASET_PATH`, `LANG1`, `LANG2`, `MODEL_OUTPUT_DIR`, `NUM_TOPICS`, etc.) with your actual file paths, language codes, and options.
-    - See `python3 src/mind/topic_modeling/polylingual_tm.py --help` for full details and all available options.
+Train a Polylingual Topic Model on the prepared dataset:
 
-- **(Optional) Label Topics of a PLTM model:** Assign meaningful labels to each discovery topic based on the top-ranked words and documents.
+```bash
+python3 src/mind/topic_modeling/polylingual_tm.py \
+  --input PREPARED_DATASET_PATH \
+  --lang1 LANG1 \
+  --lang2 LANG2 \
+  --model_folder MODEL_OUTPUT_DIR \
+  --num_topics NUM_TOPICS \
+  [+ additional optional params]
+```
 
-    ```bash
-    python3 src/mind/topic_modeling/topic_label.py \
-      --lang1 LANG1 \
-      --lang2 LANG2 \
-      --model_folder MODEL_OUTPUT_DIR \
-      [+ additional optional params]
-    ```
+Run `python3 src/mind/topic_modeling/polylingual_tm.py --help` for all options.
 
-    - Replace each argument (e.g., `LANG1`, `LANG2`, `MODEL_OUTPUT_DIR`, etc.) with your actual file paths, language codes, and options.
-    - See `python3 src/mind/topic_modeling/topic_label.py --help` for full details and all available options.
+---
 
-3. **Run the MIND pipeline:** Detect discrepancies and perform downstream analysis.
+#### 3. (Optional) Label Topics
 
-    ```bash
-    python3 src/mind/pipeline/cli.py \
-        --src_corpus_path SRC_CORPUS_PATH \
-        --src_thetas_path SRC_THETAS_PATH \
-        --src_id_col SRC_ID_COL \
-        --src_passage_col SRC_PASSAGE_COL \
-        --src_full_doc_col SRC_FULL_DOC_COL \
-        --src_lang_filter SRC_LANG \
-        --tgt_corpus_path TGT_CORPUS_PATH \
-        --tgt_thetas_path TGT_THETAS_PATH \
-        --tgt_id_col TGT_ID_COL \
-        --tgt_passage_col TGT_PASSAGE_COL \
-        --tgt_full_doc_col TGT_FULL_DOC_COL \
-        --tgt_lang_filter TGT_LANG \
-        --topics TOPIC_IDS \
-        --path_save RESULTS_DIR \
-        [+ additional optional params]
-    ```
+Assign meaningful labels to discovered topics:
 
-    - Replace each argument (e.g., ``SRC_CORPUS_PATH``, ``TGT_CORPUS_PATH``, ``TOPIC_IDS``, etc.) with your actual file paths, column names, and options.
-    - ``--topics`` should be a comma-separated list of topic IDs, e.g. ``--topics 15,17``.
-    - See ``python3 src/mind/pipeline/cli.py --help`` for full details and all available options.
+```bash
+python3 src/mind/topic_modeling/topic_label.py \
+  --lang1 LANG1 \
+  --lang2 LANG2 \
+  --model_folder MODEL_OUTPUT_DIR \
+  [+ additional optional params]
+```
+
+Run `python3 src/mind/topic_modeling/topic_label.py --help` for all options.
+
+---
+
+#### 4. Run the MIND Pipeline
+
+Detect discrepancies and perform downstream analysis:
+
+```bash
+python3 src/mind/pipeline/cli.py \
+    --src_corpus_path SRC_CORPUS_PATH \
+    --src_thetas_path SRC_THETAS_PATH \
+    --src_id_col SRC_ID_COL \
+    --src_passage_col SRC_PASSAGE_COL \
+    --src_full_doc_col SRC_FULL_DOC_COL \
+    --src_lang_filter SRC_LANG \
+    --tgt_corpus_path TGT_CORPUS_PATH \
+    --tgt_thetas_path TGT_THETAS_PATH \
+    --tgt_id_col TGT_ID_COL \
+    --tgt_passage_col TGT_PASSAGE_COL \
+    --tgt_full_doc_col TGT_FULL_DOC_COL \
+    --tgt_lang_filter TGT_LANG \
+    --topics TOPIC_IDS \
+    --path_save RESULTS_DIR \
+    [+ additional optional params]
+```
+
+- `--topics` should be a comma-separated list of topic IDs, e.g., `--topics 15,17`
+- Run `python3 src/mind/pipeline/cli.py --help` for all options
+
+**For detailed pipeline workflow**, see [Architecture Diagrams - MIND Pipeline](docs/architecture-diagrams.md#5-mind-pipeline-workflow).
+
+---
 
 ## ROSIE-MIND
 
@@ -196,46 +255,43 @@ The complete ROSIE-MIND dataset is available on [Hugging Face](https://huggingfa
 
 ### Question and Answering
 
-1. **Generate answers.**
-
-    For each question generated by the MIND question generator (using different LLMs), generate answers and detect discrepancies. This step requires already generated questions and relevant passages (from the Retrieval step).
+1. **Generate answers** for questions using different LLMs:
 
     ```bash
     ./bash_scripts/run_answering_disc.sh
     ```
 
-2. **Prepare human evaluation task.**
-
-    Prepare annotation files for human evaluation of both questions and answers. The evaluation is based on the following dimensions:
-
-    - **Questions:** Verifiability, Passage Independence, Clarity, Terminology, Self-Containment, Naturalness
-    - **Answers:** Faithfulness, Passage Dependence, Passage Reference Avoidance, Structured Response, Language Consistency
+2. **Prepare human evaluation task**:
 
     ```bash
     python3 ablation/qa/prepare_eval_task.py
     ```
 
-3. **Generate tables and figures.**
+    Evaluation dimensions:
+    - **Questions**: Verifiability, Passage Independence, Clarity, Terminology, Self-Containment, Naturalness
+    - **Answers**: Faithfulness, Passage Dependence, Passage Reference Avoidance, Structured Response, Language Consistency
 
-    Analyze the results and create publication-ready tables and figures for the discrepancy evaluation. This [notebook](ablation/qa/get_figures.ipynb) summarizes the main findings and visualizations used in the paper.
+3. **Generate tables and figures**:
+
+    See [ablation/qa/get_figures.ipynb](ablation/qa/get_figures.ipynb) for analysis and visualizations.
+
+---
 
 ### Retrieval
 
-1. **Run retrieval to get relevant passages for the questions.**
-
-    For each question generated by the MIND question generator (using different LLMs), this step produces two Excel files per run: one with weighted and one with unweighted retrieval results.
+1. **Run retrieval** to get relevant passages:
 
     ```bash
     ./bash_scripts/run_retrieval.sh
     ```
 
-2. **Get gold passages for retrieval metric calculation.**
-
-    For each passage retrieved by any method (ANN, ENN, TB-ENN, TB-ANN), four LLMs independently rate its relevance to the question. A passage is considered relevant only if all four LLMs agree.
+2. **Get gold passages** for metric calculation:
 
     ```bash
     python3 ablation/retrieval/get_gold_passages.py
     ```
+
+    A passage is considered relevant only if all four LLMs agree.
 
 3. **Run statistical tests and generate tables.**
 
@@ -301,6 +357,32 @@ This script demonstrates an **end-to-end workflow**, from dataset preparation to
 
 For more details on the preprocessing and pipeline stages, see the [Run MIND pipeline](#run-mind-pipeline) section above.
 
-##  **Data**
+##  **Data**
 
 All data used and generated for the paper, including ROSIE-MIND and the synthetic dataset FEVER-DPLACE-Q (with LLM annotations), are available at the [HuggingFace collection](https://huggingface.co/collections/lcalvobartolome/mind-data-68e2a690025b4dc28c5e8458). For both ROSIE and ENDE datasets (see use cases section), we include the preprocessed corpora augmented with topic modeling information ready to apply MIND. Topic words in each language and topic labels are available as additional metadata. Data from ablation studies is available as well as complete output from MIND pipeline executions on ROSIE and ENDE is available upon request.
+
+## Contributing
+
+Contributions are welcome. For bug reports and feature requests, please use [GitHub Issues](https://github.com/lcalvobartolome/mind/issues). For code contributions, submit a pull request.
+
+If you use MIND in your research, please cite:
+
+```bibtex
+@article{calvo2024mind,
+  title={Discrepancy Detection at the Data Level: Toward Consistent Multilingual Question Answering},
+  author={Calvo-Bartolomé, Lorena and Madroñal, Alonso},
+  year={2024}
+}
+```
+
+## License
+
+This project is licensed under the MIT License. Copyright (c) 2024 Lorena Calvo-Bartolomé. See [LICENSE](LICENSE) for details.
+
+---
+
+**Additional Resources:**
+- Main Repository: [GitHub](https://github.com/lcalvobartolome/mind)
+- Datasets: [HuggingFace Collection](https://huggingface.co/collections/lcalvobartolome/mind-data-68e2a690025b4dc28c5e8458)
+- Web Application: [https://mind.uc3m.es](https://mind.uc3m.es)
+- Comprehensive Documentation: [`docs/`](docs/) directory
