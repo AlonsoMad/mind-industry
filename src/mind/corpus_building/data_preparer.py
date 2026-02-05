@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
-from mind.utils.utils import init_logger
+from mind.utils.utils import init_logger, get_optimization_settings
 
 
 class DataPreparer:
@@ -47,6 +47,7 @@ class DataPreparer:
     ):
         self._logger = logger if logger else init_logger(
             config_logger_path, __name__)
+        self._opt_settings = get_optimization_settings(str(config_logger_path), self._logger)
 
         # configure NLPipe
         self.preproc_script = Path(preproc_script) if preproc_script else None
@@ -174,7 +175,8 @@ class DataPreparer:
             "lang": df["lang"].astype(str).str.lower(),
         })
         tmp_parq = tmp_dir / f"{tag}_{lang_upper}.parquet"
-        work.to_parquet(tmp_parq, compression="gzip")
+        compression = self._opt_settings.get("parquet_compression", "gzip")
+        work.to_parquet(tmp_parq, compression=compression)
 
         # run NLPipe
         if self.preproc_script and self.config_path and self.stw_path:
@@ -275,8 +277,9 @@ class DataPreparer:
         anc_parq = tmp_dir / f"anchor_{anchor_lang}.parquet"
         comp_parq = tmp_dir / f"comparison_{comp_lang}.parquet"
 
-        anc_norm.to_parquet(anc_parq, compression="gzip")
-        comp_norm.to_parquet(comp_parq, compression="gzip")
+        compression = self._opt_settings.get("parquet_compression", "gzip")
+        anc_norm.to_parquet(anc_parq, compression=compression)
+        comp_norm.to_parquet(comp_parq, compression=compression)
         self._logger.info(
             f"Saved anchor and comparison normalized parquets to {tmp_dir}")
 

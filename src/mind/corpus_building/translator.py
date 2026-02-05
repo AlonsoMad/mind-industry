@@ -10,7 +10,7 @@ from tqdm import tqdm
 from transformers import pipeline, AutoTokenizer
 from datasets import Dataset
 
-from mind.utils.utils import init_logger
+from mind.utils.utils import init_logger, get_optimization_settings
 
 
 class Translator:
@@ -20,6 +20,7 @@ class Translator:
         logger=None
     ):
         self._logger = logger if logger else init_logger(config_path, __name__)
+        self._opt_settings = get_optimization_settings(str(config_path), self._logger)
         self.models = {}
         self.tokenizers = {}
         self.supported = {
@@ -225,8 +226,9 @@ class Translator:
         self.translated_df = pd.concat([df, merged], ignore_index=True)
 
         if save_path is not None:
-            self.translated_df.to_parquet(save_path, compression="gzip")
-            self._logger.info(f"Saved translated DataFrame to {save_path}")
+            compression = self._opt_settings.get("parquet_compression", "gzip")
+            self.translated_df.to_parquet(save_path, compression=compression)
+            self._logger.info(f"Saved translated DataFrame to {save_path} (compression: {compression})")
 
         return self.translated_df
 

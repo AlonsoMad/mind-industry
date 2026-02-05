@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
-from mind.utils.utils import init_logger
+from mind.utils.utils import init_logger, get_optimization_settings
 from tqdm import tqdm
 
 
@@ -13,6 +13,7 @@ class Segmenter():
         logger=None
     ):
         self._logger = logger if logger else init_logger(config_path, __name__)
+        self._opt_settings = get_optimization_settings(str(config_path), self._logger)
 
     def segment(
         self,
@@ -67,8 +68,9 @@ class Segmenter():
         seg_df['id'] = range(len(seg_df))
         self._logger.info(
             f"Segmented into {len(seg_df)} paragraphs. Saving to {path_save}")
-        seg_df.to_parquet(path_save, compression="gzip")
-        self._logger.info(f"Saved segmented dataframe to {path_save}")
+        compression = self._opt_settings.get("parquet_compression", "gzip")
+        seg_df.to_parquet(path_save, compression=compression)
+        self._logger.info(f"Saved segmented dataframe to {path_save} (compression: {compression})")
         return path_save
 
 
