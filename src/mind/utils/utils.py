@@ -129,6 +129,9 @@ def get_optimization_settings(
         "embedding_batch_size": 8,
         "faiss_mmap": False,
         "async_checkpoints": False,
+        "batched_embeddings": False,      # OPT-002
+        "lazy_corpus_loading": False,     # OPT-003
+        "batched_llm_calls": False,       # OPT-010
     }
     
     try:

@@ -1,8 +1,10 @@
 import re
 import unicodedata
+import threading
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Union
+from queue import Queue, Empty
+from typing import List, Union, Tuple, Optional
 
 import pandas as pd
 import torch
@@ -12,9 +14,116 @@ from mind.pipeline.corpus import Corpus
 from mind.pipeline.retriever import IndexRetriever
 from mind.pipeline.utils import extend_to_full_sentence
 from mind.prompter.prompter import Prompter
-from mind.utils.utils import init_logger, load_prompt, load_yaml_config_file
+from mind.utils.utils import init_logger, load_prompt, load_yaml_config_file, get_optimization_settings
 from sentence_transformers import SentenceTransformer  # type: ignore
 from tqdm import tqdm  # type: ignore
+
+
+class AsyncCheckpointer:
+    """
+    Background thread for non-blocking checkpoint writes.
+    
+    Queues DataFrames for writing and handles old file cleanup.
+    Thread-safe for use from the main pipeline thread.
+    """
+    
+    def __init__(self, logger=None):
+        self._queue: Queue[Tuple[pd.DataFrame, Path, Optional[Path]]] = Queue()
+        self._logger = logger
+        self._running = True
+        self._thread = threading.Thread(target=self._writer_loop, daemon=True)
+        self._thread.start()
+        self._pending_count = 0
+        self._lock = threading.Lock()
+    
+    def _writer_loop(self):
+        """Background loop that processes queued checkpoint writes."""
+        while self._running:
+            try:
+                item = self._queue.get(timeout=1.0)
+                if item is None:  # Shutdown signal
+                    break
+                    
+                df, path, old_path = item
+                
+                try:
+                    # Write checkpoint
+                    df.to_parquet(path, index=False)
+                    
+                    # Clean up old checkpoint if it exists
+                    if old_path and old_path.exists():
+                        old_path.unlink()
+                    
+                    if self._logger:
+                        self._logger.debug(f"Checkpoint saved: {path}")
+                        
+                except Exception as e:
+                    if self._logger:
+                        self._logger.error(f"Checkpoint write failed: {e}")
+                finally:
+                    self._queue.task_done()
+                    with self._lock:
+                        self._pending_count -= 1
+                        
+            except Empty:
+                continue  # Timeout, check if still running
+    
+    def save_async(
+        self, 
+        df: pd.DataFrame, 
+        path: Path, 
+        old_path: Path = None
+    ):
+        """
+        Queue a DataFrame for background saving.
+        
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame to save (will be copied).
+        path : Path
+            Destination path for the Parquet file.
+        old_path : Path, optional
+            Previous checkpoint to delete after successful write.
+        """
+        with self._lock:
+            self._pending_count += 1
+        # Copy DataFrame to avoid race conditions with main thread
+        self._queue.put((df.copy(), Path(path), Path(old_path) if old_path else None))
+    
+    def wait_complete(self, timeout: float = 60.0) -> bool:
+        """
+        Wait for all pending saves to complete.
+        
+        Parameters
+        ----------
+        timeout : float
+            Maximum seconds to wait.
+        
+        Returns
+        -------
+        bool
+            True if all writes completed, False if timeout.
+        """
+        try:
+            self._queue.join()
+            return True
+        except Exception:
+            return self._pending_count == 0
+    
+    def shutdown(self):
+        """Stop the background writer thread cleanly."""
+        self._running = False
+        self._queue.put(None)  # Shutdown signal
+        self._thread.join(timeout=5.0)
+    
+    @property
+    def pending_writes(self) -> int:
+        """Number of checkpoint writes still queued."""
+        with self._lock:
+            return self._pending_count
+
+
 
 
 class MIND:
@@ -127,6 +236,15 @@ class MIND:
         # keep track of seen (question, source_chunk.id, target_chunk.id) triplets to avoid duplicates
         self.seen_triplets = set()
 
+        # OPT-004: Load optimization settings and initialize async checkpointer if enabled
+        self._opt_settings = get_optimization_settings(str(config_path), self._logger)
+        self._async_checkpoints = self._opt_settings.get("async_checkpoints", True)
+        if self._async_checkpoints:
+            self._checkpointer = AsyncCheckpointer(logger=self._logger)
+            self._logger.info("Async checkpointing enabled")
+        else:
+            self._checkpointer = None
+
     def _init_corpus(
         self,
         corpus: Union[Corpus, dict],
@@ -196,6 +314,15 @@ class MIND:
         for topic in topics:
             self._process_topic(
                 topic, path_save, previous_check=previous_check, sample_size=sample_size)
+
+
+        # OPT-004: Wait for all async checkpoints to complete before returning
+        if self._checkpointer:
+            pending = self._checkpointer.pending_writes
+            if pending > 0:
+                self._logger.info(f"Waiting for {pending} pending checkpoints...")
+                self._checkpointer.wait_complete()
+                self._logger.info("All checkpoints saved")
 
     def _normalize(self, s: str) -> str:
         s = unicodedata.normalize("NFKC", s)
@@ -449,19 +576,24 @@ class MIND:
                 df = pd.DataFrame(self.results)
                 df_discarded = pd.DataFrame(self.discarded)
 
-                df.to_parquet(results_checkpoint_path, index=False)
-                df_discarded.to_parquet(discarded_checkpoint_path, index=False)
-
-                # delete previous checkpoints
+                # OPT-004: Use async checkpointing if available
                 old_results_checkpoint_path = Path(
                     f"{path_save}/results_topic_{topic}_{checkpoint-1}.parquet")
                 old_discarded_checkpoint_path = Path(
                     f"{path_save}/discarded_topic_{topic}_{checkpoint-1}.parquet")
 
-                if old_results_checkpoint_path.exists():
-                    old_results_checkpoint_path.unlink()
-                if old_discarded_checkpoint_path.exists():
-                    old_discarded_checkpoint_path.unlink()
+                if self._checkpointer:
+                    # Async write (non-blocking)
+                    self._checkpointer.save_async(df, results_checkpoint_path, old_results_checkpoint_path)
+                    self._checkpointer.save_async(df_discarded, discarded_checkpoint_path, old_discarded_checkpoint_path)
+                else:
+                    # Sync write (original behavior)
+                    df.to_parquet(results_checkpoint_path, index=False)
+                    df_discarded.to_parquet(discarded_checkpoint_path, index=False)
+                    if old_results_checkpoint_path.exists():
+                        old_results_checkpoint_path.unlink()
+                    if old_discarded_checkpoint_path.exists():
+                        old_discarded_checkpoint_path.unlink()
 
         return a_t, discrepancy_label, reason
 

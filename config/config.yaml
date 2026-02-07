@@ -28,6 +28,9 @@ optimization:
       embedding_batch_size: 8  # Optimal throughput from profiling
       faiss_mmap: false        # Memory-map FAISS indices
       async_checkpoints: true  # Background checkpoint writes
+      batched_embeddings: true # OPT-002: Batch encode queries
+      lazy_corpus_loading: false # OPT-003: Lazy Parquet loading
+      batched_llm_calls: false # OPT-010: Async/batched LLM calls
       
     memory_optimized:
       chunk_size: 5000         # Smaller chunks for lower peak memory
@@ -35,6 +38,9 @@ optimization:
       faiss_mmap: true         # Use memory-mapped indices
       sparse_thetas: true      # Keep thetas in sparse format
       async_checkpoints: true
+      batched_embeddings: true # OPT-002: Batch encode queries
+      lazy_corpus_loading: true # OPT-003: Lazy Parquet loading
+      batched_llm_calls: true  # OPT-010: Async/batched LLM calls
       
     speed_optimized:
       chunk_size: 20000        # Larger chunks for fewer iterations
@@ -43,6 +49,9 @@ optimization:
       async_llm: true          # Async LLM calls
       gpu_faiss: true          # Use GPU FAISS if available
       async_checkpoints: true
+      batched_embeddings: true # OPT-002: Batch encode queries
+      lazy_corpus_loading: false # OPT-003: Disabled for speed
+      batched_llm_calls: true  # OPT-010: Concurrent LLM calls
 
 
 ################################
@@ -75,6 +84,10 @@ mind:
 ################################
 #   PROMPTING CONFIGURATION    #
 ################################
+
+# TODO: Add BYOL Configuration for 3P LLM's
+
+
 llm:
   parameters:
     temperature: 0

@@ -172,9 +172,7 @@ ablation*
 figures_tables*/
 use_cases*/
 
-aux_scripts/profiling/profiling/benchmark_data
-aux_scripts/profiling/profiling/results
-aux_scripts/profiling/analysis/
+aux_scripts/profiling/*
 
 # CUSTOM
 data

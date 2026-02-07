@@ -8,13 +8,14 @@ from typing import List, Union
 from dotenv import load_dotenv
 from joblib import Memory # type: ignore
 import requests
+import concurrent.futures
 
 from ollama import Client # type: ignore
 from openai import OpenAI # type: ignore
 
 from colorama import Fore, Style
 
-from mind.utils.utils import init_logger, load_yaml_config_file
+from mind.utils.utils import init_logger, load_yaml_config_file, get_optimization_settings
 
 memory = Memory(location='../../../cache', verbose=0)
 
@@ -35,6 +36,12 @@ class Prompter:
     ):
         self._logger = logger if logger else init_logger(config_path, __name__)
         self.config = load_yaml_config_file(config_path, "llm", logger)
+        
+        # OPT-010: Load optimization settings for batched LLM calls
+        self._opt_settings = get_optimization_settings(str(config_path), self._logger)
+        self._batched_llm_calls = self._opt_settings.get("batched_llm_calls", False)
+        if self._batched_llm_calls:
+            self._logger.info("OPT-010: Batched LLM calls enabled")
 
         self.GPT_MODELS = self.config.get(
             "gpt", {}).get("available_models", {})
@@ -312,3 +319,126 @@ class Prompter:
             print(f"{Fore.RED}this is what was kept:{Style.RESET_ALL} {result}")
 
         return result, logprobs
+    
+    # =========================================================================
+    # OPT-010: Batched LLM Calls
+    # =========================================================================
+    
+    def prompt_batch(
+        self,
+        questions: List[str],
+        system_prompt_template_path: str = None,
+        temperature: float = None,
+        max_workers: int = 4,
+        dry_run: bool = False,
+    ) -> List[tuple]:
+        """
+        OPT-010: Execute multiple prompts concurrently for reduced latency.
+        
+        Parameters
+        ----------
+        questions : List[str]
+            List of questions to prompt.
+        system_prompt_template_path : str, optional
+            Path to system prompt template file.
+        temperature : float, optional
+            Override temperature for all prompts.
+        max_workers : int, optional
+            Maximum concurrent API calls. Default is 4.
+        dry_run : bool, optional
+            If True, skip actual API calls.
+            
+        Returns
+        -------
+        List[tuple]
+            List of (result, logprobs) tuples for each question.
+        """
+        if dry_run:
+            return [("Dry run mode is ON — no LLM calls will be made.", None) for _ in questions]
+        
+        if not questions:
+            return []
+        
+        self._logger.info(f"OPT-010: Batching {len(questions)} prompts with {max_workers} workers")
+        
+        def process_single(question: str):
+            """Process a single prompt."""
+            return self.prompt(
+                question=question,
+                system_prompt_template_path=system_prompt_template_path,
+                temperature=temperature,
+                dry_run=False,
+            )
+        
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all prompts
+            future_to_question = {
+                executor.submit(process_single, q): q for q in questions
+            }
+            
+            # Collect results in order
+            for future in concurrent.futures.as_completed(future_to_question):
+                question = future_to_question[future]
+                try:
+                    result = future.result()
+                    results.append(result)
+                except Exception as e:
+                    self._logger.error(f"Prompt failed for question: {question[:50]}... Error: {e}")
+                    results.append((None, None))
+        
+        self._logger.info(f"OPT-010: Completed {len(results)} prompts")
+        return results
+    
+    def prompts_auto(
+        self,
+        questions: List[str],
+        system_prompt_template_path: str = None,
+        temperature: float = None,
+        max_workers: int = 4,
+        dry_run: bool = False,
+    ) -> List[tuple]:
+        """
+        OPT-010: Automatically choose between batched or sequential execution based on config.
+        
+        This is a convenience wrapper that checks the `batched_llm_calls` config flag
+        and routes to either `prompt_batch()` or sequential `prompt()` calls.
+        
+        Parameters
+        ----------
+        questions : List[str]
+            List of questions to prompt.
+        system_prompt_template_path : str, optional
+            Path to system prompt template file.
+        temperature : float, optional
+            Override temperature for all prompts.
+        max_workers : int, optional
+            Maximum concurrent API calls (only used if batching enabled).
+        dry_run : bool, optional
+            If True, skip actual API calls.
+            
+        Returns
+        -------
+        List[tuple]
+            List of (result, logprobs) tuples for each question.
+        """
+        if self._batched_llm_calls:
+            return self.prompt_batch(
+                questions=questions,
+                system_prompt_template_path=system_prompt_template_path,
+                temperature=temperature,
+                max_workers=max_workers,
+                dry_run=dry_run,
+            )
+        else:
+            # Sequential execution
+            results = []
+            for question in questions:
+                result = self.prompt(
+                    question=question,
+                    system_prompt_template_path=system_prompt_template_path,
+                    temperature=temperature,
+                    dry_run=dry_run,
+                )
+                results.append(result)
+            return results
