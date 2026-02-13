@@ -1,5 +1,7 @@
 import os
 import sys
+import time
+import logging
 import dotenv
 import shutil
 
@@ -10,6 +12,25 @@ app = Flask(__name__)
 PORT = 5001
 dotenv.load_dotenv()
 
+
+# Throttle noisy polling log lines (/status/<step_id>)
+class ThrottleStatusFilter(logging.Filter):
+    """Only log /status/ polling requests once every `interval` seconds."""
+    def __init__(self, interval=30):
+        super().__init__()
+        self._interval = interval
+        self._last_logged = 0
+
+    def filter(self, record):
+        msg = record.getMessage()
+        if "/status/" in msg:
+            now = time.monotonic()
+            if now - self._last_logged < self._interval:
+                return False
+            self._last_logged = now
+        return True
+
+logging.getLogger("werkzeug").addFilter(ThrottleStatusFilter(30))
 
 @app.before_request
 def cancel_active_pipeline():

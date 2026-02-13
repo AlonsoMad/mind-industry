@@ -89,6 +89,10 @@ ENV HF_HOME=/backend/models
 COPY --from=builder /opt/Mallet /backend/Mallet
 COPY --from=builder /opt/NLPipe /backend/NLPipe
 
+# Re-install NLPipe editable link for runtime location
+# (the builder's editable install points to /opt/NLPipe which doesn't exist here)
+RUN pip install --no-cache-dir --no-deps -e /backend/NLPipe/
+
 # Copy application code (single layer for better caching)
 COPY ./app/backend/ /backend/
 COPY ./src/mind /src/mind
@@ -99,7 +103,7 @@ COPY ./config.json /backend/NLPipe/config.json
 RUN mkdir -p /data
 
 # Set environment
-ENV PYTHONPATH="/backend:/src"
+ENV PYTHONPATH="/backend:/src:/backend/NLPipe/src"
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 5001

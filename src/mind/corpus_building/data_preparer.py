@@ -192,7 +192,14 @@ class DataPreparer:
                 "--stw_path", str(self.stw_path),
             ]
             print("Running NLPipe:", " ".join(cmd))
-            subprocess.run(cmd, check=True)
+            # Ensure subprocess inherits PYTHONPATH with NLPipe source dir
+            import os as _os
+            env = _os.environ.copy()
+            nlpipe_src = str(Path(self.preproc_script).parent.parent)
+            existing = env.get("PYTHONPATH", "")
+            if nlpipe_src not in existing:
+                env["PYTHONPATH"] = f"{nlpipe_src}:{existing}" if existing else nlpipe_src
+            subprocess.run(cmd, check=True, env=env)
             print(f"✓ Preprocessed (lang={lang_upper})")
         else:
             print("Preprocessing skipped (not configured).")

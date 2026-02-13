@@ -54,8 +54,8 @@
 
                     <hr>
 
-                    <label for="optionsDatasets1">Select a dataset:</label>
-                    <select id="optionsDatasets1">
+                    <label for="optionsDatasets1" class="form-label">Select a dataset:</label>
+                    <select id="optionsDatasets1" class="form-select">
                         {% if datasets %}
                         <option value="" disabled selected>-- Choose an available dataset --</option>
                         {% for ds, name, stage in zip(datasets, names, stages) %}
@@ -135,8 +135,8 @@
                     <hr>
 
                     <div class="mb-3 mt-3">
-                        <label for="SourceLanguage">Source Language:</label>
-                        <select id="SourceLanguage" class="form-control">
+                        <label for="SourceLanguage" class="form-label">Source Language:</label>
+                        <select id="SourceLanguage" class="form-select">
                             <option value="" disabled selected>-- Select source language --</option>
                             <option value="en">English (en)</option>
                             <option value="es">Spanish (es)</option>
@@ -145,8 +145,8 @@
                         </select>
                     </div>
                     <div class="mb-3 mt-3">
-                        <label for="TargetLanguage">Target Language:</label>
-                        <select id="TargetLanguage" class="form-control">
+                        <label for="TargetLanguage" class="form-label">Target Language:</label>
+                        <select id="TargetLanguage" class="form-select">
                             <option value="" disabled selected>-- Select target language --</option>
                             <option value="en">English (en)</option>
                             <option value="es">Spanish (es)</option>
@@ -199,8 +199,8 @@
 
                 <hr>
 
-                <label for="optionsDatasets2">Select an option: </label>
-                <select id="optionsDatasets2">
+                <label for="optionsDatasets2" class="form-label">Select an option: </label>
+                <select id="optionsDatasets2" class="form-select">
                     {% if datasets %}
                     <option value="" disabled selected>-- Choose an avaible dataset --</option>
                     {% for ds, name, stage in zip(datasets, names, stages) %}
@@ -222,8 +222,8 @@
                 <hr>
 
                 <div class="mb-3 mt-3">
-                    <label for="lang1">Lang 1:</label>
-                    <select id="lang1" class="form-control">
+                    <label for="lang1" class="form-label">Lang 1:</label>
+                    <select id="lang1" class="form-select">
                         <option value="" disabled selected>-- Select lang1 --</option>
                         <option value="EN">English (en)</option>
                         <option value="ES">Spanish (es)</option>
@@ -233,8 +233,8 @@
                 </div>
 
                 <div class="mb-3 mt-3">
-                    <label for="lang2">Lang 2:</label>
-                    <select id="lang2" class="form-control">
+                    <label for="lang2" class="form-label">Lang 2:</label>
+                    <select id="lang2" class="form-select">
                         <option value="" disabled selected>-- Select lang2 --</option>
                         <option value="en">English (en)</option>
                         <option value="es">Spanish (es)</option>
@@ -268,23 +268,25 @@
                 <div id="labelTopicOptions" class="mt-3" style="display: none;">
 
                     <div class="mb-3 d-flex align-items-center">
-                        <label for="llmSelect_type" class="me-2" style="width: 200px;">Type of LLM:</label>
-                        <select id="llmSelect_type" class="form-control flex-grow-1">
+                        <label for="llmSelect_type" class="me-2 form-label" style="width: 200px;">Type of LLM:</label>
+                        <select id="llmSelect_type" class="form-select flex-grow-1">
                             <option value="ollama" selected>ollama</option>
                             <option value="GPT">GPT</option>
                         </select>
                     </div>
 
                     <div id="llmSelect_ollama" class="mb-3 d-flex align-items-center">
-                        <label for="llmSelect_ollama_input" class="me-2" style="width: 200px;">Ollama LLM:</label>
-                        <select id="llmSelect_ollama_input" class="form-control flex-grow-1">
+                        <label for="llmSelect_ollama_input" class="me-2 form-label" style="width: 200px;">Ollama
+                            LLM:</label>
+                        <select id="llmSelect_ollama_input" class="form-select flex-grow-1">
 
                         </select>
                     </div>
 
                     <div id="server_ollama" class="mb-3 d-flex align-items-center">
-                        <label for="server_ollama_input" class="me-2" style="width: 200px;">Ollama Server:</label>
-                        <select id="server_ollama_input" class="form-control flex-grow-1">
+                        <label for="server_ollama_input" class="me-2 form-label" style="width: 200px;">Ollama
+                            Server:</label>
+                        <select id="server_ollama_input" class="form-select flex-grow-1">
                             {% for server in models.keys() %}
                             {% if server == "kumo02" %}
                             <option value="{{ server }}" selected>{{ server }}</option>
@@ -456,6 +458,37 @@
 </div>
 
 <style>
+    /* Modal Form Enhancements */
+    #stepModal .form-control,
+    #stepModal .form-select {
+        padding: 0.75rem 1rem;
+        font-size: 1.1rem;
+        height: auto;
+    }
+
+    #stepModal label {
+        font-weight: 500;
+        font-size: 1.05rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    #stepModal .btn {
+        padding: 0.6rem 1.2rem;
+        font-size: 1.1rem;
+    }
+
+    #stepModal .modal-body {
+        padding: 2rem;
+    }
+
+    #stepModal .details-toggle {
+        padding: 12px;
+        font-size: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Original Step-Box Styles */
     .step-box {
         width: 150px;
         height: 100px;
@@ -532,7 +565,7 @@
         width: 100%;
         margin: auto;
         min-height: 250px;
-        transition: height 0.5s ease;
+        transition: height 0.25s ease;
         box-sizing: border-box;
         padding: 15px;
     }
@@ -542,7 +575,7 @@
         position: absolute;
         top: 0;
         left: 0;
-        transition: transform 0.5s ease-in-out;
+        transition: transform 0.25s ease-in-out;
         transform: translateX(100%);
         padding: 15px;
         box-sizing: border-box;

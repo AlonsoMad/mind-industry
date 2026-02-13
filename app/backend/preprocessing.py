@@ -74,7 +74,7 @@ def segmenter():
             if isinstance(validation, tuple):
                 dataset_path, output_dir = validation
             else:
-                raise Exception("Validation failed")
+                raise Exception(validation)
 
             print(f'Segmenting dataset {output_dir}...')
 
@@ -138,7 +138,7 @@ def translator():
             if isinstance(validation, tuple):
                 dataset_path, output_dir = validation
             else:
-                raise Exception("Validation failed")
+                raise Exception(validation)
 
             # Creating new ID
             df = pd.read_parquet(f'{dataset_path}_{translator_data['src_lang']}', engine='pyarrow')
@@ -199,7 +199,7 @@ def preparer():
             if isinstance(validation, tuple):
                 dataset_path, output_dir = validation
             else:
-                raise Exception("Validation failed")
+                raise Exception(validation)
 
             # Data Preparer
             print(f"Preparing dataset: {dataset}")
@@ -285,7 +285,7 @@ def topicmodelling():
             if isinstance(validation, tuple):
                 dataset_path, output_dir = validation
             else:
-                raise Exception("Validation failed")
+                raise Exception(validation)
 
             print(f'Training model (k = {k}) for dataset {dataset_path}...')
 
