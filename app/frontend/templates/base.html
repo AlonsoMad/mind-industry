@@ -1,33 +1,41 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" 
-    href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css"
-    integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh"
-    crossorigin="anonymous"
-    >
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap4.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- JS -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+    <!-- Halfmoon v2 (Bootstrap 5 compatible) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/halfmoon@2.0.2/css/halfmoon.min.css">
 
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap4.min.js"></script>
+    <!-- Custom Branding -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+
+    <!-- DataTables (BS5 Styling) -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+
     <title>{% block title %}AUX{% endblock %}</title>
 </head>
 <body>
+
+<script>
+  // Theme init — run early to prevent flash of wrong theme
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-bs-theme', saved);
+</script>
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
         aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
     </button>
@@ -36,39 +44,44 @@
         <!-- Left-side navigation -->
         <ul class="navbar-nav">
             <li class="nav-item active">
-                <a class="nav-link" href="/">Home <span class="sr-only">(current)</span></a>
+                <a class="nav-link" href="/"><i class="ph ph-house"></i> Home</a>
             </li>
             {% if user_id %}
             <li class="nav-item">
-                <a class="nav-link" href="/datasets">Datasets for detection</a>
+                <a class="nav-link" href="/datasets"><i class="ph ph-database"></i> Datasets</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="/preprocessing">Preprocessing</a>
+                <a class="nav-link" href="/preprocessing"><i class="ph ph-funnel"></i> Preprocessing</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="/detection">Detection</a>
+                <a class="nav-link" href="/detection"><i class="ph ph-chart-bar"></i> Detection</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="/detectionAllResults">Detection Results</a>
+                <a class="nav-link" href="/detectionAllResults"><i class="ph ph-list-checks"></i> Results</a>
             </li>
             {% endif %}
         </ul>
 
         <!-- Right-side navigation -->
-        <ul class="navbar-nav ml-auto">
+        <ul class="navbar-nav ms-auto">
+            <li class="nav-item">
+                <button class="nav-link btn-theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+                    <i class="ph ph-moon" id="theme-icon"></i>
+                </button>
+            </li>
             {% if user_id %}
             <li class="nav-item">
-                <a class="nav-link" href="/profile">Profile</a>
+                <a class="nav-link" href="/profile"><i class="ph ph-user"></i> Profile</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" id="logOut" href="/logout">Log out</a>
+                <a class="nav-link" id="logOut" href="/logout"><i class="ph ph-sign-out"></i> Log out</a>
             </li>
             {% else %}
             <li class="nav-item">
-                <a class="nav-link" id="login" href="/login">Log in</a>
+                <a class="nav-link" id="login" href="/login"><i class="ph ph-sign-in"></i> Log in</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" id="signUp" href="/sign-up">Sign up</a>
+                <a class="nav-link" id="signUp" href="/sign-up"><i class="ph ph-user-plus"></i> Sign up</a>
             </li>
             {% endif %}
         </ul>
@@ -82,9 +95,7 @@
             {% for category, message in messages %}
                 <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                     {{ message }}
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             {% endfor %}
 
@@ -93,7 +104,8 @@
                 const alerts = document.querySelectorAll('.alert-dismissible');
                 alerts.forEach(function(alert) {
                     setTimeout(function() {
-                        $(alert).alert('close');
+                        const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+                        if (bsAlert) bsAlert.close();
                     }, 5000);
                 });
             });
@@ -172,10 +184,7 @@
                         ${percent < 0 ? 'Error' : percent + '%'}
                     </div>
                 </div>
-                <!-- Botón de cierre para eliminar visualmente la alerta -->
-                <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar" onclick="dismissTask('${task.id}')">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" onclick="dismissTask('${task.id}')"></button>
             </div>
         `;
     }
@@ -204,7 +213,8 @@
                 currentAlerts.forEach(alertDiv => {
                     const taskId = alertDiv.getAttribute('data-task-id');
                     if (!activeTaskIds.includes(taskId) && !dismissedTaskIds.has(taskId)) {
-                        $(alertDiv).alert('close'); 
+                        const bsAlert = bootstrap.Alert.getOrCreateInstance(alertDiv);
+                        if (bsAlert) bsAlert.close();
                     }
                 });
 
@@ -285,6 +295,43 @@
     document.addEventListener('DOMContentLoaded', () => {updateProgressBar();});
 </script>
 {% endif %}
+
+<!-- HTMX (for future Phase 3) -->
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
+<!-- Bootstrap 5 Bundle (includes Popper 2) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Keep jQuery for DataTables (Legacy) -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<!-- DataTables -->
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<!-- Theme Toggle Logic -->
+<script>
+  const toggleTheme = () => {
+    const current = document.documentElement.getAttribute('data-bs-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-bs-theme', next);
+    localStorage.setItem('theme', next);
+    // Update icon
+    const icon = document.getElementById('theme-icon');
+    if (icon) {
+      icon.className = next === 'dark' ? 'ph ph-moon' : 'ph ph-sun';
+    }
+  };
+
+  // Set correct icon on load
+  document.addEventListener('DOMContentLoaded', () => {
+    const theme = document.documentElement.getAttribute('data-bs-theme');
+    const icon = document.getElementById('theme-icon');
+    if (icon) {
+      icon.className = theme === 'dark' ? 'ph ph-moon' : 'ph ph-sun';
+    }
+  });
+</script>
 
 </body>
 </html>
