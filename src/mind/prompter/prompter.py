@@ -13,16 +13,30 @@ import concurrent.futures
 from ollama import Client # type: ignore
 from openai import OpenAI # type: ignore
 
+# Gemini imports with graceful fallback
+try:
+    from google import genai
+    from google.genai import types as genai_types
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+
 from colorama import Fore, Style
 
 from mind.utils.utils import init_logger, load_yaml_config_file, get_optimization_settings
 
-memory = Memory(location='../../../cache', verbose=0)
+# Determine project root (3 levels up from this file: src/mind/prompter -> src/mind -> src -> root)
+PROJECT_ROOT = pathlib.Path(__file__).parent.parent.parent.parent
+CACHE_DIR = PROJECT_ROOT / "data" / "cache"
+memory = Memory(location=CACHE_DIR, verbose=0)
 
 def hash_input(*args):
     return hashlib.md5(str(args).encode()).hexdigest()
 
 class Prompter:
+    # Class-level client instances (initialized on first use)
+    ollama_client = None
+    gemini_client = None
     def __init__(
         self,
         model_type: str,
@@ -49,6 +63,11 @@ class Prompter:
             "ollama", {}).get("available_models", {})
         self.VLLM_MODELS = self.config.get(
             "vllm", {}).get("available_models", {})
+        self.GEMINI_MODELS = self.config.get(
+            "gemini", {}).get("available_models", [])
+        # Convert to set for consistent lookup
+        if isinstance(self.GEMINI_MODELS, list):
+            self.GEMINI_MODELS = set(self.GEMINI_MODELS)
 
         self.model_type = model_type
         self.context = None
@@ -73,6 +92,9 @@ class Prompter:
             elif model_type in self.OLLAMA_MODELS:
                 self.params["num_predict"] = max_tokens
                 self._logger.info(f"Setting num_predict to: {max_tokens}")
+            elif model_type in self.GEMINI_MODELS:
+                self.params["max_output_tokens"] = max_tokens
+                self._logger.info(f"Setting max_output_tokens to: {max_tokens}")
             else:
                 raise ValueError("Unsupported model_type specified.")
 
@@ -121,6 +143,41 @@ class Prompter:
             self._logger.info(
                 f"Using llama_cpp API with host: {self.llama_cpp_host}"
             )
+        elif model_type in self.GEMINI_MODELS:
+            if not GEMINI_AVAILABLE:
+                raise ImportError(
+                    "google-genai package is required for Gemini models. "
+                    "Install with: pip install google-genai"
+                )
+            
+            load_dotenv(self.config.get("gemini", {}).get("path_api_key", ".env"))
+            gemini_api_key = os.getenv("GOOGLE_API_KEY")
+            
+            if gemini_api_key is None:
+                raise ValueError(
+                    "GOOGLE_API_KEY not found. Please set it in the .env file."
+                )
+            
+            # Check for Vertex AI configuration
+            vertex_project = self.config.get("gemini", {}).get("vertex_project")
+            vertex_location = self.config.get("gemini", {}).get("vertex_location")
+            
+            if vertex_project and vertex_location:
+                # Vertex AI endpoint
+                Prompter.gemini_client = genai.Client(
+                    vertexai=True,
+                    project=vertex_project,
+                    location=vertex_location,
+                )
+                self._logger.info(
+                    f"Using Vertex AI with project: {vertex_project}, location: {vertex_location}"
+                )
+            else:
+                # Google AI Studio endpoint (default)
+                Prompter.gemini_client = genai.Client(api_key=gemini_api_key)
+                self._logger.info(f"Using Google AI Studio with model: {model_type}")
+            
+            self.backend = "gemini"
         else:
             raise ValueError("Unsupported model_type specified.")
 
@@ -159,6 +216,13 @@ class Prompter:
             result, logprobs = Prompter._call_llama_cpp_api(
                 template=template,
                 question=question,
+                params=dict(params),
+            )
+        elif backend == "gemini":
+            result, logprobs = Prompter._call_gemini_api(
+                template=template,
+                question=question,
+                model_type=model_type,
                 params=dict(params),
             )
         else:
@@ -269,6 +333,74 @@ class Prompter:
             raise RuntimeError(f"llama_cpp API error: {response_data.get('error', 'Unknown error')}")
 
         return result, logprobs
+
+    @staticmethod
+    def _call_gemini_api(template, question, model_type, params):
+        """Handles the Google Gemini API call.
+        
+        Parameters
+        ----------
+        template : str or None
+            The system prompt template.
+        question : str
+            The user question/content.
+        model_type : str
+            The Gemini model name (e.g., 'gemini-2.0-flash').
+        params : dict
+            Generation parameters.
+            
+        Returns
+        -------
+        tuple
+            (result_text, logprobs) where logprobs is always None for Gemini.
+        """
+        if Prompter.gemini_client is None:
+            raise ValueError(
+                "Gemini client is not initialized. Check the model type configuration."
+            )
+        
+        try:
+            # Build generation config
+            gen_config = genai_types.GenerateContentConfig(
+                temperature=params.get("temperature", 0),
+                top_p=params.get("top_p", 0.1),
+                max_output_tokens=params.get("max_output_tokens", 1000),
+            )
+            
+            # Add system instruction if template is provided
+            if template is not None:
+                gen_config.system_instruction = template
+            
+            # Make API call
+            response = Prompter.gemini_client.models.generate_content(
+                model=model_type,
+                contents=question,
+                config=gen_config,
+            )
+            
+            result = response.text
+            logprobs = None  # Gemini does not provide logprobs in the same format
+            
+            return result, logprobs
+            
+        except Exception as e:
+            # Handle Gemini-specific errors
+            error_msg = str(e)
+            
+            if "RESOURCE_EXHAUSTED" in error_msg or "429" in error_msg:
+                raise RuntimeError(
+                    f"Gemini rate limit exceeded. Consider reducing batch size. Error: {e}"
+                )
+            elif "PERMISSION_DENIED" in error_msg or "403" in error_msg:
+                raise RuntimeError(
+                    f"Gemini API key invalid or lacks permission. Check GOOGLE_API_KEY. Error: {e}"
+                )
+            elif "INVALID_ARGUMENT" in error_msg or "400" in error_msg:
+                raise RuntimeError(
+                    f"Invalid request to Gemini API. Check model name and parameters. Error: {e}"
+                )
+            else:
+                raise RuntimeError(f"Gemini API error: {e}")
 
     def prompt(
         self,

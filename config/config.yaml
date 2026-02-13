@@ -140,3 +140,14 @@ llm:
     host: http://kumo01.tsc.uc3m.es:6000/v1
   llama_cpp:
     host: http://kumo01:11435/v1/chat/completions
+  gemini:
+    available_models:
+      - "gemini-2.0-flash"
+      - "gemini-2.0-flash-lite"
+      - "gemini-2.0-flash-001"
+      - "gemini-2.0-flash-lite-001"
+      - "gemini-2.5-flash"
+    path_api_key: .env
+    # Uncomment for Vertex AI:
+    # vertex_project: your-gcp-project-id
+    # vertex_location: us-central1
