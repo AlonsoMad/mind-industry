@@ -200,6 +200,14 @@ function initStepModal() {
 
             console.log(data);
 
+            // Disable button and show spinner
+            datasetPreprocessButton.disabled = true;
+            const originalHTML = datasetPreprocessButton.innerHTML;
+            datasetPreprocessButton.innerHTML = `
+                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Processing...
+            `;
+
             fetch("/preprocess/Stage1", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -226,10 +234,17 @@ function initStepModal() {
 
                     select2.appendChild(newOption);
                     select3.appendChild(newOption);
+
+                    // Re-enable button
+                    datasetPreprocessButton.disabled = false;
+                    datasetPreprocessButton.innerHTML = originalHTML;
                 })
                 .catch(error => {
                     console.error("Error in Fetch/AJAX:", error.message);
                     showToast(`Couldn\'t start new Preprocess process because ${error.message}`);
+                    // Re-enable button on error
+                    datasetPreprocessButton.disabled = false;
+                    datasetPreprocessButton.innerHTML = originalHTML;
                 });
         } else {
             step1Done = false;
@@ -366,6 +381,14 @@ function initStage2() {
 
         console.log(data);
 
+        // Disable button and show spinner
+        btn.disabled = true;
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = `
+            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            Starting Topic Modeling...
+        `;
+
         fetch("/preprocess/Stage2", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -382,10 +405,16 @@ function initStage2() {
             .then(response => {
                 console.log('Success (' + response.status + '): ' + response.message);
                 updateProgressBar();
+                // Re-enable button
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
             })
             .catch(error => {
                 console.error("Error in Fetch/AJAX:", error.message);
                 showToast(`Couldn\'t start new TopicModel process because ${error.message}`);
+                // Re-enable button on error
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
             });
     });
 }

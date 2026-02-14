@@ -49,8 +49,8 @@ The application uses a mix of interaction patterns that must be preserved:
 - [ ] Phase 3 Deferred — HTMX requires backend changes
 - [x] Phase 4 Complete — All hardcoded colors fixed for dark mode
 - [x] Phase 5.1 Complete — All `alert()` calls replaced with BS5 toast notifications
-- [ ] Phase 5.2 Complete — Form validation feedback
-- [ ] Phase 5.3 Complete — Loading states & skeleton screens
+- [x] Phase 5.2 Complete — Form validation feedback
+- [x] Phase 5.3 Complete — Loading states & skeleton screens
 - [ ] Phase 5.4 Complete — Keyboard navigation & ARIA
 - [ ] Phase 5.5 Complete — Empty state design
 - [x] Phase 6 Complete — File splitting
@@ -89,15 +89,17 @@ Improvements to usability, accessibility, and overall feel.
 - **Problem**: JavaScript `alert()` calls block the UI thread and feel dated
 - **Solution**: Create a reusable `showToast(message, type)` utility in `base.html` using Bootstrap 5 toast component. Replace all `alert()` calls
 
-#### 5.2 Form Validation Feedback
+#### 5.2 Form Validation Feedback ✅ Completed
 - **Files**: `login.html`, `sign_up.html`, `profile.html`
 - **Problem**: No client-side validation feedback (empty fields submit silently)
 - **Solution**: Add `required` attributes + BS5 `.was-validated` class on submit. Add `.invalid-feedback` elements for password mismatch on sign-up
+- **Implemented**: Added HTML5 validation attributes, custom password mismatch checking with `setCustomValidity()`, and BS5 feedback classes to all forms.
 
-#### 5.3 Loading States & Skeleton Screens
+#### 5.3 Loading States & Skeleton Screens ✅ Completed
 - **Files**: `datasets.html`, `detection.html`, `preprocessing.html`
 - **Problem**: Pages with data load without visual feedback
 - **Solution**: Add `<div class="placeholder-glow">` skeleton placeholders while content loads; add spinners to buttons that trigger async operations
+- **Implemented**: Added button spinners with disabled states to all async operations in `preprocessing.js` (Stage 1-3) and verified existing spinners in `detection.js` (XLSX export, pipeline execution).
 
 #### 5.4 Keyboard Navigation & ARIA
 - **Files**: `detection_results.html`, `preprocessing.html`
