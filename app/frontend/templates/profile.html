@@ -161,10 +161,10 @@
             e.preventDefault();
 
             const file = fileInput.files[0];
-            if (!file) return alert("Please select a file first.");
+            if (!file) return showToast("Please select a file first.");
 
             let stage = actionSelect.value;
-            if (!stage) return alert("Please select an stage.");
+            if (!stage) return showToast("Please select a stage.");
 
             const buttonSubmit = document.getElementById('btn-success-files')
             buttonSubmit.disabled = true;
@@ -180,7 +180,7 @@
             if (esCsv) {
                 const separator = csvSeparatorSelect.value;
                 if (!separator) {
-                    alert("Please select a separator for the CSV file.");
+                    showToast("Please select a separator for the CSV file.");
                     buttonSubmit.disabled = false;
                     buttonSubmit.textContent = 'Upload Dataset';
                     return;
@@ -191,7 +191,7 @@
             const textCol = document.getElementById('textColInput').value.trim()
             if (document.getElementById('textColumn').style.display != 'none') {
                 if (textCol === '') {
-                    alert('Please indicate the text Column for the raw data.');
+                    showToast("Please indicate the text column for the raw data.");
                     buttonSubmit.disabled = false;
                     buttonSubmit.textContent = 'Upload Dataset';
                     return;
@@ -205,7 +205,7 @@
             })
                 .then(res => res.json())
                 .then(data => {
-                    alert(data.message || data.error);
+                    showToast(data.message || data.error, data.error ? 'danger' : 'success');
                     buttonSubmit.disabled = false;
                     buttonSubmit.textContent = 'Upload Dataset';
                 })

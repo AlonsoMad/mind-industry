@@ -48,6 +48,15 @@ The application uses a mix of interaction patterns that must be preserved:
 - [x] Phase 2.5 Complete — Dark mode polish, hero redesign, modal usability, navbar contrast, responsive navbar
 - [ ] Phase 3 Deferred — HTMX requires backend changes
 - [x] Phase 4 Complete — All hardcoded colors fixed for dark mode
+- [x] Phase 5.1 Complete — All `alert()` calls replaced with BS5 toast notifications
+- [ ] Phase 5.2 Complete — Form validation feedback
+- [ ] Phase 5.3 Complete — Loading states & skeleton screens
+- [ ] Phase 5.4 Complete — Keyboard navigation & ARIA
+- [ ] Phase 5.5 Complete — Empty state design
+- [x] Phase 6 Complete — File splitting
+- [ ] Phase 6.3 Complete — Remove jQuery dependency
+- [ ] Phase 7 Complete — SEO & performance
+- [ ] Phase 8 Complete — Visual enhancements
 
 ---
 
@@ -106,16 +115,18 @@ Improvements to usability, accessibility, and overall feel.
 
 Structural improvements to maintainability and performance.
 
-#### 6.1 Split `detection.html` (2532 lines)
+#### 6.1 Split `detection.html` (2532 lines) ✅ Completed
 - **Problem**: Monolithic 95KB file mixing HTML, CSS, and 1500+ lines of JS
 - **Solution**: Extract into:
   - `static/js/detection.js` — all `<script>` blocks
   - `static/css/detection.css` — all `<style>` blocks
   - Keep only HTML structure and Jinja2 logic in the template
 - **Benefit**: Cacheable assets, easier debugging, syntax highlighting in IDE
+- **Result**: `detection.html` reduced to ~600 lines (-76%).
 
-#### 6.2 Split `preprocessing.html` (1304 lines)
+#### 6.2 Split `preprocessing.html` (1304 lines) ✅ Completed
 - Same approach: extract JS to `static/js/preprocessing.js`, CSS to `static/css/preprocessing.css`
+- **Result**: `preprocessing.html` reduced to ~450 lines (-66%).
 
 #### 6.3 Remove jQuery Dependency
 - **Files**: `detection.html` uses `$('#docModal').modal('show')` and `$('#logTerminal')`
