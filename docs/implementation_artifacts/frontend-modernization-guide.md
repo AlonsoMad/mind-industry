@@ -47,6 +47,7 @@ The application uses a mix of interaction patterns that must be preserved:
 - [x] Phase 2 Complete — All templates migrated to BS5 classes & attributes
 - [x] Phase 2.5 Complete — Dark mode polish, hero redesign, modal usability, navbar contrast, responsive navbar
 - [ ] Phase 3 Deferred — HTMX requires backend changes
+- [x] Phase 4 Complete — All hardcoded colors fixed for dark mode
 
 ---
 

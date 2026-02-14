@@ -9,11 +9,11 @@
 <p class="text-muted">Upload your dataset files (.parquet, .csv)</p>
 
 <form id="upload-form" enctype="multipart/form-data">
-    <div class="border rounded p-4 text-center bg-light" id="drop-zone">
+    <div class="border rounded p-4 text-center bg-body-secondary" id="drop-zone">
         <p class="mb-2">Drag & drop your file here, or click to select</p>
         <input type="file" name="dataset_file" id="file-input" class="d-none" accept=".parquet,.csv" required>
         <button type="button" class="btn btn-outline-primary btn-sm" id="browse-btn">Choose File</button>
-        <div id="error-message" style="color: red; display: none; margin-top: 5px;">
+        <div id="error-message" class="text-danger" style="display: none; margin-top: 5px;">
             File is too large. Maximum size allowed is 10MB.
         </div>
         <p class="mt-2 text-muted" id="file-name"></p>
@@ -55,19 +55,19 @@
 <h2 class="mt-3" style="margin-bottom: 20px;">Update {{ username }}'s information</h2>
 <form method="POST" action="/profile">
     <div class="mb-3">
-        <label for="username">Username</label>
+        <label for="username" class="form-label">Username</label>
         <input type="text" class="form-control" id="username" name="username" placeholder="{{ username }}">
     </div>
     <div class="mb-3">
-        <label for="email">Email address</label>
+        <label for="email" class="form-label">Email address</label>
         <input type="email" class="form-control" id="email" name="email" placeholder="{{ user_id }}">
     </div>
     <div class="mb-3">
-        <label for="password">Password</label>
+        <label for="password" class="form-label">Password</label>
         <input type="password" class="form-control" id="password" name="password">
     </div>
     <div class="mb-3">
-        <label for="password">Confirm password</label>
+        <label for="password_rep" class="form-label">Confirm password</label>
         <input type="password" class="form-control" id="password_rep" name="password_rep">
     </div>
     <button type="submit" class="btn btn-primary">Update Profile</button>

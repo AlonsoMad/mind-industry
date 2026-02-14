@@ -116,7 +116,7 @@
 </div>
 {% endif %}
 
-<div class="jumbotron" id='jumbotron-detection' style="height: 60vh; overflow-y: auto; padding: 2rem;">
+<div class="jumbotron" id='jumbotron-detection' style="height: 60vh; overflow: hidden; padding: 2rem;">
     {% if status in ['idle', 'initializing'] %}
     {% if dataset_detection %}
     <p class="lead">Start a session by selecting a dataset and a topic model associated:</p>
@@ -186,17 +186,15 @@
     <!-- Option 3: Docs lang1 -->
     {% if docs_data_1 %}
 
-    <div id="topicDocs1" style="display: none; width: 100%; height: 100%; position: relative; overflow: none;">
-        <div id="topicDocsContent1" style="overflow-y: auto; overflow-x: hidden; height: 100%; padding-bottom: 10px;">
+    <div id="topicDocs1" style="display: none; width: 100%; height: 100%; position: relative;">
+        <div id="topicDocsContent1" style="overflow-y: auto; overflow-x: hidden; padding-bottom: 10px;">
         </div>
 
-        <div id="paginationContainer1" class="d-flex justify-content-center align-items-center my-3" style="
-                    position: sticky;
-                    bottom: -5vh;
+        <div id="paginationContainer1" class="d-flex justify-content-center align-items-center" style="
                     background: var(--bs-body-bg);
-                    z-index: 10;
                     padding: 10px 0;
                     border-top: 1px solid var(--bs-border-color);
+                    flex-shrink: 0;
                 ">
         </div>
     </div>
@@ -394,17 +392,15 @@
     <!-- Option 4: Docs lang2 -->
     {% if docs_data_2 %}
 
-    <div id="topicDocs2" style="display: none; width: 100%; height: 100%; position: relative; overflow: none;">
-        <div id="topicDocsContent2" style="overflow-y: auto; overflow-x: hidden; height: 100%; padding-bottom: 10px;">
+    <div id="topicDocs2" style="display: none; width: 100%; height: 100%; position: relative;">
+        <div id="topicDocsContent2" style="overflow-y: auto; overflow-x: hidden; padding-bottom: 10px;">
         </div>
 
-        <div id="paginationContainer2" class="d-flex justify-content-center align-items-center my-3" style="
-                    position: sticky;
-                    bottom: -5vh;
+        <div id="paginationContainer2" class="d-flex justify-content-center align-items-center" style="
                     background: var(--bs-body-bg);
-                    z-index: 10;
                     padding: 10px 0;
                     border-top: 1px solid var(--bs-border-color);
+                    flex-shrink: 0;
                 ">
         </div>
     </div>
@@ -588,7 +584,7 @@
     {% endif %}
 
     <!-- Option 2: Keywords only -->
-    <div class="topic-accordion" style="display: none; overflow-y: auto; overflow-x: hidden;">
+    <div class="topic-accordion" style="display: none; height: 100%; overflow-y: auto; overflow-x: hidden;">
 
         {% for topic in topic_keys["topics"] %}
         <div class="topic-group mb-3 card border-0 shadow-sm">
@@ -830,7 +826,7 @@
         btnDocs1.addEventListener("click", () => {
             window.currentView = "docs";
             topicVis.style.display = "none";
-            topicDocs1.style.display = "block";
+            topicDocs1.style.display = "flex";
             topicDocs2.style.display = "none";
             topicAccordion.style.display = "none";
 
@@ -848,7 +844,7 @@
             window.currentView = "docs";
             topicVis.style.display = "none";
             topicDocs1.style.display = "none";
-            topicDocs2.style.display = "block";
+            topicDocs2.style.display = "flex";
             topicAccordion.style.display = "none";
 
             btnDocs1.classList.remove("active", "btn-primary");
@@ -915,7 +911,7 @@
 
     <!-- Table Result MIND -->
     <table id="resultsTable" class="table table-striped table-hover table-bordered align-middle">
-        <thead class="table-light">
+        <thead>
             <tr>
                 {% for col in result_columns %}
                 {% if col in ['label', 'final_label'] %}
@@ -1879,16 +1875,21 @@
         text-decoration: underline;
     }
 
-    .jumbotron::-webkit-scrollbar {
+    .dataset-accordion {
+        overflow-y: auto;
+        height: 100%;
+    }
+
+    .jumbotron ::-webkit-scrollbar {
         width: 8px;
     }
 
-    .jumbotron::-webkit-scrollbar-thumb {
+    .jumbotron ::-webkit-scrollbar-thumb {
         background-color: var(--bs-border-color);
         border-radius: 4px;
     }
 
-    .jumbotron::-webkit-scrollbar-thumb:hover {
+    .jumbotron ::-webkit-scrollbar-thumb:hover {
         background-color: var(--bs-secondary-color);
     }
 
@@ -1903,22 +1904,7 @@
         text-decoration: underline;
     }
 
-    #topicDocs1 {
-        width: 100%;
-        height: 100%;
-        position: relative;
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
-    #topicDocsContent1 {
-        height: 100%;
-        width: 100%;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
+    #topicDocs1,
     #topicDocs2 {
         width: 100%;
         height: 100%;
@@ -1926,13 +1912,22 @@
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
     }
 
+    #topicDocsContent1,
     #topicDocsContent2 {
-        height: 100%;
+        flex: 1 1 0;
+        min-height: 0;
         width: 100%;
         padding: 0;
         box-sizing: border-box;
+        overflow-y: auto;
+    }
+
+    .topic-accordion {
+        overflow-y: auto !important;
     }
 
     #paginationContainer1 {
@@ -2502,7 +2497,7 @@
 
 <style>
     .hover-text-primary:hover {
-        color: #007bff;
+        color: var(--bs-primary);
         cursor: pointer;
     }
 </style>
