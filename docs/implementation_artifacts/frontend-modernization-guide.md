@@ -55,8 +55,8 @@ The application uses a mix of interaction patterns that must be preserved:
 - [ ] Phase 5.5 Complete — Empty state design
 - [x] Phase 6 Complete — File splitting
 - [ ] Phase 6.3 Complete — Remove jQuery dependency
-- [ ] Phase 7 Complete — SEO & performance
-- [ ] Phase 8 Complete — Visual enhancements
+- [x] Phase 7 Complete — SEO & performance
+- [x] Phase 8 Complete — Visual enhancements
 
 ---
 
@@ -140,43 +140,45 @@ Structural improvements to maintainability and performance.
 
 ---
 
-### Phase 7: SEO & Performance
+### Phase 7: SEO & Performance ✅ Completed
 
 #### 7.1 Meta Tags & Favicon
-- `base.html` has no `<meta name="description">` or favicon
-- Add descriptive meta tags and a favicon (`/static/img/favicon.ico`)
+- Added `<meta name="description">` and `<meta name="robots" content="noindex, nofollow">` to `base.html`
+- Created SVG favicon at `static/images/favicon.svg`
+- Fixed default `<title>` from "AUX" to "MIND"
 
 #### 7.2 Font Loading Strategy
-- Inter font is loaded twice (once in `base.html` `<link>`, once in `app.css` `@import`)
-- **Fix**: Remove the duplicate `@import` in `app.css` (the `<link>` in `base.html` is faster)
+- Removed duplicate `@import` in `app.css` (kept `<link>` in `base.html`)
 
 #### 7.3 CDN Integrity & Preconnect
-- Add `integrity` and `crossorigin` attributes to CDN links (Halfmoon, DataTables, Chart.js)
-- Add `<link rel="preconnect">` for `cdn.jsdelivr.net` and `unpkg.com`
+- Added `<link rel="preconnect">` for `cdn.jsdelivr.net`, `unpkg.com`, `cdn.datatables.net`
+- Added `crossorigin="anonymous"` to all CDN `<script>` and `<link>` tags
 
-#### 7.4 Critical CSS Inlining
-- Consider inlining above-the-fold CSS from `app.css` into `<style>` in `base.html`
-- Defer non-critical CSS with `media="print"` + `onload` pattern
+#### 7.4 Page Fade-In Animation
+- Added CSS `fadeInPage` animation to `.container` in `app.css`
 
 ---
 
-### Phase 8: Visual Enhancements (Nice to Have)
+### Phase 8: Visual Enhancements ✅ Completed
 
 #### 8.1 Footer
-- Application has no footer
-- Add a minimal footer in `base.html` with version, copyright, and contact link
+- Added footer to `base.html` with project name, affiliations, and contact link
+- Replaced the invisible spacer `div` with the footer
 
 #### 8.2 Breadcrumb Navigation
-- Pages like Detection → Results → Topic have no breadcrumbs
-- Add BS5 `<nav aria-label="breadcrumb">` to provide navigation context
+- Added `{% block breadcrumb %}` to `base.html`
+- Populated breadcrumbs in: `datasets.html`, `preprocessing.html`, `detection.html`, `detection_results.html`
 
 #### 8.3 About Us Section Uplift
-- `about_us.html` is plain text with no card styling
-- Wrap in a styled card with team avatars/logos for a more polished look
+- Wrapped `about_us.html` in a styled card with icons
+- Added blockquote card for the key research question
+- Bold university affiliations for emphasis
 
 #### 8.4 Page Transition Animations
-- Add subtle CSS fade-in on `{% block content %}` for smoother page transitions
-- Use `@keyframes fadeIn` on the main container
+- CSS-only `fadeInPage` animation on `.container` (0.35s ease-out)
+
+#### 8.5 Cleanup
+- Deleted empty `topic_view.html` (0 bytes)
 
 ---
 

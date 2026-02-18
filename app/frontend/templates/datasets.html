@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Datasets{% endblock %}
 
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mt-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/"><i class="ph ph-house me-1"></i>Home</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Datasets</li>
+    </ol>
+</nav>
+{% endblock %}
+
 {% block content %}
 <h1 class="mt-4">Datasets</h1>
 <p>Check below the datasets available for use.</p>

@@ -1,6 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Detection Results{% endblock %}
 
+{% block breadcrumb %}
+<nav aria-label="breadcrumb" class="mt-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/"><i class="ph ph-house me-1"></i>Home</a></li>
+        <li class="breadcrumb-item"><a href="/detection">Detection</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Results</li>
+    </ol>
+</nav>
+{% endblock %}
+
 {% block content %}
 <h1 class="mt-4">Detection Discrepancies Results</h1>
 <p>Check below the Detection Results available for use.</p>
