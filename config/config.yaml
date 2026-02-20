@@ -95,6 +95,7 @@ llm:
   # Set model to any model listed in the corresponding backend section below.
   # -----------------------------------------------------------------------
   default:
+  #Mainly for testing purposes, feel free to change me :)!
     backend: gemini
     model: gemini-2.5-flash
 
