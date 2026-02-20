@@ -184,7 +184,7 @@ src/active_learning/blade_state.pkl
 src/colbert/ColBERT
 src/contradictions/dspy
 src/hfclient
-.env
+*.env
 .ipynb_checkpoints
 .venv
 src/qa_system/components/question_qenerator.py
@@ -223,3 +223,4 @@ figures/thesis
 notebooks/internal
 ablation/discrepancies/thesis
 .venv3
+/home/alonso/Projects/Mind-Industry/app/backend/.env

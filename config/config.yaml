@@ -89,12 +89,22 @@ mind:
 
 
 llm:
+  # -----------------------------------------------------------------------
+  # DEFAULT LLM SELECTION
+  # Set backend to: gemini | ollama | vllm | llama_cpp | openai
+  # Set model to any model listed in the corresponding backend section below.
+  # -----------------------------------------------------------------------
+  default:
+    backend: gemini
+    model: gemini-2.5-flash
+
   parameters:
     temperature: 0
     top_p: 0.1
     frequency_penalty: 0.0
     random_seed: 1234
     seed: 1234
+
   gpt:
     available_models:
       {
@@ -119,6 +129,7 @@ llm:
         "gpt-3.5-turbo-0301",
       }
     path_api_key: .env
+
   ollama:
     available_models: {
       "qwen2.5:72b",
@@ -130,16 +141,28 @@ llm:
       "qwen3:32b",
       "llama3.3:70b-instruct-q5_K_M"
     }
-    host: http://kumo01.tsc.uc3m.es:11434
+    # Named server map — add/remove servers here without touching Python code.
+    # The backend reads this map at startup; no Kumo URL should appear in code.
+    servers:
+      kumo01: http://kumo01.tsc.uc3m.es:11434
+      kumo02: http://kumo02.tsc.uc3m.es:11434
+    default_server: kumo01
+
   vllm:
     available_models: {
       "Qwen/Qwen3-8B",
       "Qwen/Qwen3-0.6B",
       "meta-llama/Meta-Llama-3-8B-Instruct"
     }
-    host: http://kumo01.tsc.uc3m.es:6000/v1
+    servers:
+      kumo01: http://kumo01.tsc.uc3m.es:6000/v1
+    default_server: kumo01
+
   llama_cpp:
-    host: http://kumo01:11435/v1/chat/completions
+    servers:
+      kumo01: http://kumo01:11435/v1/chat/completions
+    default_server: kumo01
+
   gemini:
     available_models:
       - "gemini-2.0-flash"

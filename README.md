@@ -1,6 +1,8 @@
 # MIND: Multilingual Inconsistent Notion Detection
 
-This repository contains the code and data for reproducing experiments from our paper **Discrepancy Detection at the Data Level: Toward Consistent Multilingual Question Answering**.
+MIND is a powerful, user-in-the-loop AI pipeline designed to systematically detect contradictions and discrepancies within text and contextual databases. 
+
+As AI agents and large context databases become central to enterprise operations, a fundamental question arises: *"How can my agents trust my data if it is not consistent?"* MIND addresses this by pruning and maintaining absolute contextual hygiene, ensuring that knowledge bases are free of contradictions and serve as reliable backbones for agentic workflows.
 
 <p align="center">
   <img src="figures_tables/Raupi5.png" alt="MIND pipeline" width="100%">
@@ -26,16 +28,16 @@ This repository contains the code and data for reproducing experiments from our 
 
 ## About MIND
 
-MIND (Multilingual Inconsistent Notion Detection) detects semantic discrepancies in multilingual content using a novel combination of polylingual topic modeling, hybrid retrieval, and large language models. The system is designed to work with loosely aligned multilingual corpora—documents that discuss similar topics but are not direct translations.
+MIND (Multilingual Inconsistent Notion Detection) detects contradictions and factual discrepancies in corporate and technical databases. The system is designed to work with large context DBs to ensure contextual hygiene for AI agents.
 
 **Key capabilities:**
 - Multi-LLM support (OpenAI, Ollama, vLLM, llama.cpp)
 - Hybrid retrieval combining topic-based and embedding-based methods
-- Web application for interactive analysis
-- Achieves 92% F1 score on controlled benchmark (FEVER-DPLACE-Q)
-- Topic-Based Exact Nearest Neighbor (TB-ENN) retrieval achieves 85% Recall@10
+- Web application for interactive database analysis
+- Polylingual Topic Modeling to filter the DB by themes.
+- Contextual pruning to identify redundant or noisy data
 
-**Applications** include Wikipedia consistency analysis, multilingual fact-checking, health information verification, and cultural bias detection.
+**Applications** include large corporate environments, technical documentation maintenance, specialized knowledge base verification, and context DB cleansing for agentic workflows.
 
 ## Documentation
 

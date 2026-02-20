@@ -10,11 +10,25 @@ from utils import cleanup_output_dir, aggregate_row
 from flask import Blueprint, request, jsonify, current_app, send_file, after_this_request
 
 
+import yaml
+
 preprocessing_bp = Blueprint('preprocessing', __name__, url_prefix='/preprocessing')
 
-OLLAMA_SERVER = {
-    "kumo02": "http://kumo02.tsc.uc3m.es:11434"
-}
+# ---------------------------------------------------------------------------
+# LLM Server configuration — loaded from config file, NOT hardcoded.
+# To add or change servers, edit the 'llm.ollama.servers' section of
+# /src/config/config.yaml.
+# ---------------------------------------------------------------------------
+def _load_ollama_servers(config_path: str = "/src/config/config.yaml") -> dict:
+    try:
+        with open(config_path) as f:
+            raw = yaml.safe_load(f)
+        return raw.get("llm", {}).get("ollama", {}).get("servers", {})
+    except Exception as e:
+        print(f"[WARNING] Could not load Ollama servers from {config_path}: {e}")
+        return {}
+
+OLLAMA_SERVER: dict = _load_ollama_servers()
 
 TASKS = {}
 
@@ -349,22 +363,34 @@ def labeltopic():
             print(f'Labeling Topic model (k = {k}) {output}...')
 
             try:
-                if labelTopic['llm_type'] == 'GPT':
+                llm_type = labelTopic.get('llm_type', 'default')
+
+                if llm_type == 'GPT':
+                    llm_model = labelTopic.get('llm')
                     llm_server = ''
                     with open(f'/data/{email}/.env', 'w') as f:
-                        f.write(f'OPEN_API_KEY={labelTopic['gpt_api']}')
-                
-                else:
-                    llm_server = OLLAMA_SERVER[labelTopic['ollama_server']]
+                        f.write(f'OPEN_API_KEY={labelTopic["gpt_api"]}')
+
+                elif llm_type == 'gemini' or llm_type == 'default':
+                    # Use the llm.default block from config.yaml — no model or server needed.
+                    llm_model = None
+                    llm_server = None
+
+                else:  # Ollama
+                    server_name = labelTopic.get('ollama_server')
+                    if not server_name or server_name not in OLLAMA_SERVER:
+                        raise ValueError(f"Unknown Ollama server '{server_name}'. Check llm.ollama.servers in config.yaml.")
+                    llm_model = labelTopic.get('llm')
+                    llm_server = OLLAMA_SERVER[server_name]
 
                 tl = TopicLabel(
                     lang1=lang1,
                     lang2=lang2,
                     model_folder=Path(output_dir),
-                    llm_model=labelTopic['llm'],
+                    llm_model=llm_model,   # None → TopicLabel uses Prompter.from_config()
                     llm_server=llm_server,
                     config_path='/src/config/config.yaml',
-                    env_path=f'/data/{email}/.env' if labelTopic["llm_type"] == 'GPT' else None
+                    env_path=f'/data/{email}/.env' if llm_type == 'GPT' else None
                 )
 
                 tl.label_topic()

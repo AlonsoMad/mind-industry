@@ -34,6 +34,43 @@ def hash_input(*args):
     return hashlib.md5(str(args).encode()).hexdigest()
 
 class Prompter:
+    # -----------------------------------------------------------------------
+    # Helper
+    # -----------------------------------------------------------------------
+    @staticmethod
+    def _resolve_host(backend_cfg: dict, explicit_host: str = None) -> str:
+        """Resolve an LLM host URL from the backend config block.
+
+        Priority:
+          1. ``explicit_host`` argument (passed at runtime, e.g. from the web app)
+          2. ``servers[default_server]`` in the config block
+          3. Legacy ``host`` key (backward-compat, will be removed in a future version)
+
+        Raises
+        ------
+        ValueError
+            If no host can be resolved.
+        """
+        if explicit_host:
+            return explicit_host
+
+        servers = backend_cfg.get("servers", {})
+        default_server = backend_cfg.get("default_server")
+        if servers and default_server and default_server in servers:
+            return servers[default_server]
+        if servers:  # fallback: first server in map
+            return next(iter(servers.values()))
+
+        # Legacy single-host key (deprecated)
+        legacy = backend_cfg.get("host")
+        if legacy:
+            return legacy
+
+        raise ValueError(
+            "No host configured. Add a 'servers' map and 'default_server' to "
+            "the relevant backend section in config.yaml."
+        )
+
     # Class-level client instances (initialized on first use)
     ollama_client = None
     gemini_client = None
@@ -112,8 +149,8 @@ class Prompter:
                     raise ValueError("OpenAI API key not found. Please set it in the .env file or pass it as an argument.")
             
         elif model_type in self.OLLAMA_MODELS:
-            ollama_host = llm_server or self.config.get("ollama", {}).get(
-                "host", "http://kumo01.tsc.uc3m.es:11434"
+            ollama_host = Prompter._resolve_host(
+                self.config.get("ollama", {}), explicit_host=llm_server
             )
             self._logger.info(f"Using ollama host: {ollama_host}")
             os.environ['OLLAMA_HOST'] = ollama_host
@@ -123,26 +160,19 @@ class Prompter:
                 host=ollama_host,
                 headers={'x-some-header': 'some-value'}
             )
-            self._logger.info(
-                f"Using OLLAMA API with host: {ollama_host}"
-            )
         elif model_type in self.VLLM_MODELS:
-            vllm_host = llm_server or self.config.get("vllm", {}).get(
-                "host", "http://localhost:6000/v1"
+            vllm_host = Prompter._resolve_host(
+                self.config.get("vllm", {}), explicit_host=llm_server
             )
             os.environ['VLLM_HOST'] = vllm_host
             self.backend = "vllm"
-            self._logger.info(
-                f"Using VLLM API with host: {vllm_host}"
-            )
+            self._logger.info(f"Using VLLM API with host: {vllm_host}")
         elif model_type == "llama_cpp":
-            self.llama_cpp_host = llm_server or self.config.get("llama_cpp", {}).get(
-                "host", "http://kumo01:11435/v1/chat/completions"
+            self.llama_cpp_host = Prompter._resolve_host(
+                self.config.get("llama_cpp", {}), explicit_host=llm_server
             )
             self.backend = "llama_cpp"
-            self._logger.info(
-                f"Using llama_cpp API with host: {self.llama_cpp_host}"
-            )
+            self._logger.info(f"Using llama_cpp API with host: {self.llama_cpp_host}")
         elif model_type in self.GEMINI_MODELS:
             if not GEMINI_AVAILABLE:
                 raise ImportError(
@@ -179,7 +209,48 @@ class Prompter:
             
             self.backend = "gemini"
         else:
-            raise ValueError("Unsupported model_type specified.")
+            raise ValueError(
+                f"Unsupported model_type '{model_type}'. "
+                "Check that it appears in the relevant backend's available_models list in config.yaml."
+            )
+
+    @classmethod
+    def from_config(
+        cls,
+        config_path: pathlib.Path = pathlib.Path("config/config.yaml"),
+        llm_server: str = None,
+        logger: "logging.Logger" = None,
+        **kwargs,
+    ) -> "Prompter":
+        """Instantiate a Prompter using the ``llm.default`` block in config.
+
+        This factory reads ``llm.default.backend`` and ``llm.default.model``
+        from the config file so callers don't need to know the model name at
+        call-site — just update config.yaml to switch backends.
+
+        Example
+        -------
+        >>> p = Prompter.from_config(config_path='config/config.yaml')
+        """
+        from mind.utils.utils import load_yaml_config_file, init_logger
+        _logger = logger or init_logger(config_path, __name__)
+        cfg = load_yaml_config_file(config_path, "llm", _logger)
+        default = cfg.get("default", {})
+        backend = default.get("backend")
+        model = default.get("model")
+        if not backend or not model:
+            raise ValueError(
+                "'llm.default.backend' and 'llm.default.model' must be set in config.yaml "
+                "to use Prompter.from_config()."
+            )
+        _logger.info(f"Prompter.from_config(): using backend='{backend}', model='{model}'")
+        return cls(
+            model_type=model,
+            llm_server=llm_server,
+            logger=_logger,
+            config_path=config_path,
+            **kwargs,
+        )
 
     @staticmethod
     @memory.cache
@@ -311,7 +382,11 @@ class Prompter:
         return result, logprobs, context
 
     @staticmethod
-    def _call_llama_cpp_api(template, question, params, llama_cpp_host="http://kumo01:11435/v1/chat/completions"):
+    def _call_llama_cpp_api(template, question, params, llama_cpp_host: str = None):
+        if not llama_cpp_host:
+            raise ValueError(
+                "llama_cpp_host is required. Configure it via 'llm.llama_cpp.servers' in config.yaml."
+            )
         """Handles the llama_cpp API call."""
         payload = {
             "messages": [
@@ -501,17 +576,15 @@ class Prompter:
                 temperature=temperature,
                 dry_run=False,
             )
-        
+            
         results = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all prompts
-            future_to_question = {
-                executor.submit(process_single, q): q for q in questions
-            }
+            # Submit all prompts in order
+            futures = [executor.submit(process_single, q) for q in questions]
             
-            # Collect results in order
-            for future in concurrent.futures.as_completed(future_to_question):
-                question = future_to_question[future]
+            # Collect results in original order
+            for i, future in enumerate(futures):
+                question = questions[i]
                 try:
                     result = future.result()
                     results.append(result)

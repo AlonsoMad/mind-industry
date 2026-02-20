@@ -60,42 +60,30 @@ function initLabelTopicToggle() {
    ────────────────────────────────────────────────────────── */
 function initLLMTypeVisibility() {
     const selectType = document.getElementById("llmSelect_type");
+    const geminiDiv = document.getElementById("llmSelect_gemini");
     const ollamaDiv = document.getElementById("llmSelect_ollama");
     const ollamaServer = document.getElementById("server_ollama");
     const gptDiv = document.getElementById("llmSelect_gpt");
     const gptApiKey = document.getElementById("gptApiKey");
     if (!selectType) return;
 
+    function show(el) { if (el) { el.classList.add("d-flex"); el.classList.remove("d-none"); } }
+    function hide(el) { if (el) { el.classList.remove("d-flex"); el.classList.add("d-none"); } }
+
     function updateVisibility() {
         const value = selectType.value;
 
         if (value === "GPT") {
-            ollamaDiv.classList.remove("d-flex");
-            ollamaDiv.classList.add("d-none");
-            ollamaServer.classList.remove("d-flex");
-            ollamaServer.classList.add("d-none");
-            gptDiv.classList.add("d-flex");
-            gptDiv.classList.remove("d-none");
-            gptApiKey.classList.add("d-flex");
-            gptApiKey.classList.remove("d-none");
+            hide(geminiDiv); hide(ollamaDiv); hide(ollamaServer);
+            show(gptDiv); show(gptApiKey);
         } else if (value === "ollama") {
-            ollamaDiv.classList.add("d-flex");
-            ollamaDiv.classList.remove("d-none");
-            ollamaServer.classList.add("d-flex");
-            ollamaServer.classList.remove("d-none");
-            gptDiv.classList.remove("d-flex");
-            gptDiv.classList.add("d-none");
-            gptApiKey.classList.remove("d-flex");
-            gptApiKey.classList.add("d-none");
+            hide(geminiDiv); hide(gptDiv); hide(gptApiKey);
+            show(ollamaDiv); show(ollamaServer);
+        } else if (value === "gemini") {
+            show(geminiDiv);
+            hide(ollamaDiv); hide(ollamaServer); hide(gptDiv); hide(gptApiKey);
         } else {
-            ollamaDiv.classList.remove("d-flex");
-            ollamaDiv.classList.add("d-none");
-            ollamaServer.classList.remove("d-flex");
-            ollamaServer.classList.add("d-none");
-            gptDiv.classList.remove("d-flex");
-            gptDiv.classList.add("d-none");
-            gptApiKey.classList.remove("d-flex");
-            gptApiKey.classList.add("d-none");
+            hide(geminiDiv); hide(ollamaDiv); hide(ollamaServer); hide(gptDiv); hide(gptApiKey);
         }
     }
 
@@ -343,14 +331,16 @@ function initStage2() {
             let llm_model = "";
             let gpt_api = "";
             let ollama_server = "";
-            if (llm_type == "ollama") {
+            if (llm_type === "gemini") {
+                llm_model = document.getElementById("llmSelect_gemini_input")?.value || "gemini-2.5-flash";
+            } else if (llm_type === "ollama") {
                 llm_model = document.getElementById("llmSelect_ollama_input").value;
                 ollama_server = document.getElementById('server_ollama_input').value;
                 if (!llm_model || !ollama_server) {
-                    showToast('Select an ollama LLM and kumo server.');
+                    showToast('Select an Ollama LLM and server.');
                     return;
                 }
-            } else if (llm_type == "GPT") {
+            } else if (llm_type === "GPT") {
                 llm_model = document.getElementById("llmSelect_gpt_input").value;
                 gpt_api = document.getElementById("gptApiKeyInput").value;
                 if (!gpt_api || !llm_model) {
@@ -358,7 +348,7 @@ function initStage2() {
                     return;
                 }
             } else {
-                showToast('Select GPT or ollama.');
+                showToast('Select GPT, Gemini, or Ollama.');
                 return;
             }
 

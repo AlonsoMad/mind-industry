@@ -23,10 +23,24 @@ from utils import get_TM_detection, obtain_langs_TM, obtainTextColumn, process_m
 detection_bp = Blueprint("detection", __name__)
 MIND_FRONTEND_URL = os.getenv('MIND_FRONTEND_URL', 'http://frontend:5000')
 
-OLLAMA_SERVER = {
-    "kumo01": "http://kumo01.tsc.uc3m.es:11434",
-    "kumo02": "http://kumo02.tsc.uc3m.es:11434"
-}
+# ---------------------------------------------------------------------------
+# LLM Server configuration — loaded from config file, NOT hardcoded.
+# To add or change servers, edit the 'llm.ollama.servers' section of
+# /src/config/config.yaml.
+# ---------------------------------------------------------------------------
+def _load_llm_config(config_path: str = "/src/config/config.yaml") -> dict:
+    """Load the full llm config block from the YAML config file."""
+    try:
+        with open(config_path) as f:
+            raw = yaml.safe_load(f)
+        return raw.get("llm", {})
+    except Exception as e:
+        print(f"[WARNING] Could not load LLM config from {config_path}: {e}")
+        return {}
+
+_llm_cfg = _load_llm_config()
+OLLAMA_SERVER: dict = _llm_cfg.get("ollama", {}).get("servers", {})
+GEMINI_MODELS: list = _llm_cfg.get("gemini", {}).get("available_models", [])
 ACTIVE_OLLAMA_SERVERS = []
 
 active_processes = {}
@@ -194,24 +208,45 @@ def getTopicKeys():
         print(str(e))
         return jsonify({"error": f"ERROR: {str(e)}"}), 500
     
+@detection_bp.route('/detection/servers', methods=['GET'])
+def getServers():
+    """Return the list of configured LLM server names.
+    
+    The frontend uses this to populate the server selector without any
+    hardcoded names.
+    """
+    try:
+        return jsonify({
+            "ollama_servers": list(OLLAMA_SERVER.keys()),
+            "gemini_models": GEMINI_MODELS,
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @detection_bp.route('/detection/models', methods=['GET'])
 def getModels():
     try:
-        models_detection = ["qwen2.5:72b", "llama3.2", "llama3.1:8b-instruct-q8_0", "qwen:32b", "llama3.3:70b", "qwen2.5:7b-instruct", "qwen3:32b", "llama3.3:70b-instruct-q5_K_M", "llama3:8b"]
-        avaible_models = {}
-        for server in OLLAMA_SERVER.keys():
-            response = requests.get(f"{OLLAMA_SERVER[server]}/v1/models")
-            if response.status_code == 200:
-                data = response.json()
-                models_server = [m['id'] for m in data['data']]  
-                
-                avaible_models[server] = []
-                for model in models_detection:
-                    if model in models_server:
-                        avaible_models[server].append(model)
-        
-        return jsonify({"models": avaible_models}), 200
-    
+        # Ollama: probe each configured server for its loaded models
+        available_models = {}
+        for server_name, server_url in OLLAMA_SERVER.items():
+            try:
+                response = requests.get(f"{server_url}/v1/models", timeout=5)
+                if response.status_code == 200:
+                    data = response.json()
+                    server_models = [m['id'] for m in data['data']]
+                    available_models[server_name] = server_models
+                else:
+                    available_models[server_name] = []
+            except Exception:
+                available_models[server_name] = []
+
+        # Gemini: always available (API-key gated, not server-gated)
+        if GEMINI_MODELS:
+            available_models["gemini"] = GEMINI_MODELS
+
+        return jsonify({"models": available_models}), 200
+
     except Exception as e:
         print(str(e))
         return jsonify({"error": f"ERROR: {str(e)}"}), 500
@@ -406,17 +441,30 @@ def analyse_contradiction():
         lang = obtain_langs_TM(pathTM)
         textCol = obtainTextColumn(email, pathCorpus.replace('/dataset', '').split('/')[-1])
 
-        if config['llm_type'] == 'GPT':
+        llm_type = config.get('llm_type', 'default')
+
+        if llm_type == 'GPT':
+            llm_model = config.get('llm')
             llm_server = ''
             with open(f'/data/{email}/.env', 'w') as f:
-                f.write(f'OPEN_API_KEY={config['gpt_api']}')
-        
-        else:
-            llm_server = OLLAMA_SERVER[config['ollama_server']]
+                f.write(f'OPEN_API_KEY={config["gpt_api"]}')
+
+        elif llm_type == 'gemini' or llm_type == 'default':
+            # Use the llm.default block from config.yaml — no model or server needed here.
+            llm_model = None
+            llm_server = None
+
+        else:  # Ollama
+            server_name = config.get('ollama_server')
+            if not server_name or server_name not in OLLAMA_SERVER:
+                return jsonify({"error": f"Unknown Ollama server '{server_name}'. Check llm.ollama.servers in config.yaml."}), 400
+            llm_model = config.get('llm')
+            llm_server = OLLAMA_SERVER[server_name]
             global ACTIVE_OLLAMA_SERVERS
-            if config['llm'] in ACTIVE_OLLAMA_SERVERS:
-                return jsonify({"error": f"{config['llm']} is in use. Please, choose another ollama LLM."}), 500
-            else: ACTIVE_OLLAMA_SERVERS.append(config['llm'])
+            if llm_model in ACTIVE_OLLAMA_SERVERS:
+                return jsonify({"error": f"{llm_model} is in use. Please, choose another ollama LLM."}), 500
+            else:
+                ACTIVE_OLLAMA_SERVERS.append(llm_model)
         
         # =========================
         # =      CONFIG PART      =
@@ -448,13 +496,13 @@ def analyse_contradiction():
         }
 
         cfg = {
-            "llm_model": config['llm'],
+            "llm_model": llm_model,   # None → MIND uses Prompter.from_config()
             "llm_server": llm_server,
             "source_corpus": source_corpus,
             "target_corpus": target_corpus,
             "retrieval_method": config['method'],
             "config_path": '/src/config/config.yaml',
-            "env_path": f'/data/{email}/.env' if config["llm_type"] == 'GPT' else None
+            "env_path": f'/data/{email}/.env' if llm_type == 'GPT' else None
         }
 
         run_kwargs = {

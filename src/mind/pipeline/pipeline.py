@@ -141,7 +141,7 @@ class MIND:
 
     def __init__(
         self,
-        llm_model: str,
+        llm_model: str = None,
         llm_server: str = None,
         source_corpus: Union[Corpus, dict] = None,
         target_corpus: Union[Corpus, dict] = None,
@@ -178,19 +178,35 @@ class MIND:
         except Exception as e:
             self._logger.error(f"Failed to load environment variables: {e}")
 
-        self._prompter = Prompter(
-            model_type=llm_model,
-            llm_server=llm_server,
-            config_path=config_path,
-            openai_key=open_api_key
-        )
-
-        self._prompter_answer = Prompter(
-            model_type=llm_model,
-            llm_server=llm_server,
-            config_path=config_path,
-            openai_key=open_api_key
-        )
+        # Build Prompter: use explicit model if provided, otherwise fall back to
+        # the llm.default block in config.yaml (Prompter.from_config).
+        if llm_model:
+            self._prompter = Prompter(
+                model_type=llm_model,
+                llm_server=llm_server,
+                config_path=config_path,
+                openai_key=open_api_key
+            )
+            self._prompter_answer = Prompter(
+                model_type=llm_model,
+                llm_server=llm_server,
+                config_path=config_path,
+                openai_key=open_api_key
+            )
+        else:
+            self._logger.info(
+                "No llm_model specified — using llm.default from config.yaml"
+            )
+            self._prompter = Prompter.from_config(
+                config_path=config_path,
+                llm_server=llm_server,
+                logger=self._logger,
+            )
+            self._prompter_answer = Prompter.from_config(
+                config_path=config_path,
+                llm_server=llm_server,
+                logger=self._logger,
+            )
         self.prompts = {}
         for name in ["question_generation", "subquery_generation", "answer_generation", "contradiction_checking", "relevance_checking"]:
             path = self.config.get("prompts", {}).get(name)

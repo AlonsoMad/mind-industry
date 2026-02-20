@@ -366,6 +366,7 @@ function drawTopicVis(topicsData) {
 
 /* ---------- Topic View Toggle ---------- */
 function initTopicViewToggle(topicsData) {
+    console.log("[DEBUG] initTopicViewToggle called with topicsData:", topicsData);
     window.currentView = "visual";
     window.currentVisibleTopics = [];
 
@@ -377,6 +378,8 @@ function initTopicViewToggle(topicsData) {
     const topicDocs1 = document.getElementById("topicDocs1");
     const topicDocs2 = document.getElementById("topicDocs2");
     const topicAccordion = document.querySelector(".topic-accordion");
+
+    console.log("[DEBUG] Elements found:", { btnVisual, btnText, btnDocs1, btnDocs2, topicVis, topicDocs1, topicDocs2, topicAccordion });
 
     function setActive(active) {
         [btnVisual, btnText, btnDocs1, btnDocs2].forEach(btn => {
@@ -393,6 +396,7 @@ function initTopicViewToggle(topicsData) {
 
     if (btnVisual) {
         btnVisual.addEventListener("click", () => {
+            console.log("[DEBUG] Visual button clicked");
             window.currentView = "visual";
             if (topicVis) topicVis.style.display = "block";
             if (topicDocs1) topicDocs1.style.display = "none";
@@ -405,6 +409,7 @@ function initTopicViewToggle(topicsData) {
 
     if (btnText) {
         btnText.addEventListener("click", () => {
+            console.log("[DEBUG] Text button clicked");
             window.currentView = "text";
             if (topicVis) topicVis.style.display = "none";
             if (topicDocs1) topicDocs1.style.display = "none";
@@ -566,14 +571,18 @@ function initResultsDataTable() {
             },
             { orderable: false, targets: nonOrderable },
         ],
-        pageLength: 10,
+        pageLength: 25,
+        lengthMenu: [[10, 25, 50, 100, -1], ["10", "25", "50", "100", "All"]],
+        scrollY: "50vh",
+        scrollCollapse: true,
         orderCellsTop: true,
         autoWidth: false,
         language: {
             zeroRecords: "No records were found",
-            info: "Showing _START_ to _END_ from _TOTAL_ records",
+            info: "Showing _START_ to _END_ of _TOTAL_ records",
             infoEmpty: "Showing 0 records",
-            infoFiltered: ""
+            infoFiltered: "(filtered from _MAX_ total)",
+            lengthMenu: "Show _MENU_ rows"
         }
     });
 
@@ -739,6 +748,74 @@ function initResultsDataTable() {
     });
 
     table.draw();
+    initLabelFilterBar(table, activeFilters, possibleValues);
+}
+
+/* ---------- Label Quick-Filter Bar ---------- */
+function initLabelFilterBar(table, activeFilters, possibleValues) {
+    const bar = document.getElementById('label-filter-bar');
+    if (!bar) return;
+
+    const countEl = document.getElementById('label-filter-count');
+    const allBtn = document.getElementById('lf-btn-all');
+    const quickBtns = bar.querySelectorAll('.label-filter-quick');
+
+    // Update row-count badge after every DataTable draw
+    table.on('draw.dt', function () {
+        const info = table.page.info();
+        if (countEl) {
+            countEl.textContent = info.recordsDisplay === info.recordsTotal
+                ? `${info.recordsTotal} rows`
+                : `${info.recordsDisplay} / ${info.recordsTotal} rows`;
+        }
+    });
+
+    function setAllActive() {
+        allBtn.classList.add('active');
+        quickBtns.forEach(b => b.style.opacity = '1');
+
+        // Reset both filter columns to show all values
+        ['label', 'final_label'].forEach(col => {
+            activeFilters[col] = possibleValues[col].slice();
+            // Sync hidden checkboxes too
+            document.querySelectorAll(`.filter-checkbox[data-value]`).forEach(cb => {
+                const colBtn = cb.closest('.dropdown-menu')?.previousElementSibling;
+                if (colBtn && colBtn.dataset.column === col) cb.checked = true;
+            });
+        });
+        table.draw();
+    }
+
+    function setFilter(value) {
+        allBtn.classList.remove('active');
+        quickBtns.forEach(b => {
+            b.style.opacity = b.dataset.lfValue === value ? '1' : '0.45';
+        });
+
+        ['label', 'final_label'].forEach(col => {
+            activeFilters[col] = [value];
+            document.querySelectorAll(`.filter-checkbox`).forEach(cb => {
+                const colBtn = cb.closest('.dropdown-menu')?.previousElementSibling;
+                if (colBtn && colBtn.dataset.column === col) {
+                    cb.checked = (cb.dataset.value === value || cb.dataset.value === 'ALL') ? false : false;
+                    cb.checked = (cb.dataset.value === value);
+                }
+            });
+        });
+        table.draw();
+    }
+
+    allBtn.addEventListener('click', setAllActive);
+    quickBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Toggle: clicking the active filter again resets to All
+            if (btn.style.opacity !== '0.45' && !allBtn.classList.contains('active')) {
+                setAllActive();
+            } else {
+                setFilter(btn.dataset.lfValue);
+            }
+        });
+    });
 }
 
 /* ---------- Load Result Chunk ---------- */
@@ -970,30 +1047,30 @@ function initLLMConfigToggle() {
     const selectType = document.getElementById("llmSelect_type");
     if (!selectType) return;
 
+    const geminiDiv = document.getElementById("llmSelect_gemini");
     const ollamaDiv = document.getElementById("llmSelect_ollama");
     const ollamaServer = document.getElementById("server_ollama");
     const gptDiv = document.getElementById("llmSelect_gpt");
     const gptApiKey = document.getElementById("gptApiKey");
 
+    function show(el) { if (el) { el.classList.add("d-flex"); el.classList.remove("d-none"); } }
+    function hide(el) { if (el) { el.classList.remove("d-flex"); el.classList.add("d-none"); } }
+
     function updateVisibility() {
         const value = selectType.value;
 
         if (value === "GPT") {
-            ollamaDiv.classList.remove("d-flex"); ollamaDiv.classList.add("d-none");
-            ollamaServer.classList.remove("d-flex"); ollamaServer.classList.add("d-none");
-            gptDiv.classList.add("d-flex"); gptDiv.classList.remove("d-none");
-            gptApiKey.classList.add("d-flex"); gptApiKey.classList.remove("d-none");
-        }
-        else if (value === "ollama") {
-            ollamaDiv.classList.add("d-flex"); ollamaDiv.classList.remove("d-none");
-            ollamaServer.classList.add("d-flex"); ollamaServer.classList.remove("d-none");
-            gptDiv.classList.remove("d-flex"); gptDiv.classList.add("d-none");
-            gptApiKey.classList.remove("d-flex"); gptApiKey.classList.add("d-none");
-        }
-        else {
-            [ollamaDiv, ollamaServer, gptDiv, gptApiKey].forEach(el => {
-                el.classList.remove("d-flex"); el.classList.add("d-none");
-            });
+            hide(geminiDiv); hide(ollamaDiv); hide(ollamaServer);
+            show(gptDiv); show(gptApiKey);
+        } else if (value === "ollama") {
+            hide(geminiDiv); hide(gptDiv); hide(gptApiKey);
+            show(ollamaDiv); show(ollamaServer);
+        } else if (value === "gemini") {
+            show(geminiDiv);
+            hide(ollamaDiv); hide(ollamaServer); hide(gptDiv); hide(gptApiKey);
+        } else {
+            // default / config-driven — hide everything, backend uses Prompter.from_config()
+            hide(geminiDiv); hide(ollamaDiv); hide(ollamaServer); hide(gptDiv); hide(gptApiKey);
         }
     }
 
@@ -1182,27 +1259,26 @@ class MINDInterface {
                 let llm_model = "";
                 let gpt_api = "";
                 let ollama_server = "";
-                if (llm_type == "ollama") {
+
+                if (llm_type === "gemini") {
+                    // Use selected Gemini model; backend uses Prompter.from_config() or the model name.
+                    llm_model = document.getElementById("llmSelect_gemini_input")?.value || "gemini-2.5-flash";
+                } else if (llm_type === "ollama") {
                     llm_model = document.getElementById("llmSelect_ollama_input").value;
                     ollama_server = document.getElementById('server_ollama_input').value;
-
                     if (!llm_model || !ollama_server) {
-                        showToast('Select an ollama LLM and kumo server.');
+                        showToast('Select an Ollama LLM and server.');
                         return;
                     }
-                }
-                else if (llm_type == "GPT") {
+                } else if (llm_type === "GPT") {
                     llm_model = document.getElementById("llmSelect_gpt_input").value;
                     gpt_api = document.getElementById("gptApiKeyInput").value;
-
                     if (!gpt_api || !llm_model) {
                         showToast('Select a GPT LLM and indicate your API Key.');
                         return;
                     }
-                }
-                else {
-                    showToast('Select GPT or ollama.');
-                    return;
+                } else {
+                    // Unknown type — let backend use Prompter.from_config() default.
                 }
 
                 const config = {
