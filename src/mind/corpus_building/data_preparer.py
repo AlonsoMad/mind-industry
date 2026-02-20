@@ -264,8 +264,8 @@ class DataPreparer:
         comparison_df = pd.read_parquet(comparison_path)
 
         # Use lang column directly from schema
-        anchor_lang = anchor_df[self.schema["lang"]].iloc[0]
-        comp_lang = comparison_df[self.schema["lang"]].iloc[0]
+        anchor_lang = str(anchor_df[self.schema["lang"]].iloc[0]).upper()
+        comp_lang = str(comparison_df[self.schema["lang"]].iloc[0]).upper()
         self._logger.info(
             f"Anchor language: {anchor_lang}, Comparison language: {comp_lang}")
 

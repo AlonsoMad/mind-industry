@@ -1210,6 +1210,18 @@ class MINDInterface {
             });
         });
 
+        // "All" sample toggle
+        const sampleAllBtn = document.getElementById('sampleAllBtn');
+        const sampleSizeInput = document.getElementById('sampleSizeInput');
+        if (sampleAllBtn && sampleSizeInput) {
+            sampleAllBtn.addEventListener('click', () => {
+                const isActive = sampleAllBtn.classList.toggle('active');
+                sampleSizeInput.disabled = isActive;
+                sampleAllBtn.classList.toggle('btn-secondary', isActive);
+                sampleAllBtn.classList.toggle('btn-outline-secondary', !isActive);
+            });
+        }
+
         if (this.form) {
             this.form.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -1245,9 +1257,11 @@ class MINDInterface {
                     return;
                 }
 
-                const sampleSizeInput = document.getElementById('sampleSizeInput').value;
+                const sampleAllBtn = document.getElementById('sampleAllBtn');
+                const isAllSamples = sampleAllBtn && sampleAllBtn.classList.contains('active');
+                const sampleSizeInput = isAllSamples ? null : document.getElementById('sampleSizeInput').value;
 
-                if (sampleSizeInput < 1) {
+                if (!isAllSamples && sampleSizeInput < 1) {
                     showToast('Sample Size must be greater than 0.');
                     return;
                 }

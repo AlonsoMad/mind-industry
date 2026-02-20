@@ -413,10 +413,14 @@
 <div id="label-filter-bar" class="d-flex flex-wrap align-items-center gap-2 mb-2">
     <span class="text-muted small me-1">Filter by label:</span>
     <button class="btn btn-sm btn-secondary active" id="lf-btn-all" data-lf-value="ALL">All</button>
-    <button class="btn btn-sm label-filter-quick" id="lf-btn-contradiction" data-lf-value="CONTRADICTION" style="background:#dc3545;color:#fff;border:none;">CONTRADICTION</button>
-    <button class="btn btn-sm label-filter-quick" id="lf-btn-cultural" data-lf-value="CULTURAL_DISCREPANCY" style="background:#ffc107;color:#212529;border:none;">CULTURAL_DISCREPANCY</button>
-    <button class="btn btn-sm label-filter-quick" id="lf-btn-noinfo" data-lf-value="NOT_ENOUGH_INFO" style="background:#17a2b8;color:#fff;border:none;">NOT_ENOUGH_INFO</button>
-    <button class="btn btn-sm label-filter-quick" id="lf-btn-nodiscrepancy" data-lf-value="NO_DISCREPANCY" style="background:#28a745;color:#fff;border:none;">NO_DISCREPANCY</button>
+    <button class="btn btn-sm label-filter-quick" id="lf-btn-contradiction" data-lf-value="CONTRADICTION"
+        style="background:#dc3545;color:#fff;border:none;">CONTRADICTION</button>
+    <button class="btn btn-sm label-filter-quick" id="lf-btn-cultural" data-lf-value="CULTURAL_DISCREPANCY"
+        style="background:#ffc107;color:#212529;border:none;">CULTURAL_DISCREPANCY</button>
+    <button class="btn btn-sm label-filter-quick" id="lf-btn-noinfo" data-lf-value="NOT_ENOUGH_INFO"
+        style="background:#17a2b8;color:#fff;border:none;">NOT_ENOUGH_INFO</button>
+    <button class="btn btn-sm label-filter-quick" id="lf-btn-nodiscrepancy" data-lf-value="NO_DISCREPANCY"
+        style="background:#28a745;color:#fff;border:none;">NO_DISCREPANCY</button>
     <span class="ms-auto text-muted small" id="label-filter-count"></span>
 </div>
 
@@ -446,10 +450,12 @@
 
     <!-- Run Pipeline Controls -->
     <div class="d-flex flex-wrap align-items-center gap-2">
-        <div class="input-group" style="max-width: 200px;">
+        <div class="input-group" style="max-width: 260px;">
             <span class="input-group-text bg-body-secondary border-secondary-subtle">Sample Size</span>
             <input type="number" class="form-control border-secondary-subtle" id="sampleSizeInput" name="n_samples"
                 placeholder="5" value="5" min="1" style="max-width: 80px;">
+            <button type="button" class="btn btn-outline-secondary border-secondary-subtle" id="sampleAllBtn"
+                title="Use all available samples" data-no-warning>All</button>
         </div>
 
         <button class="btn btn-primary d-flex align-items-center gap-2 mode-selectors" id="analyze_contradictions"
@@ -593,17 +599,36 @@
 
 
 <!-- Data Bridge: server-side data for detection.js -->
+{% if docs_data_1 %}
+<script type="application/json" id="__data_docsData1">{{ docs_data_1 | tojson }}</script>{% endif %}
+{% if docs_data_2 %}
+<script type="application/json" id="__data_docsData2">{{ docs_data_2 | tojson }}</script>{% endif %}
+{% if topic_keys %}
+<script type="application/json" id="__data_topicKeys">{{ topic_keys | tojson }}</script>{% endif %}
+{% if columns_json %}
+<script type="application/json" id="__data_columnsJson">{{ columns_json | safe }}</script>{% endif %}
+{% if result_columns %}
+<script type="application/json" id="__data_resultColumns">{{ result_columns | tojson }}</script>{% endif %}
+{% if non_orderable_indices %}
+<script type="application/json" id="__data_nonOrderableIndices">{{ non_orderable_indices | safe }}</script>{% endif %}
+{% if avaible_models %}
+<script type="application/json" id="__data_availableModels">{{ avaible_models | tojson }}</script>{% endif %}
 <script>
+    function __readData(id) {
+        var el = document.getElementById(id);
+        if (!el) return undefined;
+        try { return JSON.parse(el.textContent); } catch (e) { console.warn('Data parse error for ' + id, e); return undefined; }
+    }
     window.__DETECTION_DATA = {
-    {% if docs_data_1 %} docsData1: {{ docs_data_1 | tojson | safe }}, {% endif %}
-    {% if docs_data_2 %} docsData2: {{ docs_data_2 | tojson | safe }}, {% endif %}
-    {% if topic_keys %} topicKeys: {{ topic_keys | tojson }}, {% endif %}
-    {% if columns_json %} columnsJson: {{ columns_json | safe }}, {% endif %}
-    {% if result_columns %} resultColumns: {{ result_columns | tojson | safe }}, {% endif %}
-    {% if non_orderable_indices %} nonOrderableIndices: {{ non_orderable_indices | safe }}, {% endif %}
-    {% if avaible_models %} availableModels: {{ avaible_models | tojson }}, {% endif %}
-    {% if csrf_token %} csrfToken: "{{ csrf_token }}", {% endif %}
-  };
+        docsData1: __readData('__data_docsData1'),
+        docsData2: __readData('__data_docsData2'),
+        topicKeys: __readData('__data_topicKeys'),
+        columnsJson: __readData('__data_columnsJson'),
+        resultColumns: __readData('__data_resultColumns'),
+        nonOrderableIndices: __readData('__data_nonOrderableIndices'),
+        availableModels: __readData('__data_availableModels'),
+        {% if csrf_token %} csrfToken: "{{ csrf_token }}", {% endif %}
+    };
 </script>
 
 <!-- External CDN dependencies -->

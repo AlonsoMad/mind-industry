@@ -148,7 +148,7 @@ class MIND:
         retrieval_method: str = "TB-ENN",
         multilingual: bool = True,
         lang: str = "en",
-        config_path: Path = Path("config/config.yaml"),
+        config_path: Path = Path("/src/config/config.yaml"),
         logger=None,
         dry_run: bool = False,
         do_check_entailement: bool = False,

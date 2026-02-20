@@ -507,7 +507,7 @@ def analyse_contradiction():
 
         run_kwargs = {
             "topics": [x - 1 for x in comma_separated_ints(topics)],
-            "sample_size": int(sample_size),
+            "sample_size": int(sample_size) if sample_size is not None else None,
             "path_save": path_results
         }
 
