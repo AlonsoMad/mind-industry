@@ -166,10 +166,10 @@
             <ul id="content-{{ loop.index }}" class="list-group list-group-flush dataset-list"
                 style="display:none; margin:0; border-top:1px solid var(--bs-border-color);">
                 {% for tm in topicmodel_list %}
-                <li class="list-group-item dataset-item hover-text-primary dataset-entry"
+                <li class="list-group-item dataset-item hover-text-primary dataset-entry p-0"
                     style="background-color:var(--bs-tertiary-bg); border:none; border-bottom:1px solid var(--bs-border-color);"
                     dataset-tm='{ "dataset_name": "{{ dataset }}", "topic_model": "{{ tm }}" }'>
-                    <a class="dataset-link d-block px-2 py-1">
+                    <a class="dataset-link d-block p-3">
                         Topic Model: {{ tm }}
                     </a>
                 </li>
