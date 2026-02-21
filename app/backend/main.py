@@ -34,7 +34,18 @@ logging.getLogger("werkzeug").addFilter(ThrottleStatusFilter(30))
 
 @app.before_request
 def cancel_active_pipeline():
-    if request.path == "/log_detection" or request.path == "/pipeline_status" or request.path == "/detection/pipeline_status":
+    # These endpoints are safe to call while the pipeline is running and must
+    # NOT cancel it. All result-fetching and status-polling paths go here.
+    SAFE_PATHS = {
+        "/log_detection",
+        "/pipeline_status",
+        "/detection/pipeline_status",
+        "/detection/result_mind",
+        "/detection/update_results",
+        "/cancel_detection",
+        "/stream_detection",
+    }
+    if request.path in SAFE_PATHS:
         return
 
     email = request.args.get("email") or request.args.get("user_id")
@@ -85,8 +96,9 @@ def pipeline_status():
             return jsonify({"status": "finished"}), 200
         else:
             try:
-                shutil.rmtree(f'/data/{email}/4_Detection/{TM}_contradiction/{topics}/')
-                os.rmdir(f'/data/{email}/4_Detection/{TM}_contradiction/{topics}/')
+                from detection import _topics_to_path_slug
+                topics_slug = _topics_to_path_slug(topics)
+                shutil.rmtree(f'/data/{email}/4_Detection/{TM}_contradiction/{topics_slug}/')
             except: pass
             return jsonify({"status": "error"}), 500
 

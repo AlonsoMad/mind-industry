@@ -23,6 +23,18 @@ from utils import get_TM_detection, obtain_langs_TM, obtainTextColumn, process_m
 detection_bp = Blueprint("detection", __name__)
 MIND_FRONTEND_URL = os.getenv('MIND_FRONTEND_URL', 'http://frontend:5000')
 
+
+def _topics_to_path_slug(topics: str) -> str:
+    """Convert a comma-separated topics string to a filesystem-safe slug.
+
+    Examples
+    --------
+    '1,2,3,4,5'  -> '1_2_3_4_5'
+    '3'          -> '3'
+    '1, 2 , 3'   -> '1_2_3'
+    """
+    return re.sub(r'\s*,\s*', '_', str(topics).strip())
+
 # ---------------------------------------------------------------------------
 # LLM Server configuration — loaded from config file, NOT hardcoded.
 # To add or change servers, edit the 'llm.ollama.servers' section of
@@ -359,14 +371,15 @@ def pipeline_status():
         data = request.get_json()
         global lock, active_processes
         with lock:
+            _slug = _topics_to_path_slug(data['topics'])
             if data['email'] in active_processes:
                 if active_processes[data['email']]['process'].is_alive():
                     return jsonify({"status": "running"}), 200
-                elif os.path.exists(f'/data/{data['email']}/4_Detection/{data['TM']}_contradiction/{data['topics']}/mind_results.parquet'):
+                elif os.path.exists(f'/data/{data["email"]}/4_Detection/{data["TM"]}_contradiction/{_slug}/mind_results.parquet'):
                     return jsonify({"status": "finished"}), 200
                 return jsonify({"status": "error"}), 500
             else:
-                if os.path.exists(f'/data/{data['email']}/4_Detection/{data['TM']}_contradiction/{data['topics']}/mind_results.parquet'):
+                if os.path.exists(f'/data/{data["email"]}/4_Detection/{data["TM"]}_contradiction/{_slug}/mind_results.parquet'):
                     return jsonify({"status": "finished"}), 200
                 return jsonify({"status": "error"}), 500
             
@@ -425,7 +438,8 @@ def analyse_contradiction():
         config = data.get("config")
 
         # First check if was analyse before
-        path_results = f'/data/{email}/4_Detection/{TM}_contradiction/{topics}/'
+        topics_slug = _topics_to_path_slug(topics)
+        path_results = f'/data/{email}/4_Detection/{TM}_contradiction/{topics_slug}/'
         if os.path.exists(path_results):
             print('Results were done before.')
             return jsonify({"message": "Pipeline done correctly"}), 200
@@ -559,7 +573,8 @@ def get_results_mind():
         start = int(data.get("start", 0))
         end = start + ROWS_PER_PAGE
 
-        df = pd.read_parquet(f'/data/{email}/4_Detection/{TM}_contradiction/{topics}/mind_results.parquet', engine='pyarrow')
+        topics_slug = _topics_to_path_slug(topics)
+        df = pd.read_parquet(f'/data/{email}/4_Detection/{TM}_contradiction/{topics_slug}/mind_results.parquet', engine='pyarrow')
         df_rows = df.iloc[start:end]
         result_mind = df_rows.to_dict(orient='records')
         result_columns = df.columns.tolist()
@@ -613,11 +628,12 @@ def update_result_mind():
 
         df_xlsx.columns = keys
 
-        df = pd.read_parquet(f'/data/{email}/4_Detection/{TM}_contradiction/{topics}/mind_results.parquet', engine='pyarrow')
+        topics_slug = _topics_to_path_slug(topics)
+        df = pd.read_parquet(f'/data/{email}/4_Detection/{TM}_contradiction/{topics_slug}/mind_results.parquet', engine='pyarrow')
         df = df.astype(str)
         df_xlsx = df_xlsx.astype(str)
         df.iloc[start:end, :] = df_xlsx.values
-        df.to_parquet(f'/data/{email}/4_Detection/{TM}_contradiction/{topics}/mind_results.parquet', engine='pyarrow')
+        df.to_parquet(f'/data/{email}/4_Detection/{TM}_contradiction/{topics_slug}/mind_results.parquet', engine='pyarrow')
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
