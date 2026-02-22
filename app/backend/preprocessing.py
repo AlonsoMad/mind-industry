@@ -106,9 +106,10 @@ def segmenter():
                 print('All data segmented. Splitting by lang...')
                 
                 df_segmented = pd.read_parquet(f'{output_dir}/dataset', engine='pyarrow')
+                df_segmented['lang'] = df_segmented['lang'].astype(str).str.upper()
 
-                df_lang1 = df_segmented[df_segmented['lang'] == segmenter_data['src_lang'].upper()]
-                df_lang2 = df_segmented[df_segmented['lang'] == segmenter_data['tgt_lang'].upper()]
+                df_lang1 = df_segmented[df_segmented['lang'] == str(segmenter_data['src_lang']).upper()]
+                df_lang2 = df_segmented[df_segmented['lang'] == str(segmenter_data['tgt_lang']).upper()]
 
                 if df_lang1.empty or df_lang2.empty:
                     raise ValueError(f"ERROR: DataFrame has no {segmenter_data['src_lang']} or {segmenter_data['tgt_lang']} language.")

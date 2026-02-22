@@ -156,9 +156,11 @@ def detection_results_page():
 
         result = get_result_mind(user_id, TM, topics, start)
         if result is None:
-            flash('Error in Backend', 'warning')
-            return result
-        
+            flash('Error loading results from backend.', 'warning')
+            return render_template("detection.html", user_id=user_id, status="completed",
+                                   result_mind=None, result_columns=None,
+                                   columns_json=None, non_orderable_indices=None, ranges=None)
+
         result_mind = result.get('result_mind')
         result_columns = result.get('result_columns')
         columns_json = result.get('columns_json')
@@ -166,10 +168,12 @@ def detection_results_page():
         ranges = result.get('ranges')
 
         return render_template("detection.html", user_id=user_id, status="completed", result_mind=result_mind, result_columns=result_columns, columns_json=columns_json, non_orderable_indices=non_orderable_indices, ranges=ranges)
-    
+
     except Exception as e:
         print(e)
-        return render_template("detection.html", user_id=user_id, status="completed", result_mind=result_mind, result_columns=result_columns, columns_json=columns_json, non_orderable_indices=non_orderable_indices, ranges=ranges)
+        return render_template("detection.html", user_id=user_id, status="completed",
+                               result_mind=None, result_columns=None,
+                               columns_json=None, non_orderable_indices=None, ranges=None)
 
 @views.route('/results_chunk', methods=['GET'])
 @login_required_custom

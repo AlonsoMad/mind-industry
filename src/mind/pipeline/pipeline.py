@@ -148,7 +148,7 @@ class MIND:
         retrieval_method: str = "TB-ENN",
         multilingual: bool = True,
         lang: str = "en",
-        config_path: Path = Path("config/config.yaml"),
+        config_path: Path = Path("/src/config/config.yaml"),
         logger=None,
         dry_run: bool = False,
         do_check_entailement: bool = False,
@@ -339,6 +339,32 @@ class MIND:
                 self._logger.info(f"Waiting for {pending} pending checkpoints...")
                 self._checkpointer.wait_complete()
                 self._logger.info("All checkpoints saved")
+
+        # Final flush: write any remaining results that never reached the 200-entry
+        # checkpoint threshold. Without this, small runs produce an empty directory
+        # and process_mind_results has nothing to consolidate into mind_results.parquet.
+        if self.results:
+            final_path = Path(f"{path_save}/results_topic_final_0.parquet")
+            df_final = pd.DataFrame(self.results)
+            df_discarded_final = pd.DataFrame(self.discarded) if self.discarded else pd.DataFrame()
+            if self._checkpointer:
+                self._checkpointer.save_async(df_final, final_path)
+                if not df_discarded_final.empty:
+                    self._checkpointer.save_async(
+                        df_discarded_final,
+                        Path(f"{path_save}/discarded_topic_final_0.parquet")
+                    )
+                self._checkpointer.wait_complete()
+            else:
+                df_final.to_parquet(final_path, index=False)
+                if not df_discarded_final.empty:
+                    df_discarded_final.to_parquet(
+                        Path(f"{path_save}/discarded_topic_final_0.parquet"), index=False
+                    )
+            self._logger.info(f"Final flush: wrote {len(self.results)} results to {final_path}")
+        else:
+            self._logger.warning("Pipeline finished with zero results — mind_results.parquet will not be created.")
+
 
     def _normalize(self, s: str) -> str:
         s = unicodedata.normalize("NFKC", s)

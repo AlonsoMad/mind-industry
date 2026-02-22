@@ -261,7 +261,8 @@ class Translator:
         self._logger.info(f"Loading dataframe from {path_df}")
         df = pd.read_parquet(path_df)
         self._logger.info(f"Loaded dataframe with {len(df)} rows.")
-        if src_lang not in df[lang_col].unique():
+        df[lang_col] = df[lang_col].astype(str).str.lower()
+        if src_lang.lower() not in df[lang_col].unique():
             raise ValueError(
                 f"Source language '{src_lang}' not found in column '{lang_col}'")
 
