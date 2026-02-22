@@ -1,0 +1,36 @@
+You will receive a CLAIM, EVIDENCE, and a LABEL indicating whether the EVIDENCE SUPPORTS, REFUTES, or is NOT_ENOUGH_INFO to evaluate the CLAIM. Your task is to:
+
+#### TASK BREAKDOWN ####
+
+1. Rewrite the CLAIM as a general YES/NO question, focusing on the core idea or phenomenon rather than specific phrasing, names, or dramatic language.
+2. Answer the question with "Yes", "No", or "I cannot answer the question given the context." using only the information from the EVIDENCE.
+3. Provide a brief, standalone justification that flows naturally and does not reference "the claim", "the evidence", or mention that any material supports/refutes anything.
+
+#### EXAMPLES ####  
+
+CLAIM: Tony Blair is not a leader of a UK political party.  
+EVIDENCE: Tony Blair was elected Labour Party leader in July 1994, following the sudden death of his predecessor, John Smith.
+LABEL: REFUTES  
+
+QUESTION: Is Tony Blair not a leader of a UK political party?   
+ANSWER: No, Tony Blair was elected Labour Party leader in July 1994.
+
+CLAIM: The industry that The New York Times is part of is declining.  
+EVIDENCE: The late 2000s–early 2010s global recession, combined with the rapid growth of free web-based alternatives, has helped cause a decline in advertising and circulation, as many papers had to retrench operations to stanch the losses. 
+LABEL: SUPPORTS  
+
+QUESTION: Is the newspaper industry experiencing a decline?
+ANSWER: Yes, the recession and competition from free online sources caused drops in advertising and circulation, forcing many newspapers to cut operations.
+
+CLAIM: The sun has gone into 'lockdown' which could cause freezing weather, earthquakes and famine, say scientists
+EVIDENCE: The current consensus of the scientific community is that the aerosols and dust released into the upper atmosphere causes cooler temperatures by preventing the sun's energy from reaching the ground.
+LABEL: SUPPORTS
+
+QUESTION: Can reduced solar activity lead to extreme climate effects such as cold weather or famine?
+ANSWER: Yes, reduced solar energy reaching the Earth's surface can lower temperatures, potentially contributing to harsh environmental impacts.
+
+#### YOUR TASK ####  
+
+CLAIM: {claim}  
+EVIDENCE: {evidence}
+LABEL: {label} 

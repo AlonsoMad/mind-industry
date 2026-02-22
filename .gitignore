@@ -224,14 +224,4 @@ notebooks/internal
 ablation/discrepancies/thesis
 .venv3
 app/backend/.env
-
-# -------------------------------------------------------
-# MAIN BRANCH: research/dev-only folders live on `dev`
-# -------------------------------------------------------
-figures_tables/
-notebooks/
-aux_scripts/
-bash_scripts/
-use_cases/
-docs/
 instruction_examples/
