@@ -100,7 +100,7 @@ docker compose build
 docker compose up -d
 ```
 
-Access the application at **http://localhost:5050**.
+When deploying locally: Access the application at **http://localhost:5050**.
 
 > **Environment files:** Before building, create `.env` files in `app/auth/`, `app/backend/`, and `app/frontend/`. See [`app/README.md`](app/README.md) for required variables.
 
