@@ -24,13 +24,13 @@ This guide details the implementation of a modular and scalable data ingestion p
 
 | Step | Phase Concept | Description | Completed |
 | :--- | :--- | :--- | :---: |
-| **1** | **Archive Extraction** | Implement safe decompression for `.tar`, `.zip`, `.7zip`, and `.rar` files to a secure temporary directory. | [ ] |
-| **2** | **Directory Traversal** | Build a directory walker to iterate through nested hierarchical structures of the extracted archives. | [ ] |
-| **3** | **Modular File Parsers** | Develop a registry/strategy system for format-specific parsers (`.md`, `.yaml`, `.xml`, etc.). | [ ] |
-| **4** | **Intelligent Parsing Engine** | Implement parsing logic with section chunking for `.md`, validation for `.yaml`/`.xml`, and minimum content filtering. | [ ] |
-| **5** | **Schema Integration** | Map the parsed data into the `Dataset` schema with mandatory language detection (EN/ES/DE/IT). | [ ] |
-| **6** | **Refactor Legacy Flow** | Migrate existing `.csv` and `.parquet` uploads to use the new unified modular flow. | [ ] |
-| **7** | **Testing & Cleanup** | Add unit tests and ensure temporary files are cleaned up. | [ ] |
+| **1** | **Archive Extraction** | Implement safe decompression for `.tar`, `.zip`, `.7zip`, and `.rar` files to a secure temporary directory. | [x] |
+| **2** | **Directory Traversal** | Build a directory walker to iterate through nested hierarchical structures of the extracted archives. | [x] |
+| **3** | **Modular File Parsers** | Develop a registry/strategy system for format-specific parsers (`.md`, `.yaml`, `.xml`, etc.). | [x] |
+| **4** | **Intelligent Parsing Engine** | Implement parsing logic with section chunking for `.md`, validation for `.yaml`/`.xml`, and minimum content filtering. | [x] |
+| **5** | **Schema Integration** | Map the parsed data into the `Dataset` schema with mandatory language detection (EN/ES/DE/IT). | [x] |
+| **6** | **Refactor Legacy Flow** | Migrate existing `.csv` and `.parquet` uploads to use the new unified modular flow. | [x] |
+| **7** | **Testing & Cleanup** | Add unit tests and ensure temporary files are cleaned up. | [x] |
 
 ---
 
