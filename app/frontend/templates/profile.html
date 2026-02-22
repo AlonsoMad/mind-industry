@@ -251,4 +251,101 @@
     });
 </script>
 
+<hr class="mt-5">
+
+<!-- Danger Zone -->
+<div class="card border-danger mt-4 mb-5">
+    <div class="card-header bg-danger bg-opacity-10 text-danger">
+        <h5 class="mb-0"><i class="ph ph-warning me-2"></i>Danger Zone</h5>
+    </div>
+    <div class="card-body">
+        <p>Permanently delete <strong>all</strong> your data from the platform — including raw datasets, preprocessed
+            data, topic models, detection results, and pipeline logs.</p>
+        <p class="text-danger mb-3"><small><strong>This action is irreversible.</strong> All files under your account
+                will be permanently removed.</small></p>
+        <button type="button" class="btn btn-outline-danger d-flex align-items-center gap-2" id="btn-erase-all"
+            style="padding: 10px 22px; font-size: 1rem;">
+            <i class="ph ph-trash" style="font-size: 1.2rem;"></i> Delete All My Data
+        </button>
+    </div>
+</div>
+
+<!-- Full Erasure Confirmation Modal -->
+<div class="modal fade" id="eraseModal" tabindex="-1" aria-labelledby="eraseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger bg-opacity-10">
+                <h5 class="modal-title text-danger" id="eraseModalLabel">
+                    <i class="ph ph-warning me-2"></i>Confirm Full Data Erasure
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>You are about to <strong>permanently delete all your data</strong>. This includes:</p>
+                <ul>
+                    <li>Raw and preprocessed datasets</li>
+                    <li>Topic model outputs</li>
+                    <li>Detection results and checkpoints</li>
+                    <li>Pipeline logs and API keys</li>
+                </ul>
+                <p class="text-danger"><strong>This action cannot be undone.</strong></p>
+                <hr>
+                <label for="eraseConfirmInput" class="form-label">Type <code>DELETE</code> to confirm:</label>
+                <input type="text" class="form-control" id="eraseConfirmInput" placeholder="DELETE" autocomplete="off">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmEraseBtn" disabled>Permanently Delete All
+                    Data</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const eraseModal = new bootstrap.Modal(document.getElementById('eraseModal'));
+        const eraseInput = document.getElementById('eraseConfirmInput');
+        const confirmEraseBtn = document.getElementById('confirmEraseBtn');
+
+        // Open modal
+        document.getElementById('btn-erase-all').addEventListener('click', function () {
+            eraseInput.value = '';
+            confirmEraseBtn.disabled = true;
+            eraseModal.show();
+        });
+
+        // Enable confirm button only when input === 'DELETE'
+        eraseInput.addEventListener('input', function () {
+            confirmEraseBtn.disabled = this.value.trim() !== 'DELETE';
+        });
+
+        // Execute erasure
+        confirmEraseBtn.addEventListener('click', function () {
+            confirmEraseBtn.disabled = true;
+            confirmEraseBtn.textContent = 'Deleting...';
+
+            fetch('/erase_data', { method: 'DELETE' })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    eraseModal.hide();
+                    if (ok) {
+                        showToast('All data has been permanently deleted.', 'success');
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        showToast(data.error || 'Failed to erase data.', 'danger');
+                        confirmEraseBtn.disabled = false;
+                        confirmEraseBtn.textContent = 'Permanently Delete All Data';
+                    }
+                })
+                .catch(() => {
+                    eraseModal.hide();
+                    showToast('Request failed.', 'danger');
+                    confirmEraseBtn.disabled = false;
+                    confirmEraseBtn.textContent = 'Permanently Delete All Data';
+                });
+        });
+    });
+</script>
+
 {% endblock %}

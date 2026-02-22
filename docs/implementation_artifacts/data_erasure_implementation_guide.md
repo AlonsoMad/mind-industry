@@ -23,10 +23,10 @@ This guide details the implementation of data management features allowing users
 
 | Step | Description | Target Areas | Completed |
 |------|-------------|--------------|-----------|
-| **1. Granular Deletion API** | Create endpoints for deleting individual datasets, pipeline runs, and topic models. | Backend API | [ ] |
-| **2. Full Data Erasure API** | Create a "nuke" endpoint that deletes ALL user data from disk. | Backend API | [ ] |
-| **3. UI: Granular Deletion** | Add delete buttons per-dataset and per-pipeline-run in existing UI. | Frontend | [ ] |
-| **4. UI: Full Data Erasure** | Add a "Danger Zone" section in profile with destructive confirmation. | Frontend | [ ] |
+| **1. Granular Deletion API** | Create endpoints for deleting individual datasets, pipeline runs, and topic models. | Backend API | [x] |
+| **2. Full Data Erasure API** | Create a "nuke" endpoint that deletes ALL user data from disk. | Backend API | [x] |
+| **3. UI: Granular Deletion** | Add delete buttons per-dataset and per-pipeline-run in existing UI. | Frontend | [x] |
+| **4. UI: Full Data Erasure** | Add a "Danger Zone" section in profile with destructive confirmation. | Frontend | [x] |
 
 ---
 

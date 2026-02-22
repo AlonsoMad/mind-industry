@@ -214,6 +214,89 @@ def upload_dataset():
         shutil.rmtree(output_dir)
         return jsonify({'error': 'Couldn\'t save file'}), 400
 
+STAGE_FOLDERS = {
+    "1": "1_RawData",
+    "2": "2_PreprocessData",
+    "3": "3_TopicModel",
+    "4": "4_Detection",
+}
+
+
+@datasets_bp.route("/dataset/<email>/<stage>/<dataset_name>", methods=["DELETE"])
+def delete_dataset(email, stage, dataset_name):
+    folder = STAGE_FOLDERS.get(str(stage))
+    if not folder:
+        return jsonify({"error": f"Invalid stage: {stage}"}), 400
+
+    dataset_dir = f"/data/{email}/{folder}/{dataset_name}"
+    if not os.path.exists(dataset_dir):
+        return jsonify({"error": "Dataset not found"}), 404
+
+    try:
+        shutil.rmtree(dataset_dir)
+
+        if os.path.exists(DATASETS_STAGE):
+            df = pd.read_parquet(DATASETS_STAGE, engine="pyarrow")
+            df = df[
+                ~(
+                    (df["Usermail"] == email)
+                    & (df["Dataset"] == dataset_name)
+                    & (df["Stage"] == int(stage))
+                )
+            ]
+            df.to_parquet(DATASETS_STAGE, engine="pyarrow", index=False)
+
+        return jsonify({"message": f"Dataset '{dataset_name}' deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete dataset: {str(e)}"}), 500
+
+
+@datasets_bp.route("/detection/<email>/<TM>/<topics_slug>", methods=["DELETE"])
+def delete_detection(email, TM, topics_slug):
+    detection_base = f"/data/{email}/4_Detection"
+
+    # Detection results live inside topic-model sub-folders
+    target_dir = os.path.join(detection_base, TM, topics_slug)
+    if not os.path.exists(target_dir):
+        # Also check with _contradiction suffix
+        target_dir = os.path.join(detection_base, f"{TM}_contradiction", topics_slug)
+        if not os.path.exists(target_dir):
+            return jsonify({"error": "Detection run not found"}), 404
+
+    try:
+        shutil.rmtree(target_dir)
+
+        # Clean up empty parent folder
+        parent = os.path.dirname(target_dir)
+        if os.path.exists(parent) and not os.listdir(parent):
+            os.rmdir(parent)
+
+        return jsonify({"message": "Detection run deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to delete detection run: {str(e)}"}), 500
+
+
+@datasets_bp.route("/user_data/erase", methods=["DELETE"])
+def erase_user_data():
+    email = request.args.get("email")
+    if not email:
+        return jsonify({"error": "Missing email"}), 400
+
+    user_dir = f"/data/{email}"
+    try:
+        if os.path.exists(user_dir):
+            shutil.rmtree(user_dir)
+
+        if os.path.exists(DATASETS_STAGE):
+            df = pd.read_parquet(DATASETS_STAGE, engine="pyarrow")
+            df = df[df["Usermail"] != email]
+            df.to_parquet(DATASETS_STAGE, engine="pyarrow", index=False)
+
+        return jsonify({"message": "All data erased"}), 200
+    except Exception as e:
+        return jsonify({"error": f"Failed to erase data: {str(e)}"}), 500
+
+
 def clean(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()

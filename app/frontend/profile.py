@@ -114,3 +114,14 @@ def upload_dataset():
             os.remove(temp_path)
 
     return jsonify({'message': backend_response}), 200
+
+
+@profile_bp.route('/erase_data', methods=['DELETE'])
+@login_required_custom
+def erase_data():
+    email = session.get("user_id")
+    try:
+        resp = requests.delete(f"{MIND_WORKER_URL}/user_data/erase", params={"email": email})
+        return jsonify(resp.json()), resp.status_code
+    except requests.exceptions.RequestException:
+        return jsonify({"error": "Backend service unavailable"}), 503
