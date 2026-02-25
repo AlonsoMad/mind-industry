@@ -237,6 +237,7 @@ const DocsPagination = {
 
 /* ---------- D3 Topic Visualization ---------- */
 function drawTopicVis(topicsData) {
+    console.log("[DEBUG] drawTopicVis called with topicsData:", topicsData);
     const container = document.getElementById("topicVis");
     if (!container) return;
     container.innerHTML = "";
@@ -253,6 +254,8 @@ function drawTopicVis(topicsData) {
         .attr("x", 0).attr("y", 0)
         .attr("width", width).attr("height", height)
         .style("fill", "rgba(255,255,255,0.6)");
+
+    console.log("[DEBUG] SVG width:", width, "height:", height);
 
     const margin = { top: 20, right: 20, bottom: 40, left: 40 };
     const innerWidth = width - margin.left - margin.right;

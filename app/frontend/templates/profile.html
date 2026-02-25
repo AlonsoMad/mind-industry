@@ -191,6 +191,13 @@
             }
         });
 
+        // Reset upload form to initial state
+        function resetUploadForm() {
+            fileInput.value = '';
+            fileNameDisplay.textContent = '';
+            sepCsvDiv.style.display = 'none';
+        }
+
         uploadForm.addEventListener('submit', function (e) {
             e.preventDefault();
 
@@ -242,11 +249,14 @@
                     showToast(data.message || data.error, data.error ? 'danger' : 'success');
                     buttonSubmit.disabled = false;
                     buttonSubmit.textContent = 'Upload Dataset';
+                    resetUploadForm();
                 })
                 .catch(err => {
                     console.error(err);
+                    showToast("Upload failed. Please try again.", "danger");
                     buttonSubmit.disabled = false;
                     buttonSubmit.textContent = 'Upload Dataset';
+                    resetUploadForm();
                 });
         });
     });

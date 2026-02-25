@@ -82,13 +82,30 @@ def records_to_dataframe(
     Raises:
         ValueError: If any record fails language detection.
     """
+    # Attempt robust document-level language detection first
+    doc_lang = None
+    records_needing_lang = [r for r in records if not r.get("lang")]
+    
+    if records_needing_lang:
+        # Combine text from the longest chunks to get a robust document language
+        longest_texts = sorted([r["text"] for r in records_needing_lang], key=len, reverse=True)[:10]
+        combined_text = "\n".join(longest_texts)
+        if combined_text:
+            try:
+                doc_lang = detect_language(combined_text)
+            except ValueError:
+                doc_lang = None  
+
     rows = []
     errors = []
 
     for i, record in enumerate(records):
         try:
-            # Use pre-existing lang if available, otherwise detect
-            lang = record.get("lang") or detect_language(record["text"])
+            lang = record.get("lang")
+            if not lang:
+                # Use document-level language if available, otherwise try per-record
+                lang = doc_lang or detect_language(record["text"])
+                
             rows.append({
                 "id_preproc": f"{source_name}_{i}",
                 "text": record["text"],
@@ -96,12 +113,18 @@ def records_to_dataframe(
                 "title": record.get("title", source_name),
             })
         except ValueError as e:
-            errors.append(str(e))
+            # Build a context-rich error message
+            source_file = record.get("metadata", {}).get("source_file", "unknown")
+            title = record.get("title", "untitled")
+            errors.append(
+                f"  • Record #{i} from file '{source_file}', "
+                f"section '{title}': {e}"
+            )
 
     if errors:
         raise ValueError(
-            f"Language detection errors in {len(errors)} record(s):\n"
-            + "\n".join(errors[:5])  # Show first 5 errors max
+            f"Language detection failed for {len(errors)} record(s) "
+            f"in '{source_name}':\n" + "\n".join(errors[:10])
         )
 
     df = pd.DataFrame(rows)

@@ -364,7 +364,7 @@ class TestRecordsToDataframe:
                 "title": "French",
             }
         ]
-        with pytest.raises(ValueError, match="detection errors"):
+        with pytest.raises(ValueError, match="Language detection failed"):
             records_to_dataframe(records, "french_source")
 
 
