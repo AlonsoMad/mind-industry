@@ -24,3 +24,4 @@ datasets
 google-genai>=1.0.0
 langdetect
 py7zr
+pyLDAvis

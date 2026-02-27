@@ -279,10 +279,10 @@ def doc_representation():
         
         lang = obtain_langs_TM(pathTM)
         textCol = obtainTextColumn(email, pathCorpus.replace('/dataset', '').split('/')[-1])
+        is_monolingual = len(lang) == 1
 
         df = pd.read_parquet(pathCorpus, engine='pyarrow')
         df1 = df[df["lang"] == lang[0]].copy()
-        df2 = df[df["lang"] == lang[1]].copy()
 
         ids_1 = df1['doc_id'].astype(str).tolist()
         texts_1 = [
@@ -290,11 +290,15 @@ def doc_representation():
             for text in df1[textCol].astype(str)
         ]
 
-        ids_2 = df2['doc_id'].astype(str).tolist()
-        texts_2 = [
-            " ".join(text.split()[:80]) + "..." if len(text.split()) > 10 else text
-            for text in df2[textCol].astype(str)
-        ]
+        if not is_monolingual:
+            df2 = df[df["lang"] == lang[1]].copy()
+            ids_2 = df2['doc_id'].astype(str).tolist()
+            texts_2 = [
+                " ".join(text.split()[:80]) + "..." if len(text.split()) > 10 else text
+                for text in df2[textCol].astype(str)
+            ]
+        else:
+            ids_2, texts_2 = [], []
         
         topic_docs = defaultdict(list)
 
@@ -315,12 +319,17 @@ def doc_representation():
             with open(f'/data/{email}/3_TopicModel/{TM}/mallet_output/labels_{lang[0]}.txt', 'r', encoding='utf-8') as f:
                 labels1 = f.readlines()
 
-            with open(f'/data/{email}/3_TopicModel/{TM}/mallet_output/labels_{lang[1]}.txt', 'r', encoding='utf-8') as f:
-                labels2 = f.readlines()
+            if not is_monolingual:
+                with open(f'/data/{email}/3_TopicModel/{TM}/mallet_output/labels_{lang[1]}.txt', 'r', encoding='utf-8') as f:
+                    labels2 = f.readlines()
 
-            for k in range(len(topic_docs)):
-                for doc in range(len(topic_docs[k])):
-                    topic_docs[k][doc][2] += f' ({lang[0].upper()}: {labels1[k].strip()} || {lang[1].upper()}: {labels2[k].strip()})'
+                for k in range(len(topic_docs)):
+                    for doc in range(len(topic_docs[k])):
+                        topic_docs[k][doc][2] += f' ({lang[0].upper()}: {labels1[k].strip()} || {lang[1].upper()}: {labels2[k].strip()})'
+            else:
+                for k in range(len(topic_docs)):
+                    for doc in range(len(topic_docs[k])):
+                        topic_docs[k][doc][2] += f' ({lang[0].upper()}: {labels1[k].strip()})'
 
         docs_data_1 = [
             {
@@ -338,27 +347,31 @@ def doc_representation():
                 except:
                     continue
 
-        docs_data_2 = [
-            {
-                "id": ids_2[i],
-                "text": texts_2[i],
-                "topics": {}
-            }
-            for i in range(len(ids_2))
-        ]
+        if not is_monolingual:
+            docs_data_2 = [
+                {
+                    "id": ids_2[i],
+                    "text": texts_2[i],
+                    "topics": {}
+                }
+                for i in range(len(ids_2))
+            ]
 
-        for k, doc_list in topic_docs.items():
-            for doc_id, prop, topic_name in doc_list:
-                try:
-                    docs_data_2[doc_id]["topics"][topic_name] = prop
-                except:
-                    continue
+            for k, doc_list in topic_docs.items():
+                for doc_id, prop, topic_name in doc_list:
+                    try:
+                        docs_data_2[doc_id]["topics"][topic_name] = prop
+                    except:
+                        continue
+        else:
+            docs_data_2 = []
 
         return jsonify({
             "docs_data_1": docs_data_1,
             "lang_1": lang[0],
             "docs_data_2": docs_data_2,
-            "lang_2": lang[1]
+            "lang_2": lang[1] if not is_monolingual else "",
+            "is_monolingual": is_monolingual
         }), 200
     
     except Exception as e:
@@ -454,6 +467,7 @@ def analyse_contradiction():
         
         lang = obtain_langs_TM(pathTM)
         textCol = obtainTextColumn(email, pathCorpus.replace('/dataset', '').split('/')[-1])
+        is_monolingual = len(lang) == 1
 
         llm_type = config.get('llm_type', 'default')
 
@@ -484,30 +498,57 @@ def analyse_contradiction():
         # =      CONFIG PART      =
         # =========================
 
-        source_corpus = {
-            "corpus_path": pathCorpus,
-            "thetas_path": f'{pathTM}/mallet_output/thetas_{lang[0]}.npz',
-            "id_col": 'doc_id',
-            "passage_col": textCol,
-            "full_doc_col": 'full_doc',
-            "language_filter": lang[0],
-            "filter_ids": None,
-            "load_thetas": True,
-            "method": config['method'],
-        }
+        if is_monolingual:
+            # Monolingual: source and target are the same corpus & language
+            source_corpus = {
+                "corpus_path": pathCorpus,
+                "thetas_path": f'{pathTM}/mallet_output/thetas_{lang[0]}.npz',
+                "id_col": 'doc_id',
+                "passage_col": textCol,
+                "full_doc_col": 'full_doc',
+                "language_filter": lang[0],
+                "filter_ids": None,
+                "load_thetas": True,
+                "method": config['method'],
+            }
 
-        target_corpus = {
-            "corpus_path": pathCorpus,
-            "thetas_path": f'{pathTM}/mallet_output/thetas_{lang[1]}.npz',
-            "id_col": 'doc_id',
-            "passage_col": textCol,
-            "full_doc_col": 'full_doc',
-            "language_filter": lang[1],
-            "filter_ids": None,
-            "load_thetas": True,
-            "method": config['method'],
-            'index_path': f'/data/{email}/3_TopicModel/{TM}/'
-        }
+            target_corpus = {
+                "corpus_path": pathCorpus,
+                "thetas_path": f'{pathTM}/mallet_output/thetas_{lang[0]}.npz',
+                "id_col": 'doc_id',
+                "passage_col": textCol,
+                "full_doc_col": 'full_doc',
+                "language_filter": lang[0],
+                "filter_ids": None,
+                "load_thetas": True,
+                "method": config['method'],
+                'index_path': f'/data/{email}/3_TopicModel/{TM}/'
+            }
+        else:
+            source_corpus = {
+                "corpus_path": pathCorpus,
+                "thetas_path": f'{pathTM}/mallet_output/thetas_{lang[0]}.npz',
+                "id_col": 'doc_id',
+                "passage_col": textCol,
+                "full_doc_col": 'full_doc',
+                "language_filter": lang[0],
+                "filter_ids": None,
+                "load_thetas": True,
+                "method": config['method'],
+            }
+
+            target_corpus = {
+                "corpus_path": pathCorpus,
+                "thetas_path": f'{pathTM}/mallet_output/thetas_{lang[1]}.npz',
+                "id_col": 'doc_id',
+                "passage_col": textCol,
+                "full_doc_col": 'full_doc',
+                "language_filter": lang[1],
+                "filter_ids": None,
+                "load_thetas": True,
+                "method": config['method'],
+                'index_path': f'/data/{email}/3_TopicModel/{TM}/'
+            }
 
         cfg = {
             "llm_model": llm_model,   # None → MIND uses Prompter.from_config()
@@ -516,7 +557,8 @@ def analyse_contradiction():
             "target_corpus": target_corpus,
             "retrieval_method": config['method'],
             "config_path": '/src/config/config.yaml',
-            "env_path": f'/data/{email}/.env' if llm_type == 'GPT' else None
+            "env_path": f'/data/{email}/.env' if llm_type == 'GPT' else None,
+            "monolingual": is_monolingual
         }
 
         run_kwargs = {

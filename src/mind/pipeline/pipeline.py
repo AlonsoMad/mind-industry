@@ -147,6 +147,7 @@ class MIND:
         target_corpus: Union[Corpus, dict] = None,
         retrieval_method: str = "TB-ENN",
         multilingual: bool = True,
+        monolingual: bool = False,
         lang: str = "en",
         config_path: Path = Path("/src/config/config.yaml"),
         logger=None,
@@ -154,6 +155,9 @@ class MIND:
         do_check_entailement: bool = False,
         env_path=None,
     ):
+        self._monolingual = monolingual
+        if monolingual:
+            multilingual = False
         self._logger = logger if logger else init_logger(config_path, __name__)
 
         self.dry_run = dry_run
@@ -452,6 +456,13 @@ class MIND:
         for target_chunk in all_target_chunks:
             src_id = getattr(source_chunk, "id", None)
             tgt_id = getattr(target_chunk, "id", None)
+
+            # Monolingual self-exclusion: skip comparing a chunk against itself
+            if self._monolingual and src_id is not None and src_id == tgt_id:
+                self._logger.info(
+                    f"Monolingual self-exclusion: skipping target chunk {tgt_id} (same as source)")
+                continue
+
             qkey = self._normalize(question)
 
             triplet = (qkey, src_id, tgt_id)

@@ -287,6 +287,8 @@ def detection_page():
             avaible_models = getModels()
             doc_proportion = getDocProportion(user_id, session["TM"])
 
+    is_monolingual = not doc_proportion.get("lang_2", "")
+
     return render_template("detection.html",
                            user_id=user_id,
                            status=status,
@@ -297,7 +299,8 @@ def detection_page():
                            lang_1=doc_proportion["lang_1"],
                            docs_data_1=doc_proportion["docs_data_1"],
                            lang_2=doc_proportion["lang_2"],
-                           docs_data_2=doc_proportion["docs_data_2"]
+                           docs_data_2=doc_proportion["docs_data_2"],
+                           is_monolingual=is_monolingual
                            )
 
 @views.route('/detection_topickeys', methods=['POST'])

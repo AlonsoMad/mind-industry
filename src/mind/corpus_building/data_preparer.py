@@ -387,6 +387,69 @@ class DataPreparer:
 
         return final_df
 
+    def format_monolingual(
+        self,
+        input_path: Path,
+        path_save: Optional[Path] = None
+    ) -> pd.DataFrame:
+        """
+        Format a monolingual dataset for use with LDATM topic modeling.
+
+        Unlike :meth:`format_dataframes` (which expects anchor + comparison
+        language files), this method takes a single parquet with one language,
+        runs NLPipe for lemmatization, and sets ``lemmas_tr`` to empty string
+        so the output schema matches the bilingual pipeline.
+
+        Parameters
+        ----------
+        input_path : Path
+            Path to a segmented parquet file containing a single language.
+        path_save : Path, optional
+            Where to save the resulting parquet.
+
+        Returns
+        -------
+        pd.DataFrame
+            The processed DataFrame with columns matching ``format_dataframes`` output.
+        """
+        self._logger.info("Starting format_monolingual process ...")
+
+        df = pd.read_parquet(input_path)
+        # If schema has a non-empty lang column name, use it; otherwise fall back to 'lang'
+        lang_col = self.schema.get("lang", "") or "lang"
+        if lang_col not in df.columns:
+            lang_col = "lang"
+        lang = str(df[lang_col].iloc[0]).upper()
+        self._logger.info(f"Detected monolingual dataset in language: {lang}")
+
+        # Normalize columns to common schema
+        norm = self._normalize(df)
+
+        # Run NLPipe to generate lemmas
+        self._logger.info(f"Running NLPipe for {lang} ...")
+        proc = self._preprocess_df(norm, lang, tag="mono", path_save=path_save)
+
+        # No cross-language translations for monolingual data
+        proc["lemmas_tr"] = ""
+
+        # Assign doc_id with language prefix (matching bilingual convention)
+        proc["doc_id"] = proc["lang"] + "_" + proc["chunk_id"].astype(str)
+
+        # Drop rows where lemmas is None (NLPipe may have failed for some)
+        proc = proc[~proc["lemmas"].isnull()]
+
+        # Validate
+        assert not proc["chunk_id"].duplicated().any(), (
+            f"Duplicate chunk_id values found: "
+            f"{proc[proc['chunk_id'].duplicated(keep=False)]['chunk_id'].tolist()}"
+        )
+        assert not proc["lemmas"].isnull().any(), "Null lemmas found"
+
+        if path_save:
+            proc.to_parquet(path_save)
+            self._logger.info(f"Saved monolingual dataset: {path_save}")
+
+        return proc
 
 if __name__ == "__main__":
 
