@@ -34,15 +34,25 @@
         </button>
     </div>
 
-    <div class="btn-group" role="group" aria-label="Visual/Text toggle">
-        <button type="button" class="btn btn-primary active" id="btn-visual" data-no-warning>Visual</button>
-        <button type="button" class="btn btn-outline-primary" id="btn-text" data-no-warning>Text</button>
-        {% if docs_data_1 %}
-        <button type="button" class="btn btn-outline-primary" id="btn-docs1" data-no-warning>Docs {{ lang_1 }}</button>
-        {% endif %}
-        {% if docs_data_2 %}
-        <button type="button" class="btn btn-outline-primary" id="btn-docs2" data-no-warning>Docs {{ lang_2 }}</button>
-        {% endif %}
+    <div class="d-flex align-items-center gap-2">
+        <!-- Select / Clear All topics -->
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-select-all-topics" data-no-warning
+            title="Select all topics">Select All</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-clear-all-topics" data-no-warning
+            title="Clear selection" style="display:none;">Clear</button>
+
+        <div class="btn-group" role="group" aria-label="Visual/Text toggle">
+            <button type="button" class="btn btn-primary active" id="btn-visual" data-no-warning>Visual</button>
+            <button type="button" class="btn btn-outline-primary" id="btn-text" data-no-warning>Text</button>
+            {% if docs_data_1 %}
+            <button type="button" class="btn btn-outline-primary" id="btn-docs1" data-no-warning>Docs {{ lang_1
+                }}</button>
+            {% endif %}
+            {% if docs_data_2 %}
+            <button type="button" class="btn btn-outline-primary" id="btn-docs2" data-no-warning>Docs {{ lang_2
+                }}</button>
+            {% endif %}
+        </div>
     </div>
 </div>
 
@@ -315,7 +325,7 @@
                             <label class="dropdown-item">
                                 <input type="checkbox" class="filter-checkbox" data-value="ALL" checked> All
                             </label>
-                            {% set label_options =
+                            {% set label_options = unique_labels if unique_labels else
                             ['CONTRADICTION','CULTURAL_DISCREPANCY','NOT_ENOUGH_INFO','NO_DISCREPANCY'] %}
                             {% for val in label_options %}
                             <label class="dropdown-item">
@@ -413,14 +423,11 @@
 <div id="label-filter-bar" class="d-flex flex-wrap align-items-center gap-2 mb-2">
     <span class="text-muted small me-1">Filter by label:</span>
     <button class="btn btn-sm btn-secondary active" id="lf-btn-all" data-lf-value="ALL">All</button>
-    <button class="btn btn-sm label-filter-quick" id="lf-btn-contradiction" data-lf-value="CONTRADICTION"
-        style="background:#dc3545;color:#fff;border:none;">CONTRADICTION</button>
-    <button class="btn btn-sm label-filter-quick" id="lf-btn-cultural" data-lf-value="CULTURAL_DISCREPANCY"
-        style="background:#ffc107;color:#212529;border:none;">CULTURAL_DISCREPANCY</button>
-    <button class="btn btn-sm label-filter-quick" id="lf-btn-noinfo" data-lf-value="NOT_ENOUGH_INFO"
-        style="background:#17a2b8;color:#fff;border:none;">NOT_ENOUGH_INFO</button>
-    <button class="btn btn-sm label-filter-quick" id="lf-btn-nodiscrepancy" data-lf-value="NO_DISCREPANCY"
-        style="background:#28a745;color:#fff;border:none;">NO_DISCREPANCY</button>
+    {% set lf_labels = unique_labels if unique_labels else
+    ['CONTRADICTION','CULTURAL_DISCREPANCY','NOT_ENOUGH_INFO','NO_DISCREPANCY'] %}
+    {% for val in lf_labels %}
+    <button class="btn btn-sm label-filter-quick" data-lf-value="{{ val }}" style="border:none;">{{ val }}</button>
+    {% endfor %}
     <span class="ms-auto text-muted small" id="label-filter-count"></span>
 </div>
 
@@ -574,6 +581,53 @@
                             style="width: 3rem; height: 1.5rem; cursor: pointer;">
                     </div>
                 </div>
+
+                <hr>
+
+                <!-- Category Selection -->
+                <h6 class="fw-semibold">Detection Categories <small class="text-muted">(max 5)</small></h6>
+                <p class="text-muted small mb-2">Select up to 5 categories to detect. At least 1 is required.</p>
+                <div id="categorySelectionGroup" style="max-height: 260px; overflow-y: auto; padding-right: 4px;">
+                    <div class="form-check mb-1">
+                        <input class="form-check-input category-checkbox" type="checkbox" value="CONTRADICTION"
+                            id="cat-contradiction" checked data-cat-type="default"
+                            data-cat-prompt="The answers directly contradict each other on factual claims.">
+                        <label class="form-check-label" for="cat-contradiction">CONTRADICTION</label>
+                    </div>
+                    <div class="form-check mb-1">
+                        <input class="form-check-input category-checkbox" type="checkbox" value="NO_DISCREPANCY"
+                            id="cat-no-discrepancy" checked data-cat-type="default"
+                            data-cat-prompt="Both answers convey the same information without conflict.">
+                        <label class="form-check-label" for="cat-no-discrepancy">NO_DISCREPANCY</label>
+                    </div>
+                    <div class="form-check mb-1">
+                        <input class="form-check-input category-checkbox" type="checkbox" value="NOT_ENOUGH_INFO"
+                            id="cat-not-enough-info" data-cat-type="default"
+                            data-cat-prompt="At least one answer lacks enough information to assess discrepancy.">
+                        <label class="form-check-label" for="cat-not-enough-info">NOT_ENOUGH_INFO</label>
+                    </div>
+                    <div class="form-check mb-1">
+                        <input class="form-check-input category-checkbox" type="checkbox" value="CULTURAL_DISCREPANCY"
+                            id="cat-cultural" data-cat-type="default"
+                            data-cat-prompt="The difference between the answers stems from cultural or regional variation rather than a factual error.">
+                        <label class="form-check-label" for="cat-cultural">CULTURAL_DISCREPANCY</label>
+                    </div>
+
+                    {% if user_categories %}
+                    <hr class="my-2">
+                    <p class="text-muted small mb-1">Custom categories:</p>
+                    {% for cat in user_categories %}
+                    <div class="form-check mb-1">
+                        <input class="form-check-input category-checkbox" type="checkbox" value="{{ cat.name }}"
+                            id="cat-custom-{{ cat.id }}" data-cat-type="custom"
+                            data-cat-prompt="{{ cat.prompt_instruction | forceescape }}"
+                            data-cat-examples='{{ cat.examples | forceescape if cat.examples else "[]" }}'>
+                        <label class="form-check-label" for="cat-custom-{{ cat.id }}">{{ cat.name }}</label>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+                <div id="categoryWarning" class="text-danger small mt-1" style="display:none;"></div>
             </div>
         </div>
     </div>
@@ -623,6 +677,10 @@
 <script type="application/json" id="__data_nonOrderableIndices">{{ non_orderable_indices | safe }}</script>{% endif %}
 {% if avaible_models %}
 <script type="application/json" id="__data_availableModels">{{ avaible_models | tojson }}</script>{% endif %}
+{% if unique_labels %}
+<script type="application/json" id="__data_uniqueLabels">{{ unique_labels | tojson }}</script>{% endif %}
+{% if user_categories %}
+<script type="application/json" id="__data_userCategories">{{ user_categories | tojson }}</script>{% endif %}
 <script>
     function __readData(id) {
         var el = document.getElementById(id);
@@ -637,6 +695,8 @@
         resultColumns: __readData('__data_resultColumns'),
         nonOrderableIndices: __readData('__data_nonOrderableIndices'),
         availableModels: __readData('__data_availableModels'),
+        uniqueLabels: __readData('__data_uniqueLabels'),
+        userCategories: __readData('__data_userCategories'),
         {% if csrf_token %} csrfToken: "{{ csrf_token }}", {% endif %}
     };
 </script>

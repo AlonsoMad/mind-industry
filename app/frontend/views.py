@@ -166,8 +166,9 @@ def detection_results_page():
         columns_json = result.get('columns_json')
         non_orderable_indices = result.get('non_orderable_indices')
         ranges = result.get('ranges')
+        unique_labels = result.get('unique_labels', [])
 
-        return render_template("detection.html", user_id=user_id, status="completed", result_mind=result_mind, result_columns=result_columns, columns_json=columns_json, non_orderable_indices=non_orderable_indices, ranges=ranges)
+        return render_template("detection.html", user_id=user_id, status="completed", result_mind=result_mind, result_columns=result_columns, columns_json=columns_json, non_orderable_indices=non_orderable_indices, ranges=ranges, unique_labels=unique_labels)
 
     except Exception as e:
         print(e)
@@ -194,6 +195,7 @@ def results_chunk():
         
         result_mind = result.get('result_mind')
         result_columns = result.get('result_columns')
+        unique_labels = result.get('unique_labels', [])
 
         columns = [
             {"name": col, "data": col} for col in result_columns
@@ -201,7 +203,8 @@ def results_chunk():
 
         return {
             "rows": result_mind,
-            "columns": columns
+            "columns": columns,
+            "unique_labels": unique_labels
         }
     
     except Exception as e:
@@ -287,6 +290,15 @@ def detection_page():
             avaible_models = getModels()
             doc_proportion = getDocProportion(user_id, session["TM"])
 
+    # Fetch user's custom categories for the config modal
+    user_categories = []
+    try:
+        cat_resp = requests.get(f"{AUTH_API_URL}/user/{user_id}/categories", timeout=5)
+        if cat_resp.status_code == 200:
+            user_categories = cat_resp.json().get('categories', [])
+    except requests.exceptions.RequestException:
+        pass
+
     is_monolingual = not doc_proportion.get("lang_2", "")
 
     return render_template("detection.html",
@@ -300,7 +312,8 @@ def detection_page():
                            docs_data_1=doc_proportion["docs_data_1"],
                            lang_2=doc_proportion["lang_2"],
                            docs_data_2=doc_proportion["docs_data_2"],
-                           is_monolingual=is_monolingual
+                           is_monolingual=is_monolingual,
+                           user_categories=user_categories
                            )
 
 @views.route('/detection_topickeys', methods=['POST'])

@@ -53,6 +53,230 @@
 
 <hr>
 
+<!-- Custom Categories Management -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h2 class="mt-3 mb-0">Custom Detection Categories</h2>
+    <span class="badge bg-secondary fs-6" id="catUsageBadge">{{ categories_count }} / {{ categories_max }}</span>
+</div>
+<p class="text-muted">Define custom detection categories with prompt instructions and few-shot examples. These
+    categories will be available for selection when configuring the MIND pipeline.</p>
+
+<div id="categoriesList">
+    {% if categories %}
+    {% for cat in categories %}
+    <div class="card mb-2 category-card" data-cat-id="{{ cat.id }}">
+        <div class="card-body d-flex justify-content-between align-items-start py-2">
+            <div style="flex:1; min-width:0;">
+                <strong>{{ cat.name }}</strong>
+                <p class="text-muted small mb-0 text-truncate" title="{{ cat.prompt_instruction }}">{{
+                    cat.prompt_instruction }}</p>
+            </div>
+            <div class="d-flex gap-2 ms-3 flex-shrink-0">
+                <button class="btn btn-outline-primary btn-edit-cat px-3" data-cat-id="{{ cat.id }}"
+                    data-cat-name="{{ cat.name }}" data-cat-prompt="{{ cat.prompt_instruction | forceescape }}"
+                    data-cat-examples='{{ cat.examples | forceescape if cat.examples else "" }}'>
+                    <i class="ph ph-pencil-simple me-1"></i>Edit</button>
+                <button class="btn btn-outline-danger btn-delete-cat px-3" data-cat-id="{{ cat.id }}">
+                    <i class="ph ph-trash me-1"></i>Delete</button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="text-muted" id="noCategoriesMsg">No custom categories yet.</p>
+    {% endif %}
+</div>
+
+<button class="btn btn-primary mt-2 mb-3" id="btnCreateCategory">
+    <i class="ph ph-plus me-1"></i>Create Category
+</button>
+
+<!-- Create/Edit Category Modal -->
+<div class="modal fade" id="categoryModal" tabindex="-1" aria-labelledby="categoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="categoryModalLabel">Create Category</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="catEditId" value="">
+                <div class="mb-4">
+                    <label for="catName" class="form-label fs-6 fw-semibold">Name <small
+                            class="text-muted fw-normal">(SCREAMING_SNAKE_CASE)</small></label>
+                    <input type="text" class="form-control form-control-lg" id="catName" placeholder="MY_CATEGORY"
+                        maxlength="40" style="text-transform: uppercase; font-size: 1.1rem;">
+                    <div class="form-text">Letters, digits, and underscores only. Max 40 characters.</div>
+                </div>
+                <div class="mb-4">
+                    <label for="catPrompt" class="form-label fs-6 fw-semibold">Prompt Instruction</label>
+                    <textarea class="form-control" id="catPrompt" rows="5" maxlength="2000" style="font-size: 1rem;"
+                        placeholder="Describe when this category should be selected..."></textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="catExamples" class="form-label fs-6 fw-semibold">Examples <small
+                            class="text-muted fw-normal">(optional JSON array)</small></label>
+                    <textarea class="form-control" id="catExamples" rows="6"
+                        style="font-size: 0.9rem; font-family: monospace;"
+                        placeholder='[{"question":"...","answer_1":"...","answer_2":"...","reason":"...","expected_label":"MY_CATEGORY"}]'></textarea>
+                </div>
+                <div id="catModalError" class="text-danger small" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btnSaveCategory">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const catModal = new bootstrap.Modal(document.getElementById('categoryModal'));
+        const catModalLabel = document.getElementById('categoryModalLabel');
+        const catEditId = document.getElementById('catEditId');
+        const catName = document.getElementById('catName');
+        const catPrompt = document.getElementById('catPrompt');
+        const catExamples = document.getElementById('catExamples');
+        const catModalError = document.getElementById('catModalError');
+        const btnSave = document.getElementById('btnSaveCategory');
+        const catUsage = document.getElementById('catUsageBadge');
+        const nameRegex = /^[A-Z][A-Z0-9_]*$/;
+
+        function showCatError(msg) {
+            catModalError.textContent = msg;
+            catModalError.style.display = 'block';
+        }
+        function hideCatError() { catModalError.style.display = 'none'; }
+
+        function updateUsage(delta) {
+            const parts = catUsage.textContent.split('/');
+            const current = parseInt(parts[0].trim()) + delta;
+            catUsage.textContent = current + ' / ' + parts[1].trim();
+        }
+
+        // Open Create modal
+        document.getElementById('btnCreateCategory').addEventListener('click', () => {
+            catModalLabel.textContent = 'Create Category';
+            catEditId.value = '';
+            catName.value = '';
+            catPrompt.value = '';
+            catExamples.value = '';
+            catName.disabled = false;
+            hideCatError();
+            catModal.show();
+        });
+
+        // Open Edit modal
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.btn-edit-cat');
+            if (!btn) return;
+            catModalLabel.textContent = 'Edit Category';
+            catEditId.value = btn.dataset.catId;
+            catName.value = btn.dataset.catName;
+            catPrompt.value = btn.dataset.catPrompt;
+            catExamples.value = btn.dataset.catExamples || '';
+            catName.disabled = false;
+            hideCatError();
+            catModal.show();
+        });
+
+        // Save (create or update)
+        btnSave.addEventListener('click', function () {
+            hideCatError();
+            const name = catName.value.trim().toUpperCase();
+            const prompt = catPrompt.value.trim();
+            const examples = catExamples.value.trim();
+
+            if (!name) return showCatError('Name is required.');
+            if (!nameRegex.test(name)) return showCatError('Name must be SCREAMING_SNAKE_CASE (e.g. MY_CATEGORY).');
+            if (!prompt) return showCatError('Prompt instruction is required.');
+
+            if (examples) {
+                try { JSON.parse(examples); } catch (e) { return showCatError('Examples must be valid JSON.'); }
+            }
+
+            const payload = { name, prompt_instruction: prompt, examples: examples || null };
+            const editId = catEditId.value;
+            const url = editId ? '/categories/' + editId : '/categories';
+            const method = editId ? 'PUT' : 'POST';
+
+            btnSave.disabled = true;
+            btnSave.textContent = 'Saving...';
+
+            fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                .then(r => r.json().then(d => ({ ok: r.ok, status: r.status, data: d })))
+                .then(({ ok, status, data }) => {
+                    if (!ok) { showCatError(data.error || 'Failed to save.'); return; }
+                    catModal.hide();
+                    if (editId) {
+                        // Update card in-place
+                        const card = document.querySelector(`.category-card[data-cat-id="${editId}"]`);
+                        if (card) {
+                            card.querySelector('strong').textContent = data.category.name;
+                            card.querySelector('.text-truncate').textContent = data.category.prompt_instruction;
+                            card.querySelector('.text-truncate').title = data.category.prompt_instruction;
+                            const editBtn = card.querySelector('.btn-edit-cat');
+                            editBtn.dataset.catName = data.category.name;
+                            editBtn.dataset.catPrompt = data.category.prompt_instruction;
+                            editBtn.dataset.catExamples = data.category.examples || '';
+                        }
+                        showToast('Category updated.', 'success');
+                    } else {
+                        // Append new card
+                        const noMsg = document.getElementById('noCategoriesMsg');
+                        if (noMsg) noMsg.remove();
+                        const c = data.category;
+                        const html = `<div class="card mb-2 category-card" data-cat-id="${c.id}">
+                        <div class="card-body d-flex justify-content-between align-items-start py-2">
+                            <div style="flex:1;min-width:0;">
+                                <strong>${c.name}</strong>
+                                <p class="text-muted small mb-0 text-truncate" title="${c.prompt_instruction}">${c.prompt_instruction}</p>
+                            </div>
+                        <div class="d-flex gap-2 ms-3 flex-shrink-0">
+                                <button class="btn btn-outline-primary btn-edit-cat px-3"
+                                    data-cat-id="${c.id}" data-cat-name="${c.name}"
+                                    data-cat-prompt="${c.prompt_instruction}"
+                                    data-cat-examples='${c.examples || ""}'>
+                                    <i class='ph ph-pencil-simple me-1'></i>Edit</button>
+                                <button class="btn btn-outline-danger btn-delete-cat px-3" data-cat-id="${c.id}">
+                                    <i class='ph ph-trash me-1'></i>Delete</button>
+                            </div>
+                        </div>
+                    </div>`;
+                        document.getElementById('categoriesList').insertAdjacentHTML('beforeend', html);
+                        updateUsage(1);
+                        showToast('Category created.', 'success');
+                    }
+                })
+                .catch(() => showCatError('Request failed.'))
+                .finally(() => { btnSave.disabled = false; btnSave.textContent = 'Save'; });
+        });
+
+        // Delete
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.btn-delete-cat');
+            if (!btn) return;
+            if (!confirm('Delete this category?')) return;
+            const catId = btn.dataset.catId;
+            fetch('/categories/' + catId, { method: 'DELETE' })
+                .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+                .then(({ ok, data }) => {
+                    if (ok) {
+                        btn.closest('.category-card').remove();
+                        updateUsage(-1);
+                        showToast('Category deleted.', 'success');
+                    } else {
+                        showToast(data.error || 'Failed to delete.', 'danger');
+                    }
+                })
+                .catch(() => showToast('Request failed.', 'danger'));
+        });
+    });
+</script>
+
+<hr>
+
 <h2 class="mt-3" style="margin-bottom: 20px;">Update {{ username }}'s information</h2>
 <form method="POST" action="/profile" id="profileForm" novalidate>
     <div class="mb-3">

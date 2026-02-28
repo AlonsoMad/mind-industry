@@ -1,3 +1,4 @@
+import json
 import re
 import unicodedata
 import threading
@@ -154,6 +155,7 @@ class MIND:
         dry_run: bool = False,
         do_check_entailement: bool = False,
         env_path=None,
+        selected_categories: list = None,
     ):
         self._monolingual = monolingual
         if monolingual:
@@ -217,6 +219,38 @@ class MIND:
             if path is None:
                 raise ValueError(f"Missing prompt path for: {name}")
             self.prompts[name] = load_prompt(path)
+
+        # --- Dynamic category prompt ---
+        if selected_categories:
+            dynamic_path = self.config.get("prompts", {}).get("contradiction_checking_dynamic")
+            if dynamic_path is None:
+                self._logger.warning(
+                    "No dynamic prompt path configured — falling back to static prompt"
+                )
+            else:
+                dynamic_template = load_prompt(dynamic_path)
+                categories_block, examples_block = self._build_category_prompt_sections(
+                    selected_categories
+                )
+                # Pre-format the template with category/example blocks.
+                # The {question}, {answer_1}, {answer_2} placeholders remain
+                # for per-call formatting in _check_contradiction().
+                self.prompts["contradiction_checking"] = dynamic_template.replace(
+                    "{categories_block}", categories_block
+                ).replace(
+                    "{examples_block}", examples_block
+                )
+                self._logger.info(
+                    f"[CAT] Dynamic prompt loaded with {len(selected_categories)} categories: "
+                    + ", ".join(c['name'] for c in selected_categories)
+                )
+                # Log the full rendered prompt template (minus per-call placeholders)
+                self._logger.info(
+                    "[CAT] Rendered contradiction prompt template:\n"
+                    + self.prompts["contradiction_checking"]
+                )
+        else:
+            self._logger.info("[CAT] No categories selected — using static prompt (all 4 default categories)")
 
         # NLI components
         self._do_check_entailment = do_check_entailement
@@ -656,8 +690,10 @@ class MIND:
             "CULTURAL_DISCREPANCY": Fore.MAGENTA,
             "NOT_ENOUGH_INFO": Fore.YELLOW,
             "AGREEMENT": Fore.GREEN,
+            "NO_DISCREPANCY": Fore.GREEN,
         }
-        color = color_map.get(label, Fore.CYAN)
+        # Default to a bright purple (ANSI 135) for custom categories
+        color = color_map.get(label, "\033[38;5;135m")
 
         print()
         print(
@@ -784,6 +820,9 @@ class MIND:
             answer_2=answer_t
         )
 
+        # Log full prompt sent to LLM
+        self._logger.info("[CAT] PROMPT SENT TO LLM:\n" + template_formatted)
+
         response, _ = self._prompter.prompt(
             question=template_formatted,
             dry_run=self.dry_run
@@ -792,35 +831,76 @@ class MIND:
         if self.dry_run:
             return response, ""
 
+        # --- Debug log for raw response ---
+        self._logger.info("-" * 40)
+        self._logger.info("RAW LLM RESPONSE:")
+        self._logger.info(response)
+        self._logger.info("-" * 40)
+
         label, reason = None, None
         lines = response.splitlines()
         for line in lines:
-            if line.startswith("DISCREPANCY_TYPE:"):
-                label = line.split("DISCREPANCY_TYPE:")[1].strip()
-            elif line.startswith("REASON:"):
-                reason = line.split("REASON:")[1].strip()
+            stripped = line.strip()
+            if stripped.startswith("DISCREPANCY_TYPE:"):
+                label = stripped[len("DISCREPANCY_TYPE:"):].strip()
+            elif stripped.startswith("REASON:"):
+                reason = stripped[len("REASON:"):].strip()
 
-        if label is None or reason is None:
-            try:
-                discrepancy_split = response.split("\n")
-                reason = discrepancy_split[0].strip(
-                    "\n").strip("REASON:").strip()
-                label = discrepancy_split[1].strip(
-                    "\n").strip("DISCREPANCY_TYPE:").strip()
-            except:
-                label = response
-                reason = ""
+        # Fallback: regex scan the whole response
+        if label is None:
+            m = re.search(r"DISCREPANCY_TYPE:\s*(\S+)", response)
+            if m:
+                label = m.group(1).strip()
+        if reason is None:
+            m = re.search(r"REASON:\s*(.+?)(?:\n|DISCREPANCY_TYPE:|$)", response, re.DOTALL)
+            if m:
+                reason = m.group(1).strip()
 
+        # Last resort
+        if label is None:
+            label = response
+        if reason is None:
+            reason = ""
+
+        self._logger.info(f"[CAT] PARSED → label={label!r}  reason={reason[:80]!r}")
         return self._clean_contradiction(label), reason
 
     def _clean_contradiction(self, discrepancy_label):
-        corrections = {
-            "NO_ DISCREPANCY": "NO_DISCREPANCY",
-            "CULTURAL_ DISCREPANCY": "CULTURAL_DISCREPANCY"
-        }
-        for wrong, right in corrections.items():
-            discrepancy_label = discrepancy_label.replace(wrong, right)
-        return discrepancy_label
+        """Normalize raw LLM output to SCREAMING_SNAKE_CASE.
+        Caps at 40 chars — anything longer is a parse failure."""
+        label = discrepancy_label.strip().upper()
+        label = re.sub(r'[^A-Z0-9_]', '_', label)
+        label = re.sub(r'_+', '_', label).strip('_')
+        if len(label) > 40:
+            label = "PARSE_ERROR"
+        return label
+
+    def _build_category_prompt_sections(self, selected_categories: list) -> tuple:
+        """Build the categories_block and examples_block for the NLI prompt."""
+        categories_block_lines = []
+        examples_block_lines = ["#### EXAMPLES ####", ""]
+
+        for i, cat in enumerate(selected_categories, 1):
+            categories_block_lines.append(
+                f"{i}. {cat['name']}: {cat['prompt_instruction']}"
+            )
+            categories_block_lines.append("")
+
+            if cat.get('examples'):
+                examples = (
+                    json.loads(cat['examples'])
+                    if isinstance(cat['examples'], str)
+                    else cat['examples']
+                )
+                for ex in examples:
+                    examples_block_lines.append(f"QUESTION: {ex['question']}")
+                    examples_block_lines.append(f"ANSWER_1: {ex['answer_1']}")
+                    examples_block_lines.append(f"ANSWER_2: {ex['answer_2']}")
+                    examples_block_lines.append(f"REASON: {ex['reason']}")
+                    examples_block_lines.append(f"DISCREPANCY_TYPE: {ex['expected_label']}")
+                    examples_block_lines.append("")
+
+        return "\n".join(categories_block_lines), "\n".join(examples_block_lines)
 
     def _check_entailement(self, textA, textB, threshold=0.5):
         """

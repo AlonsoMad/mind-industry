@@ -69,6 +69,7 @@ mind:
     subquery_generation: /src/mind/pipeline/prompts/query_generation.txt
     answer_generation: /src/mind/pipeline/prompts/question_answering.txt
     contradiction_checking: /src/mind/pipeline/prompts/discrepancy_detection.txt
+    contradiction_checking_dynamic: /src/mind/pipeline/prompts/discrepancy_detection_dynamic.txt
     relevance_checking: /src/mind/pipeline/prompts/relevance_checking.txt
     topic_label: /src/mind/pipeline/prompts/topic_label.txt
   embedding_models:

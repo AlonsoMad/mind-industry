@@ -558,7 +558,8 @@ def analyse_contradiction():
             "retrieval_method": config['method'],
             "config_path": '/src/config/config.yaml',
             "env_path": f'/data/{email}/.env' if llm_type == 'GPT' else None,
-            "monolingual": is_monolingual
+            "monolingual": is_monolingual,
+            "selected_categories": config.get('selected_categories'),
         }
 
         run_kwargs = {
@@ -629,12 +630,28 @@ def get_results_mind():
             for i in range(0, len(df), ROWS_PER_PAGE)
         ]
 
+        def _is_valid_label(lbl):
+            """Only allow SCREAMING_SNAKE_CASE labels up to 40 chars."""
+            import re as _re
+            return (
+                isinstance(lbl, str)
+                and len(lbl) <= 40
+                and bool(_re.match(r'^[A-Z][A-Z0-9_]*$', lbl))
+                and lbl != 'PARSE_ERROR'
+            )
+
+        raw_labels = df['label'].dropna().unique().tolist()
+        if 'final_label' in df.columns:
+            raw_labels = list(set(raw_labels + df['final_label'].dropna().unique().tolist()))
+        unique_labels = [l for l in raw_labels if _is_valid_label(l)]
+
         return jsonify({"message": f"Results from MIND obtained correctly",
                         "result_mind": result_mind,
                         "result_columns": result_columns,
                         "columns_json": columns_json,
                         "non_orderable_indices": non_orderable_indices,
-                        "ranges": pagination_ranges}), 200
+                        "ranges": pagination_ranges,
+                        "unique_labels": unique_labels}), 200
 
     except Exception as e:
         print(e)

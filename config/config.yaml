@@ -65,11 +65,13 @@ mind:
   nprobe_fixed: False
   cannot_answer_dft: I cannot answer the question given the context.
   cannot_answer_personal: I cannot answer the question since the context only contains personal opinions.
+  method: TB-ENN
   prompts:
     question_generation: src/mind/pipeline/prompts/question_generation.txt
     subquery_generation: src/mind/pipeline/prompts/query_generation.txt
     answer_generation: src/mind/pipeline/prompts/question_answering.txt
     contradiction_checking: src/mind/pipeline/prompts/discrepancy_detection.txt
+    contradiction_checking_dynamic: src/mind/pipeline/prompts/discrepancy_detection_dynamic.txt
     relevance_checking: src/mind/pipeline/prompts/relevance_checking.txt
   embedding_models:
     multilingual: 

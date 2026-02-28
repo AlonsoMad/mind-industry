@@ -330,6 +330,8 @@ function drawTopicVis(topicsData) {
                     .style("stroke-width", 2);
             }
             console.log("Selected topics:", [...window.currentVisibleTopics]);
+            // Update select-all/clear button visibility if bound
+            if (typeof window._topicVisSelectCallback === 'function') window._topicVisSelectCallback();
         });
 
     nodes.append("circle")
@@ -451,6 +453,56 @@ function initTopicViewToggle(topicsData) {
             drawTopicVis(topicsData);
         }
     });
+
+    // --- Select All / Clear All topic buttons ---
+    const btnSelectAll = document.getElementById('btn-select-all-topics');
+    const btnClearAll = document.getElementById('btn-clear-all-topics');
+
+    function updateSelectAllVisibility() {
+        if (!btnSelectAll || !btnClearAll) return;
+        const hasSelected = window.currentVisibleTopics.length > 0 ||
+            Array.from(document.querySelectorAll('.topic-checkbox')).some(cb => cb.checked);
+        btnSelectAll.style.display = hasSelected ? 'none' : '';
+        btnClearAll.style.display = hasSelected ? '' : 'none';
+    }
+
+    if (btnSelectAll) {
+        btnSelectAll.addEventListener('click', () => {
+            if (window.currentView === 'visual') {
+                // Select every node
+                window.currentVisibleTopics = topicsData.map(d => d.id);
+                // Update visual ring
+                d3.selectAll('.node circle')
+                    .style('stroke', 'rgba(255,0,0,0.8)')
+                    .style('stroke-width', 2);
+            } else if (window.currentView === 'text') {
+                document.querySelectorAll('.topic-checkbox').forEach(cb => cb.checked = true);
+            }
+            updateSelectAllVisibility();
+        });
+    }
+
+    if (btnClearAll) {
+        btnClearAll.addEventListener('click', () => {
+            if (window.currentView === 'visual') {
+                window.currentVisibleTopics = [];
+                d3.selectAll('.node circle')
+                    .style('stroke', 'none')
+                    .style('stroke-width', 0);
+            } else if (window.currentView === 'text') {
+                document.querySelectorAll('.topic-checkbox').forEach(cb => cb.checked = false);
+            }
+            updateSelectAllVisibility();
+        });
+    }
+
+    // Keep visibility in sync when topics are toggled individually (visual click is handled inside drawTopicVis)
+    document.querySelectorAll('.topic-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateSelectAllVisibility);
+    });
+    // Patch drawTopicVis click side-effect to call updateSelectAllVisibility
+    const _origDraw = drawTopicVis;
+    window._topicVisSelectCallback = updateSelectAllVisibility;
 }
 
 /* ---------- Exit Warning Modal ---------- */
@@ -499,37 +551,100 @@ function initExitWarning() {
     }
 }
 
+/* ---------- Label Color Helper ---------- */
+function getColorForLabel(label) {
+    const defaultColors = {
+        'CONTRADICTION': { bg: '#dc3545', text: '#fff' },
+        'CULTURAL_DISCREPANCY': { bg: '#ffc107', text: '#212529' },
+        'NOT_ENOUGH_INFO': { bg: '#17a2b8', text: '#fff' },
+        'NO_DISCREPANCY': { bg: '#28a745', text: '#fff' },
+    };
+    if (defaultColors[label]) return defaultColors[label];
+
+    // hash string to pick from color palette
+    const palette = [
+        { bg: '#6f42c1', text: '#fff' }, // purple
+        { bg: '#fd7e14', text: '#fff' }, // orange
+        { bg: '#20c997', text: '#fff' }, // teal
+        { bg: '#e83e8c', text: '#fff' }, // pink
+        { bg: '#6610f2', text: '#fff' }, // indigo
+        { bg: '#0dcaf0', text: '#212529' }, // cyan
+        { bg: '#198754', text: '#fff' }, // green
+        { bg: '#052c65', text: '#fff' }, // dark blue
+        { bg: '#d63384', text: '#fff' }, // light pink
+        { bg: '#6c757d', text: '#fff' }  // grey
+    ];
+    let hash = 0;
+    for (let i = 0; i < label.length; i++) {
+        hash = label.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % palette.length;
+    return palette[index];
+}
+
 /* ---------- Label Color Updater ---------- */
 // jQuery — marked for Phase 6.3 removal
 function updateColors() {
     // final_label
     $('.final-label-select').each(function () {
         var value = $(this).val();
-        var bgColor, textColor;
-        switch (value) {
-            case 'CONTRADICTION': bgColor = '#dc3545'; textColor = '#fff'; break;
-            case 'CULTURAL_DISCREPANCY': bgColor = '#ffc107'; textColor = '#212529'; break;
-            case 'NOT_ENOUGH_INFO': bgColor = '#17a2b8'; textColor = '#fff'; break;
-            case 'NO_DISCREPANCY': bgColor = '#28a745'; textColor = '#fff'; break;
-            default: bgColor = '#6c757d'; textColor = '#fff';
-        }
-        $(this).css({ 'background-color': bgColor, 'color': textColor });
-        $(this).siblings('.custom-arrow').css('color', textColor);
+        var c = getColorForLabel(value);
+        $(this).css({ 'background-color': c.bg, 'color': c.text });
+        $(this).siblings('.custom-arrow').css('color', c.text);
     });
 
     // label
     $('.badge-label').each(function () {
         var value = $(this).data('label-value');
-        var bgColor, textColor;
-        switch (value) {
-            case 'CONTRADICTION': bgColor = '#dc3545'; textColor = '#fff'; break;
-            case 'CULTURAL_DISCREPANCY': bgColor = '#ffc107'; textColor = '#212529'; break;
-            case 'NOT_ENOUGH_INFO': bgColor = '#17a2b8'; textColor = '#fff'; break;
-            case 'NO_DISCREPANCY': bgColor = '#28a745'; textColor = '#fff'; break;
-            default: bgColor = '#6c757d'; textColor = '#fff';
-        }
-        $(this).css({ 'background-color': bgColor, 'color': textColor });
+        var c = getColorForLabel(value);
+        $(this).css({ 'background-color': c.bg, 'color': c.text });
     });
+
+    // quick-filter bar labels
+    $('.label-filter-quick').each(function () {
+        var val = $(this).data('lf-value');
+        if (val && val !== 'ALL') {
+            var c = getColorForLabel(val);
+            $(this).css({ 'background-color': c.bg, 'color': c.text });
+        }
+    });
+
+    // Update max 5 category selection constraint
+    const checkboxes = document.querySelectorAll('.category-checkbox');
+    if (checkboxes.length > 0) {
+        document.addEventListener('change', function (e) {
+            if (e.target.matches('.category-checkbox')) {
+                const checked = Array.from(checkboxes).filter(cb => cb.checked);
+                const warning = document.getElementById('categoryWarning');
+
+                if (checked.length >= 5) {
+                    checkboxes.forEach(cb => {
+                        if (!cb.checked) cb.disabled = true;
+                    });
+                    if (warning) {
+                        warning.innerHTML = "⚠️ Selecting more than 5 categories may reduce detection accuracy due to LLM context limitations.";
+                        warning.style.display = 'block';
+                    }
+                } else {
+                    checkboxes.forEach(cb => cb.disabled = false);
+                    if (warning) warning.style.display = 'none';
+                }
+            }
+        });
+
+        // Trigger manually on init to lock if started with 5
+        const checked = Array.from(checkboxes).filter(cb => cb.checked);
+        if (checked.length >= 5) {
+            checkboxes.forEach(cb => {
+                if (!cb.checked) cb.disabled = true;
+            });
+            const warning = document.getElementById('categoryWarning');
+            if (warning) {
+                warning.innerHTML = "⚠️ Selecting more than 5 categories may reduce detection accuracy due to LLM context limitations.";
+                warning.style.display = 'block';
+            }
+        }
+    }
 }
 
 /* ---------- Column Default Visibility ---------- */
@@ -589,9 +704,12 @@ function initResultsDataTable() {
         }
     });
 
+    var defaultLabels = ['CONTRADICTION', 'CULTURAL_DISCREPANCY', 'NOT_ENOUGH_INFO', 'NO_DISCREPANCY'];
+    var dynamicLabels = DATA.uniqueLabels || defaultLabels;
+
     var possibleValues = {
-        'label': ['CONTRADICTION', 'CULTURAL_DISCREPANCY', 'NOT_ENOUGH_INFO', 'NO_DISCREPANCY'],
-        'final_label': ['CONTRADICTION', 'CULTURAL_DISCREPANCY', 'NOT_ENOUGH_INFO', 'NO_DISCREPANCY']
+        'label': dynamicLabels.slice(),
+        'final_label': dynamicLabels.slice()
     };
 
     var activeFilters = {
@@ -832,6 +950,11 @@ async function loadChunk(start) {
     const rows = data.rows;
     const columns = data.columns;
 
+    // Update dynamic labels if chunk returns them
+    if (data.unique_labels && window.__DETECTION_DATA) {
+        window.__DETECTION_DATA.uniqueLabels = data.unique_labels;
+    }
+
     const table = $('#resultsTable').DataTable();
     table.clear();
 
@@ -840,9 +963,10 @@ async function loadChunk(start) {
             const colName = col.name;
 
             if (colName === "final_label") {
+                const labelOptions = (window.__DETECTION_DATA || {}).uniqueLabels || ["CONTRADICTION", "CULTURAL_DISCREPANCY", "NOT_ENOUGH_INFO", "NO_DISCREPANCY"];
                 return `<div class="custom-select-container">
                         <select class="final-label-select">
-                            ${["CONTRADICTION", "CULTURAL_DISCREPANCY", "NOT_ENOUGH_INFO", "NO_DISCREPANCY"]
+                            ${labelOptions
                         .map(opt => `<option value="${opt}" ${row[colName] === opt ? "selected" : ""}>${opt}</option>`)
                         .join("")}
                         </select>
@@ -1306,6 +1430,24 @@ class MINDInterface {
                     "method": document.getElementById("methodSelect").value,
                     "do_weighting": document.getElementById("enableWeight").checked ? true : false
                 };
+
+                // --- Category selection ---
+                const checkedCats = document.querySelectorAll('.category-checkbox:checked');
+                if (checkedCats.length === 0) {
+                    showToast('Select at least 1 detection category.');
+                    return;
+                }
+                if (checkedCats.length > 5) {
+                    showToast('Maximum of 5 categories allowed.');
+                    return;
+                }
+                const selected_categories = Array.from(checkedCats).map(cb => ({
+                    name: cb.value,
+                    prompt_instruction: cb.dataset.catPrompt || '',
+                    examples: cb.dataset.catExamples || '[]'
+                }));
+                config.selected_categories = selected_categories;
+
                 this.handleInstruction(instruction, topics, TM, sampleSizeInput, config);
             });
         });
@@ -1465,9 +1607,87 @@ document.addEventListener("DOMContentLoaded", function () {
         initLogStreaming();
     }
 
+    // Category selection max-5 enforcement
+    const catGroup = document.getElementById('categorySelectionGroup');
+    const catWarning = document.getElementById('categoryWarning');
+    if (catGroup) {
+        catGroup.addEventListener('change', function () {
+            const checked = catGroup.querySelectorAll('.category-checkbox:checked');
+            const unchecked = catGroup.querySelectorAll('.category-checkbox:not(:checked)');
+            if (checked.length >= 5) {
+                unchecked.forEach(cb => cb.disabled = true);
+                if (catWarning) { catWarning.textContent = 'Maximum 5 categories reached.'; catWarning.style.display = 'block'; }
+            } else {
+                catGroup.querySelectorAll('.category-checkbox').forEach(cb => cb.disabled = false);
+                if (catWarning) catWarning.style.display = 'none';
+            }
+        });
+    }
+
     // CSRF token
     if (DATA.csrfToken) {
         document.cookie = "csrf_token=" + DATA.csrfToken;
+    }
+
+    // Live-refresh custom categories when the config modal opens
+    const configModal = document.getElementById('configPipelineModalLabel');
+    if (configModal) {
+        configModal.addEventListener('show.bs.modal', () => {
+            console.log("Config modal opening, fetching fresh categories...");
+            const catGroup = document.getElementById('categorySelectionGroup');
+            if (!catGroup) return;
+
+            // Remember which custom cats were already checked
+            const prevChecked = new Set(
+                Array.from(catGroup.querySelectorAll('.category-checkbox[data-cat-type="custom"]:checked'))
+                    .map(cb => cb.value)
+            );
+
+            fetch('/categories')
+                .then(r => r.json())
+                .catch(() => null)
+                .then(data => {
+                    if (!data || !data.categories) return;
+
+                    // Remove old custom block (hr + label + checkboxes)
+                    catGroup.querySelectorAll('.custom-cat-separator, .custom-cat-label, .custom-cat-item').forEach(el => el.remove());
+
+                    if (!data.categories.length) return;
+
+                    const sep = document.createElement('hr');
+                    sep.className = 'my-2 custom-cat-separator';
+                    catGroup.appendChild(sep);
+
+                    const lbl = document.createElement('p');
+                    lbl.className = 'text-muted small mb-1 custom-cat-label';
+                    lbl.textContent = 'Custom categories:';
+                    catGroup.appendChild(lbl);
+
+                    data.categories.forEach(cat => {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'form-check mb-1 custom-cat-item';
+                        const input = document.createElement('input');
+                        input.type = 'checkbox';
+                        input.className = 'form-check-input category-checkbox';
+                        input.value = cat.name;
+                        input.id = `cat-modal-${cat.id}`;
+                        input.dataset.catType = 'custom';
+                        input.dataset.catPrompt = cat.prompt_instruction || '';
+                        input.dataset.catExamples = cat.examples || '[]';
+                        input.checked = prevChecked.has(cat.name);
+                        const label = document.createElement('label');
+                        label.className = 'form-check-label';
+                        label.htmlFor = input.id;
+                        label.textContent = cat.name;
+                        wrapper.appendChild(input);
+                        wrapper.appendChild(label);
+                        catGroup.appendChild(wrapper);
+                    });
+
+                    // Re-apply max-5 enforcement
+                    catGroup.dispatchEvent(new Event('change'));
+                });
+        });
     }
 
     // MIND interface
