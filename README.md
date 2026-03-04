@@ -145,50 +145,21 @@ For a visual walkthrough, see the [Web Application Guide](app/README.md).
 
 ### CLI Pipeline
 
-For programmatic use or large-scale batch processing:
-
-#### 1. Preprocess Corpora
+For programmatic use or large-scale batch processing. See the full [CLI Usage Guide](docs/cli_usage.md).
 
 ```bash
-# Segment documents into passages
-python3 src/mind/corpus_building/segmenter.py \
-  --input INPUT_PATH --output OUTPUT_PATH \
-  --text_col TEXT_COLUMN --id_col ID_COLUMN
+# Install the CLI
+pip install -e .
 
-# Translate passages between languages
-python3 src/mind/corpus_building/translator.py \
-  --input INPUT_PATH --output OUTPUT_PATH \
-  --src_lang SRC_LANG --tgt_lang TGT_LANG \
-  --text_col TEXT_COLUMN --lang_col LANG_COLUMN
+# Generate a config template
+mind detect init-config > my_run.yaml
 
-# Prepare the final dataset
-python3 src/mind/corpus_building/data_preparer.py \
-  --anchor ANCHOR_PATH --comparison COMPARISON_PATH \
-  --output OUTPUT_PATH --schema SCHEMA_JSON_OR_PATH
-```
-
-#### 2. Train a Topic Model
-
-```bash
-python3 src/mind/topic_modeling/polylingual_tm.py \
-  --input PREPARED_DATASET_PATH \
-  --lang1 LANG1 --lang2 LANG2 \
-  --model_folder MODEL_OUTPUT_DIR \
-  --num_topics NUM_TOPICS
-```
-
-#### 3. Run the MIND Pipeline
-
-```bash
-python3 src/mind/pipeline/cli.py \
-  --src_corpus_path SRC_CORPUS_PATH \
-  --src_thetas_path SRC_THETAS_PATH \
-  --src_lang_filter SRC_LANG \
-  --tgt_corpus_path TGT_CORPUS_PATH \
-  --tgt_thetas_path TGT_THETAS_PATH \
-  --tgt_lang_filter TGT_LANG \
-  --topics TOPIC_IDS \
-  --path_save RESULTS_DIR
+# Edit the config, then run the pipeline:
+mind data segment --config my_run.yaml
+mind data translate --config my_run.yaml
+mind data prepare --config my_run.yaml
+mind tm train --config my_run.yaml
+mind detect run --config my_run.yaml
 ```
 
 Run any command with `--help` for the full list of options.

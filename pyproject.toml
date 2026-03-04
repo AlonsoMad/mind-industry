@@ -1,6 +1,6 @@
 [project]
 name = "mind"
-version = "0.1.0"
+version = "v0.1.0-alpha"
 description = ""
 authors = [{ name = "Lorena Calvo-Bartolomé & Alonso Madroñal de Mesa" }]
 requires-python = "==3.12.*"
@@ -40,7 +40,13 @@ dependencies = [
     "dask",
     "langdetect",
     "py7zr",
+    "typer>=0.12",
+    "rich>=13.0",
 ]
+
+[project.scripts]
+mind = "mind.cli.main:entrypoint"
+mind-legacy = "mind.cli._legacy:legacy_main"
 
 [build-system]
 requires = ["hatchling>=1.26", "pip>=24"]

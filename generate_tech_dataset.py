@@ -41,7 +41,27 @@ data = [
     
     # 10. Space Tech (Contradiction 5)
     {"id_preproc": "Tech_EN_ES_18", "lang": "EN", "title": "Starship Maiden Flight", "text": "SpaceX's Starship successfully reached orbit, completing all stated objectives on its highly anticipated maiden flight without any issues."},
-    {"id_preproc": "Tech_EN_ES_19", "lang": "ES", "title": "Vuelo Inaugural de Starship", "text": "La nave Starship de SpaceX explotó poco después del despegue en su esperado primer vuelo, fallando en alcanzar la órbita terrestre."}
+    {"id_preproc": "Tech_EN_ES_19", "lang": "ES", "title": "Vuelo Inaugural de Starship", "text": "La nave Starship de SpaceX explotó poco después del despegue en su esperado primer vuelo, fallando en alcanzar la órbita terrestre."},
+
+    # 11. TEMPORAL_DISCREPANCY — Product Launch Date
+    {"id_preproc": "Tech_EN_ES_20", "lang": "EN", "title": "GPT-5 Release Timeline", "text": "OpenAI officially released GPT-5 in March 2025, making it available to all ChatGPT Plus subscribers on the first day."},
+    {"id_preproc": "Tech_EN_ES_21", "lang": "ES", "title": "Fecha de Lanzamiento de GPT-5", "text": "OpenAI lanzó oficialmente GPT-5 en septiembre de 2025, tras varios meses de retraso respecto a la fecha inicialmente prevista."},
+
+    # 12. TEMPORAL_DISCREPANCY — Protocol Adoption
+    {"id_preproc": "Tech_EN_ES_22", "lang": "EN", "title": "HTTP/3 Industry Adoption", "text": "The HTTP/3 protocol was widely adopted by major cloud providers starting in 2022, with Google and Cloudflare leading the rollout."},
+    {"id_preproc": "Tech_EN_ES_23", "lang": "ES", "title": "Adopción de HTTP/3 en la Industria", "text": "El protocolo HTTP/3 no comenzó a ser adoptado por los principales proveedores de nube hasta finales de 2024, siendo Cloudflare el primero en implementarlo de forma general."},
+
+    # 13. TEMPORAL_DISCREPANCY — Regulation Enactment
+    {"id_preproc": "Tech_EN_ES_24", "lang": "EN", "title": "EU AI Act Enforcement", "text": "The European Union's AI Act entered into full legal force in January 2025, requiring all high-risk AI systems to comply immediately."},
+    {"id_preproc": "Tech_EN_ES_25", "lang": "ES", "title": "Entrada en Vigor de la Ley de IA de la UE", "text": "La Ley de Inteligencia Artificial de la Unión Europea entró en vigor de forma escalonada, con los requisitos para sistemas de alto riesgo aplicándose a partir de agosto de 2026."},
+
+    # 14. TEMPORAL_DISCREPANCY — Platform Shutdown
+    {"id_preproc": "Tech_EN_ES_26", "lang": "EN", "title": "Google Stadia Closure", "text": "Google shut down its Stadia cloud gaming service in January 2023, fully refunding all hardware and game purchases to users."},
+    {"id_preproc": "Tech_EN_ES_27", "lang": "ES", "title": "Cierre de Google Stadia", "text": "Google cerró su servicio de juegos en la nube Stadia en marzo de 2024, ofreciendo a los usuarios créditos parciales en la Google Play Store en lugar de reembolsos completos."},
+
+    # 15. TEMPORAL_DISCREPANCY — Chip Fabrication
+    {"id_preproc": "Tech_EN_ES_28", "lang": "EN", "title": "TSMC 2nm Production", "text": "TSMC began mass production of 2-nanometer chips in the second half of 2025, supplying Apple as its first major customer."},
+    {"id_preproc": "Tech_EN_ES_29", "lang": "ES", "title": "Producción de 2nm de TSMC", "text": "TSMC no iniciará la producción en masa de chips de 2 nanómetros hasta 2027, según declaraciones de su director ejecutivo realizadas a mediados de 2025."},
 ]
 
 df = pd.DataFrame(data)

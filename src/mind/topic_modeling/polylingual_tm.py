@@ -125,7 +125,7 @@ class PolylingualTM(object):
                     os.makedirs(old_model_folder)
                     shutil.move(self._model_folder, old_model_folder)
 
-            self._model_folder.mkdir(exist_ok=True)
+            self._model_folder.mkdir(parents=True, exist_ok=True)
 
         return
 

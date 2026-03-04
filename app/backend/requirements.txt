@@ -25,3 +25,5 @@ google-genai>=1.0.0
 langdetect
 py7zr
 pyLDAvis
+typer>=0.12
+rich>=13.0
