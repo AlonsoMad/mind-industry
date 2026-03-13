@@ -138,6 +138,10 @@ function initStepModal() {
         const defaultMinLength = 100;
         const defaultSeparator = "\n";
 
+        const srcLang = document.getElementById('SourceLanguage').value;
+        const tgtLang = document.getElementById('TargetLanguage').value;
+        const isMonolingual = tgtLang === 'mono';
+
         if (dbSelected !== "" && textColumnInput !== "" && idColumnInput !== "") {
             db_selected = dbSelected;
             step1Done = true;
@@ -154,28 +158,32 @@ function initStepModal() {
                 "id_col": idColumn,
                 "min_length": minLength,
                 "sep": separator,
-                "src_lang": document.getElementById('SourceLanguage').value,
-                "tgt_lang": document.getElementById('TargetLanguage').value
+                "src_lang": srcLang,
+                "tgt_lang": isMonolingual ? "" : tgtLang
             };
 
-            const translator_data = {
+            // For monolingual, translator_data is not used (backend will detect via .monolingual marker)
+            const translator_data = isMonolingual ? null : {
                 "output": OutputPath,
                 "text_col": textColumn,
                 "lang_col": document.getElementById('LanguageColumnTranslator').value.trim(),
-                "src_lang": document.getElementById('SourceLanguage').value,
-                "tgt_lang": document.getElementById('TargetLanguage').value
+                "src_lang": srcLang,
+                "tgt_lang": tgtLang
             };
 
             const preparer_data = {
                 "output": OutputPath,
-                "src_lang": document.getElementById('SourceLanguage').value,
-                "tgt_lang": document.getElementById('TargetLanguage').value,
+                "src_lang": srcLang,
+                "tgt_lang": isMonolingual ? "" : tgtLang,
+                "is_monolingual": isMonolingual,
                 "schema": {
                     "chunk_id": "id_preproc",
                     "doc_id": idColumn,
                     "text": textColumn,
                     "full_doc": "full_doc",
-                    "lang": document.getElementById('LanguageColumnTranslator').value.trim(),
+                    // For monolingual: the segmenter always writes a 'lang' column.
+                    // For bilingual: use the user-supplied language column name.
+                    "lang": isMonolingual ? "lang" : document.getElementById('LanguageColumnTranslator').value.trim(),
                 }
             };
 
@@ -186,7 +194,7 @@ function initStepModal() {
                 'preparer_data': preparer_data
             };
 
-            console.log(data);
+            console.log(isMonolingual ? '[MONOLINGUAL MODE]' : '[BILINGUAL MODE]', data);
 
             // Disable button and show spinner
             datasetPreprocessButton.disabled = true;
@@ -221,7 +229,7 @@ function initStepModal() {
                     newOption.text = OutputPath;
 
                     select2.appendChild(newOption);
-                    select3.appendChild(newOption);
+                    select3.appendChild(newOption.cloneNode(true));
 
                     // Re-enable button
                     datasetPreprocessButton.disabled = false;
@@ -238,6 +246,37 @@ function initStepModal() {
             step1Done = false;
             showToast('Please select an available dataset before accepting.');
         }
+    }
+
+    // Hide/show slide 3 (Translator) based on monolingual selection
+    const targetLangSelect = document.getElementById('TargetLanguage');
+    if (targetLangSelect) {
+        targetLangSelect.addEventListener('change', function () {
+            const isMonolingual = this.value === 'mono';
+            const slide3 = document.getElementById('slide-3');
+            const slide3Nav = document.querySelector('[data-slide="3"]') || document.querySelector('.step-indicator:nth-child(3)');
+            const translatorBadge = document.getElementById('translator-step-indicator');
+
+            if (slide3) {
+                if (isMonolingual) {
+                    slide3.style.opacity = '0.4';
+                    slide3.style.pointerEvents = 'none';
+                    // Show an inline notice
+                    let notice = slide3.querySelector('.monolingual-notice');
+                    if (!notice) {
+                        notice = document.createElement('div');
+                        notice.className = 'monolingual-notice alert alert-info mt-2';
+                        notice.innerHTML = '<i class="bi bi-info-circle me-1"></i><strong>Monolingual mode:</strong> Translation will be skipped automatically.';
+                        slide3.prepend(notice);
+                    }
+                } else {
+                    slide3.style.opacity = '';
+                    slide3.style.pointerEvents = '';
+                    const notice = slide3.querySelector('.monolingual-notice');
+                    if (notice) notice.remove();
+                }
+            }
+        });
     }
 
     if (datasetPreprocessButton) {
@@ -312,16 +351,18 @@ function initStage2() {
         const dataset = document.getElementById("optionsDatasets2").value;
         const outputPath = document.getElementById("outputPath2").value.trim();
         const lang1 = document.getElementById("lang1").value;
-        const lang2 = document.getElementById("lang2").value;
+        const lang2El = document.getElementById("lang2");
+        const lang2 = lang2El ? lang2El.value : "";
         const kTopics = document.getElementById("kTopics").value;
 
-        if (!dataset || !outputPath || !lang1 || !lang2 || !kTopics) {
-            showToast("Please fill in all fields before continuing.");
+        if (!dataset || !outputPath || !lang1 || !kTopics) {
+            showToast("Please fill in all required fields before continuing.");
             return;
         }
 
-        if (lang1 === lang2) {
-            showToast("Lang1 and Lang2 cannot be the same.");
+        // For bilingual: lang1 and lang2 must differ
+        if (lang2 && lang1 === lang2) {
+            showToast("Lang1 and Lang2 cannot be the same. For monolingual, select 'N/A (Monolingual)'.");
             return;
         }
 
@@ -364,7 +405,7 @@ function initStage2() {
             "dataset": dataset,
             "output": outputPath,
             "lang1": lang1.toUpperCase(),
-            "lang2": lang2.toUpperCase(),
+            "lang2": (lang2 && lang2 !== "mono") ? lang2.toUpperCase() : "",
             "k": kTopics,
             "labelTopic": labelTopic,
         };
@@ -615,9 +656,25 @@ function initSlideCarousel() {
             ["en", "it"], ["it", "en"]
         ];
 
-        if (!textCol || !langCol) {
-            showToast("Text Column and Language Column cannot be empty.");
+        const isMono = targetLang === 'mono';
+
+        if (!textCol) {
+            showToast("Text Column cannot be empty.");
             return false;
+        }
+
+        // If not monolingual, we need the language column to split the data
+        if (!isMono && !langCol) {
+            showToast("Language Column cannot be empty for bilingual datasets.");
+            return false;
+        }
+
+        if (isMono) {
+            if (!sourceLang) {
+                showToast("Please select the Source Language.");
+                return false;
+            }
+            return true;
         }
 
         const isValidCombo = validCombinations.some(
@@ -708,19 +765,19 @@ function initSlideCarousel() {
 
     const detailsSlide3 = document.getElementById('detailsSlide3-text');
     if (detailsSlide3) {
-        detailsSlide3.textContent = 'The Translate Component allows to translate a DataFrame using the Translator class. Options:\n\n' +
-            ' - Source Language\t\tSource language code.\n' +
-            ' - Target Language\t\tTarget language code.\n' +
-            ' - Language Column\t\tName of the language column.';
+        detailsSlide3.textContent = 'The Translator Component allows to translate a dataset from one language to another. For monolingual datasets, select "N/A (Monolingual)" as the Target Language to skip this step.\n\n' +
+            ' - Source Language\tSource language of the dataset.\n' +
+            ' - Target Language\tTarget language to translate to.\n' +
+            ' - Language Column\tColumn name that contains the language of each document.';
     }
 
     const details2TopicModeling = document.getElementById('details2-TopicModeling-text');
     if (details2TopicModeling) {
-        details2TopicModeling.textContent = 'The Topic Modeling Component allows to train a Mallet Polylingual Topic Model using PolylingualTM wrapper. Options:\n\n' +
+        details2TopicModeling.textContent = 'The Topic Modeling Component trains a topic model. For bilingual datasets it uses the Polylingual model; for monolingual datasets it uses standard LDA. Options:\n\n' +
             ' - Lang 1\t\t\t\tFirst language code.\n' +
-            ' - Lang 2\t\t\t\tSecond language code.\n' +
+            ' - Lang 2\t\t\t\tSecond language code (or N/A for monolingual).\n' +
             ' - K Topics\t\t\tNumber of topics to extract.\n' +
-            ' - Label Topic\t\tCreates a label for each topic to clasify the documents.';
+            ' - Label Topic\t\tCreates a label for each topic to classify the documents.';
     }
 
     // Collapsible details toggles

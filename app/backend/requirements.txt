@@ -22,3 +22,6 @@ sentencepiece==0.2.1
 sacremoses
 datasets
 google-genai>=1.0.0
+langdetect
+py7zr
+pyLDAvis

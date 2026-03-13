@@ -87,6 +87,14 @@ class Prompter:
     ):
         self._logger = logger if logger else init_logger(config_path, __name__)
         self.config = load_yaml_config_file(config_path, "llm", logger)
+
+        # Cost optimization: track total LLM API calls
+        self._call_count = 0
+
+        # Per-step call instrumentation (for detection cost profiling)
+        self._call_log = []          # List of {"step": str, "tokens_in": int, "tokens_out": int, "ts": float}
+        self._call_counts = {}       # {"step_name": count}
+        self._instrumentation = False
         
         # OPT-010: Load optimization settings for batched LLM calls
         self._opt_settings = get_optimization_settings(str(config_path), self._logger)
@@ -489,6 +497,9 @@ class Prompter:
 
         if dry_run:
             return "Dry run mode is ON — no LLM calls will be made.", None
+
+        # Cost optimization: count actual API calls
+        self._call_count += 1
         
         # Load the system prompt template
         system_prompt_template = None
@@ -526,6 +537,53 @@ class Prompter:
             print(f"{Fore.RED}this is what was kept:{Style.RESET_ALL} {result}")
 
         return result, logprobs
+
+    @property
+    def total_calls(self) -> int:
+        """Total number of LLM API calls made by this prompter instance."""
+        return self._call_count
+
+    # =========================================================================
+    # Call Instrumentation (detection cost profiling)
+    # =========================================================================
+
+    def enable_instrumentation(self):
+        """Enable per-step call counting and logging."""
+        self._instrumentation = True
+        self._call_log = []
+        self._call_counts = {}
+
+    def disable_instrumentation(self):
+        """Disable call counting."""
+        self._instrumentation = False
+
+    def log_call(self, step: str, tokens_in: int = 0, tokens_out: int = 0):
+        """Record a call under a named step."""
+        if not self._instrumentation:
+            return
+        import time
+        self._call_counts[step] = self._call_counts.get(step, 0) + 1
+        self._call_log.append({
+            "step": step,
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+            "ts": time.time()
+        })
+
+    @property
+    def call_summary(self) -> dict:
+        """Return a summary of all instrumented calls."""
+        return {
+            "total_calls": len(self._call_log),
+            "calls_by_step": dict(self._call_counts),
+            "total_tokens_in": sum(c["tokens_in"] for c in self._call_log),
+            "total_tokens_out": sum(c["tokens_out"] for c in self._call_log),
+        }
+
+    def reset_instrumentation(self):
+        """Clear all recorded call data."""
+        self._call_log = []
+        self._call_counts = {}
     
     # =========================================================================
     # OPT-010: Batched LLM Calls
