@@ -374,13 +374,14 @@ class Corpus:
                 metadata=metadata
             )
 
-    def retrieve_relevant_chunks(self, query: str, theta_query=None):
+    def retrieve_relevant_chunks(self, query: str, theta_query=None, top_k: int = None):
         if self.retriever is None:
             raise RuntimeError("No retriever has been set for this corpus.")
 
         results, _ = self.retriever.retrieve(
             query=query,
-            theta_query=theta_query
+            theta_query=theta_query,
+            top_k=top_k,
         )
         
         chunks = []
